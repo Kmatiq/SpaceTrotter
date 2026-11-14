@@ -4,6 +4,8 @@ A real-time, fully procedural Solar System flight sim in the browser. It's one s
 (`src/SpaceRoam.jsx`) with a pure-WebGPU engine. It uses no 3D or physics libraries and loads no texture,
 model or audio files.
 
+**Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
+
 ```bash
 npm install
 npm run dev        # open the printed URL in Chrome (WebGPU)
