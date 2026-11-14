@@ -633,7 +633,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const BSEG = [ // body, start s, r0,r1 (radii), az0,az1, el0,el1
     ['earth', 0, 7, 1.12, -0.2, 1.6, 0.25, 0.03], ['sun', 15, 9, 1.7, 2.0, 3.4, 0.3, 0.05],
     ['saturn', 28, 4.2, 1.55, 0.3, 1.9, 0.12, 0.012], ['gateway', 45, 14, 1.6, 0.4, 2.6, 0.5, 0.12]];
-  const bench = { on: false, t: 0, n: 0, seg: -1, lag: new Float64Array(3), v: new Float64Array(3), cpu: new Float32Array(NSLOT), res: null };
+  const bench = { on: false, t: 0, n: 0, seg: -1, lag: new Float64Array(3), v: new Float64Array(3), rel: new Float64Array(3), cpu: new Float32Array(NSLOT), res: null };
   function startBench() { if (!sys.idx.saturn) { switchStarSystem('sol'); } bench.on = true; bench.t = 0; bench.n = 0; bench.seg = -1; bench.res = null; cruise = false; simT = 100; console.log('[SpaceRoam] benchmark started (60 s)'); }
   function benchCam(dt) {
     let si = 0; for (let i = 0; i < BSEG.length; i++) if (bench.t >= BSEG[i][1]) si = i;
@@ -641,9 +641,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     const bi = sys.idx[s[0]], b = sys.list[bi], r = b.R * s[2] * Math.pow(s[3] / s[2], e), el = s[6] + (s[7] - s[6]) * e;
     const az = s[4] + (s[5] - s[4]) * e + (bi ? Math.atan2(-pos[bi * 3 + 2], -pos[bi * 3]) : 0); // relative to the sub-solar direction
     qaxis(tq, 0, 0, 0, 1, b.tilt); qrot(t3, 0, tq, 0, Math.cos(el) * Math.cos(az) * r, Math.sin(el) * r, Math.cos(el) * Math.sin(az) * r);
-    const o = bi * 3, k = Math.exp(-dt * 3.5);
+    const o = bi * 3, k = Math.exp(-dt * (3 + 0.55 * Math.log10(1 + Math.hypot(bench.lag[0], bench.lag[1], bench.lag[2])))); // faster for interplanetary hand-offs
     if (si !== bench.seg) { for (let j = 0; j < 3; j++) bench.lag[j] = bench.n === 0 ? 0 : cam[j] - pos[o + j] - t3[j]; bench.seg = si; }
-    for (let j = 0; j < 3; j++) { bench.lag[j] = isFinite(bench.lag[j]) ? bench.lag[j] * k : 0; const nc = pos[o + j] + t3[j] + bench.lag[j]; bench.v[j] = (nc - cam[j]) / Math.max(dt, 1e-4); cam[j] = nc; } // exponential hand-off between segments, exact path inside
+    for (let j = 0; j < 3; j++) { bench.lag[j] = isFinite(bench.lag[j]) ? bench.lag[j] * k : 0; const nc = pos[o + j] + t3[j] + bench.lag[j]; bench.v[j] = (t3[j] + bench.lag[j] - bench.rel[j]) / Math.max(dt, 1e-4); bench.rel[j] = t3[j] + bench.lag[j]; cam[j] = nc; } // exponential hand-off between segments, exact path inside
     qlook(dq, 0, pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2], 0, 1, 0);
     if (bench.n === 0) camQ.set(dq); else qslerp(camQ, 0, dq, 0, 1 - Math.exp(-dt * 3));
     target = bi;
