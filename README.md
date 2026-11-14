@@ -111,4 +111,34 @@ In Chrome, enable `chrome://flags/#enable-webgpu-developer-features` if timestam
 
 ## Size
 
-See the `npm run size` output (minified with esbuild, React external, WGSL comments and whitespace stripped).
+`npm run size` minifies with esbuild (React external) and strips WGSL comments and whitespace. The minified
+build was run end to end, including the full benchmark.
+
+| | |
+| --- | --- |
+| Source `SpaceRoam.jsx` | 79.6 KB |
+| Minified | **55.8 KB** |
+| Minified + gzip | **23.1 KB** |
+| Minified + brotli | 20.5 KB |
+| …of which WGSL (all shaders) | 21.4 KB |
+
+## Verification status
+
+- **Tested here:** headless Chromium with SwiftShader (a software WebGPU renderer). That covers:
+  - Every shader compiles with zero validation errors, in both the source and minified builds.
+  - Visual checks of each body type, the rings, the corona, the station, the ship, the comet and the
+    Kestrel system switch.
+  - The full 60 s benchmark ran and produced its report.
+- **Not measured: the 11 ms GPU target.** No RTX-class GPU was available, so it needs a run of `B` on the
+  target machine. SwiftShader's timings are about 100× slower and are not meaningful. Octave counts in the
+  heightfield march (7), clouds (11) and asteroids (7) are capped to stay inside the budget.
+- **Testing hook:** `?headless` in the dev harness renders to an offscreen texture instead of the canvas,
+  because this container's headless browser drops devices that present to a canvas. `api.capture()` returns
+  a PNG of the next frame.
+
+## Known limitations
+
+- Collision uses a conservative sphere (radius + 60 % of the maximum terrain height), not the exact
+  procedural terrain.
+- No moon-on-planet eclipses.
+- Distant belt asteroids orbit far slower than Kepler speeds, so they stay approachable.

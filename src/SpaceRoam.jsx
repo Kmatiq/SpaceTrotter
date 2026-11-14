@@ -808,7 +808,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (d < mr && !bench.on) { const o = i * 3, k = mr / d; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + (abs[j] - pos[o + j]) * k; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } }
     }
     // camera
-    if (bench.on) { bench.t += dt; benchCam(dt); if (bench.t >= 60) stopBench(true); bench.n++; }
+    if (bench.on) { bench.t += dt; benchCam(dt); if (bench.t >= 60) stopBench(true); bench.n++; abs.set(cam); } // HUD distances from the tour camera
     else {
       camQ.set(ship.q);
       if (thirdPerson) { qrot(t3, 0, ship.q, 0, 0, 9, 52); for (let j = 0; j < 3; j++) cam[j] = abs[j] + t3[j]; } else cam.set(abs);
