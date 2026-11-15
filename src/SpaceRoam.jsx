@@ -153,7 +153,7 @@ struct TR{h:f32,n:vec3f,f:f32,c:f32,m:f32};
 @vertex fn vsB(@builtin(vertex_index) v:u32,@builtin(instance_index) i:u32)->VB{
  let b=BD[i].d;let h=max(b[13].w*b[0].w,4.*g.mi.w*b[1].x);
  return VB(g.vp*vec4f(b[0].xyz+cube(v)*h,1.),i);}
-// ---- streamed real maps (Earth: Blue Marble + Terrarium elevation, Moon: LRO WAC); procedural fallback ----
+// ---- streamed real maps (Earth: Sentinel-2 cloudless + Terrarium elevation, Moon: LRO WAC); procedural fallback ----
 fn tfind(k:u32)->i32{var h=(k*2654435761u)>>20u;for(var i=0;i<16;i++){let e=TH[h&4095u];if(e.x==k){return i32(e.y);}if(e.x==0xffffffffu){return -1;}h+=1u;}return -1;}
 fn tuv(n:vec3f,eq:bool)->vec2f{let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
  if(eq){return vec2f((lo+PI)/PI,(PI*.5-la)/PI);}let m=clamp(la,-1.4844,1.4844);return vec2f((lo+PI)/(2.*PI),(1.-log(tan(m)+1./cos(m))/PI)*.5);}
@@ -163,11 +163,11 @@ fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool)->vec4f{var z=min(i32(max(zd,0.)
   let L=tfind((kind<<30u)|(u32(z)<<26u)|(iy<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
  return vec4f(-1.);}
 fn dec(c:vec4f)->f32{return c.r*65280.+c.g*255.+c.b*.99609375-32768.;}// Terrarium RGB -> metres
-fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),10,false);if(r.x<0.){return vec2f(0.);}
+fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),12,false);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
-fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,2u,eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),8,eq);
+fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,2u,eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,8,eq),eq);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
@@ -187,7 +187,7 @@ fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  return TR(h,gr,f.x,cr,0.);}
 fn cloud(b:array<vec4f,16>,n:vec3f,fp:f32)->f32{
  let p=ry(n,g.mi.x*b[15].x);let w=fbm(p*3.,4.,.5);
- let f=fbm(p*7.+w.yzw*.04+vec3f(w.x*.6),min(lod(fp,7.),11.),.56).x;let th=.3-b[11].w*.55;return smoothstep(th,th+.35,f)*smoothstep(th-.15,th+.6,f);}
+ let f=fbm(p*7.+w.yzw*.04+vec3f(w.x*.6),min(lod(fp,7.),mix(8.,11.,g.fx.z)),.56).x;let th=.3-b[11].w*.55;return smoothstep(th,th+.35,f)*smoothstep(th-.15,th+.6,f);}
 fn ringD(b:array<vec4f,16>,r:f32,fp:f32)->f32{
  let w=b[13].y-b[13].x;let x=(r-b[13].x)/w;if(x<0.||x>1.){return 0.;}let px=fp/w;
  var d=.55+.2*sin(x*31.+1.)*clamp(1.-31.*px,0.,1.)+.15*sin(x*87.+2.)*clamp(1.-87.*px,0.,1.)+.1*sin(x*213.)*clamp(1.-213.*px,0.,1.)+.12*vn(vec3f(x*700.,.5,.5)).x*clamp(1.-700.*px,0.,1.);
@@ -206,8 +206,8 @@ fn sunT(b:array<vec4f,16>,p:vec3f,L:vec3f)->vec3f{
 struct AT{c:vec3f,t:vec3f};
 fn atmo(b:array<vec4f,16>,ro:vec3f,rd:vec3f,t0:f32,t1:f32,L:vec3f,dt:f32,E:vec3f)->AT{
  let H=b[11].x;let hr=H*.18;let hm=H*.07;let bR=b[12].xyz/hr;let bM=b[11].y/hm;
- let ds=(t1-t0)/12.;var od=vec2f(0.);var sR=vec3f(0.);var sM=vec3f(0.);
- for(var i=0;i<12;i++){let p=ro+rd*(t0+ds*(f32(i)+dt));let d=exp(-max(length(p)-1.,0.)/vec2f(hr,hm))*ds;od+=d*.5;
+ let N=i32(mix(7.,12.,g.fx.z));let ds=(t1-t0)/f32(N);var od=vec2f(0.);var sR=vec3f(0.);var sM=vec3f(0.);
+ for(var i=0;i<N;i++){let p=ro+rd*(t0+ds*(f32(i)+dt));let d=exp(-max(length(p)-1.,0.)/vec2f(hr,hm))*ds;od+=d*.5;
   let l=odL(p,L,1.+H,hr,hm);let T=exp(-(bR*(od.x+l.x)+bM*1.1*(od.y+l.y)))*l.z;od+=d*.5;sR+=T*d.x;sM+=T*d.y;}
  let mu=dot(rd,L);let gg=b[11].z;let pR=.0597*(1.+mu*mu);let pM=.0796*(1.-gg*gg)/pow(1.+gg*gg-2.*gg*mu,1.5);
  return AT((sR*bR*pR+sM*bM*pM)*E*3.5,exp(-(bR*od.x+bM*1.1*od.y)));}
@@ -258,7 +258,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(hm>0.){let ct=(an-hm)*(dn+1.+hm);let d2=bb*bb-ct;
   if(d2>0.){let sq=sqrt(d2);let te=select(ct/(-bb+sq),0.,ct<0.);let tx=-bb+sq;
    if(tx>0.&&hm/(max(te,1e-7)*pa)>.6){var t=te;var hit=true;let fm=max(te*pa,hm*.02);
-    OCM=7.;for(var i=0;i<72;i++){let p=ro+rd*t;let r=length(p);let d=r-1.-terr(b,p/r,fm*4.).h;if(d<t*pa*.35){break;}t+=d*.55;if(t>tx){hit=false;break;}}
+    OCM=mix(5.,7.,g.fx.z);for(var i=0;i<72;i++){let p=ro+rd*t;let r=length(p);let d=r-1.-terr(b,p/r,fm*4.).h;if(d<t*pa*.35){break;}t+=d*.55;if(t>tx){hit=false;break;}}
     tS=select(-1.,t,hit);if(hit){cov=1.;}OCM=16.;}}}
  var acc=vec4f(0.);var tD=1e30;let ringOn=b[13].y>0.;let fpS=max(tS,1e-7)*pa;
  // ---- surface ----
@@ -552,7 +552,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   device.queue.copyExternalImageToTexture({ source: oc }, { texture: atlas }, [AW, AH]);
 
   // ---- streamed map tiles: 256x256 texture array + open-addressing hash (key -> layer) ----
-  const NTL = 224, tileTex = device.createTexture({ size: [256, 256, NTL], format: 'rgba8unorm', usage: T.TEXTURE_BINDING | T.COPY_DST | T.RENDER_ATTACHMENT });
+  const NTL = 256, tileTex = device.createTexture({ size: [256, 256, NTL], format: 'rgba8unorm', usage: T.TEXTURE_BINDING | T.COPY_DST | T.RENDER_ATTACHMENT });
   const thF = new Uint32Array(8192).fill(0xffffffff), thBuf = buf(thF.byteLength, U.STORAGE | U.COPY_DST); device.queue.writeBuffer(thBuf, 0, thF);
   const probeIn = new Float32Array(8), probeBuf = buf(32, U.STORAGE | U.COPY_DST | U.COPY_SRC), probeRd = buf(32, U.MAP_READ | U.COPY_DST);
   const VFC = VF | GPUShaderStage.COMPUTE;
@@ -586,9 +586,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   const bgP = device.createBindGroup({ layout: bglP, entries: [{ binding: 0, resource: { buffer: probeBuf } }] });
 
   // ---- render targets (recreated only on resize) ----
-  let W = 0, H = 0, hdrT, depT, bg1, outT = null;
+  let W = 0, H = 0, hdrT, depT, bg1, outT = null, dyn = 1, dynT = 0, fAvg = 1 / 60;
   const resize = () => {
-    const dpr = opts.renderScale || (tc.on ? 1 : Math.min(window.devicePixelRatio || 1, 2)); // phones: 1 canvas px per CSS px
+    const dpr = opts.renderScale || (tc.on ? 1 : Math.min(window.devicePixelRatio || 1, 2)) * dyn; // phones: 1 canvas px per CSS px; dyn = adaptive resolution
     const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
     if (w === W && h === H) return;
     W = canvas.width = w; H = canvas.height = h;
@@ -626,10 +626,10 @@ async function createEngine(canvas, systemId, opts = {}) {
   let sys = null, nAst = 0, simT = 0, target = 1, cruise = false, cruiseV = 0, warpVis = 0, thirdPerson = false, showHelp = true, lastDist = 0, closing = 0;
   let capReq = null, capBusy = false;
   // ---- tile streaming (only network use; procedural surface stays as fallback/offline) ----
-  const TSRC = [(z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpeg`,
+  const TSRC = [(z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/${z}/${y}/${x}.jpg`, // Sentinel-2 cloudless (EOX), ~10 m/px
     (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
-  const TZM = [8, 10, 8], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+  const TZM = [13, 12, 8], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -1034,7 +1034,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
       creditY = H - 10 * s;
     }
-    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Imagery: NASA GIBS Blue Marble - Elevation: AWS Terrain Tiles (Mapzen)');
+    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
       if (tc.on) tout(W - 16 * s, 92 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 1); else tout(cx, creditY - 13 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 0.5); }
   }
 
@@ -1043,7 +1043,13 @@ async function createEngine(canvas, systemId, opts = {}) {
   function tick(now) {
     if (dead) return; if (!opts.offscreen) raf = requestAnimationFrame(tick);
     const rawDt = last ? (now - last) / 1000 : 1 / 60; last = now; const dt = Math.min(rawDt, 0.1);
-    avgDt += (rawDt - avgDt) * 0.05; resize();
+    avgDt += (rawDt - avgDt) * 0.05;
+    if (!opts.offscreen && !opts.renderScale && !bench.on && rawDt < 0.5) { // adaptive resolution: hold ~45+ fps by scaling the render target
+      fAvg += (rawDt - fAvg) * 0.08; dynT += rawDt;
+      if (dynT > 1 && fAvg > 1 / 40 && dyn > 0.5) { dyn = Math.max(0.5, dyn * 0.85); dynT = 0; }
+      else if (dynT > 3 && fAvg < 1 / 56 && dyn < 1) { dyn = Math.min(1, dyn * 1.1); dynT = 0; }
+    }
+    resize();
     if (bench.on) { if (bench.n < NSLOT) bench.cpu[bench.n] = rawDt * 1000; }
     simT += dt; updateOrbits(simT);
     // reference frame (sphere of influence): deepest body whose SOI contains the ship
@@ -1161,7 +1167,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
-    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash;
+    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1;
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----
     let nb = 0; const L = sys.def.scale;

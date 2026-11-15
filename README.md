@@ -6,7 +6,7 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
-**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~223 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~224 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
 
 ```bash
 npm install
@@ -66,10 +66,11 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   hidden behind the planet are removed.
 - **Real maps:** as you approach Earth or the Moon, real map tiles stream in and replace the procedural
   surface. Higher-resolution tiles load as you descend.
-  - Earth imagery: [NASA GIBS](https://earthdata.nasa.gov/gibs) Blue Marble Next Generation (Web-Mercator,
-    up to zoom 8).
+  - Earth imagery: [Sentinel-2 cloudless](https://s2maps.eu) by EOX IT Services GmbH (contains modified
+    Copernicus Sentinel data 2023, CC BY-NC-SA 4.0). It's a cloud-free 10 m/px global mosaic, streamed up to
+    zoom 13, so cities, rivers, fields and coastlines are visible from low altitude.
   - Earth elevation: [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen Terrarium,
-    up to zoom 10). Real mountains are shown with 2.5× vertical relief, and real coastlines drive the ocean
+    up to zoom 12). Real mountains are shown with 2.5× vertical relief, and real coastlines drive the ocean
     glint.
   - Moon imagery: [NASA Moon Trek](https://trek.nasa.gov/moon/) LRO WAC global mosaic (up to zoom 8).
   - Procedural micro-detail is blended in where the imagery runs out of resolution.
@@ -88,8 +89,10 @@ Play in landscape; the **FULL** button hides the browser bars.
 - **Right side:** drag anywhere to pitch and yaw.
 - **Buttons:** CRUISE (Supercruise), BOOST (hold), UP/DOWN (hold), ROLL< / ROLL> (hold), <TGT / TGT> (cycle
   target), CAM (third person), FULL (fullscreen), SND (mute).
-- **Resolution:** touch devices render at one pixel per CSS pixel to keep frame rates playable. Override it
-  with `<SpaceRoam renderScale={…} />`.
+- **Resolution:** touch devices render at one pixel per CSS pixel and use a lighter quality preset (fewer
+  atmosphere samples, cloud octaves and terrain-march octaves). On every device, **adaptive resolution**
+  lowers the render scale down to 50 % when frames get slower than about 40 fps, and raises it again when
+  there's headroom. A fixed `<SpaceRoam renderScale={…} />` turns adaptation off.
 - **Browser support:** WebGPU is needed: Chrome on Android 12+, or Safari on iOS/iPadOS 26+.
 
 ## Architecture
@@ -178,9 +181,9 @@ build was run end to end, including the full benchmark.
 | | |
 | --- | --- |
 | Source `SpaceRoam.jsx` | 118.2 KB |
-| Minified | **80.2 KB** |
-| Minified + gzip | **33.3 KB** |
-| Minified + brotli | 29.5 KB |
+| Minified | **80.5 KB** |
+| Minified + gzip | **33.5 KB** |
+| Minified + brotli | 29.6 KB |
 | …of which WGSL (all shaders) | 25.5 KB |
 
 ## Verification status
@@ -199,7 +202,7 @@ build was run end to end, including the full benchmark.
 
 ## Known limitations
 
-- Earth imagery (Blue Marble, ~500 m/px) gets soft below about 2 km altitude; the Moon mosaic holds up better.
+- Earth imagery tops out at Sentinel-2's 10 m/px, so individual buildings aren't visible.
 - Earth and the Moon use the game's reduced scale, so real places appear about 5× smaller than life.
 - Real maps need network access; the single file falls back to the procedural surface offline.
 - GPU cost near the surface (map lookups + heightfield march) is not yet measured on the target hardware.
