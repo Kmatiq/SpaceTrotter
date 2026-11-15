@@ -6,6 +6,8 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
+**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~210 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+
 ```bash
 npm install
 npm run dev        # open the printed URL in Chrome (WebGPU)

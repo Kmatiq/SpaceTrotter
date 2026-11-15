@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "size": "node scripts/size.mjs"
+    "build": "vite build && node scripts/single.mjs",
+    "size": "node scripts/size.mjs",
+    "single": "node scripts/single.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
