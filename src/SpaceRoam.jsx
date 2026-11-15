@@ -623,7 +623,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const rt = new Float64Array(3), up = new Float64Array(3), fw = new Float64Array(3), scr = new Float64Array(3);
   const order = new Int32Array(MAXB), odist = new Float64Array(MAXB), slotOf = new Int32Array(MAXB);
   const astr = new Float64Array(MAXI * 8);
-  let sys = null, nAst = 0, simT = 0, target = 1, cruise = false, cruiseV = 0, warpVis = 0, thirdPerson = false, showHelp = true, lastDist = 0, closing = 0;
+  let sys = null, nAst = 0, simT = 0, target = 1, tgtT = 9, cruise = false, cruiseV = 0, warpVis = 0, thirdPerson = false, showHelp = true, lastDist = 0, closing = 0;
   let capReq = null, capBusy = false;
   // ---- tile streaming (only network use; procedural surface stays as fallback/offline) ----
   const TSRC = [(z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/${z}/${y}/${x}.jpg`, // Sentinel-2 cloudless (EOX), ~10 m/px
@@ -762,11 +762,24 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
 
   // ---- input ----
+  function setTgt(i) { if (i === target || i < 0) return; target = i; tgtT = 0; blip(880, 1320, 0.12, 'sine', 0.1); blip(1320, 1320, 0.15, 'sine', 0.08, 0.09); }
+  function pick(x, y, rad) { // select the body whose marker/disc is closest to a screen point
+    let bi = -1, bd = rad * rad;
+    for (let i = 0; i < sys.n; i++) {
+      const o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2]) || hidden(i)) continue;
+      const b = sys.list[i], pr = (b.R / scr[2]) / tanY() * H * 0.5, dx = scr[0] - x, dy = scr[1] - y, d2 = dx * dx + dy * dy;
+      const loc = ship.ref > 0 ? (sys.list[ship.ref].parent > 0 ? sys.list[ship.ref].parent : ship.ref) : -1; // same visibility rules as the HUD markers
+      if (pr < 8 && ((b.type === 'station' && dist(i) > 2e8) || (b.type === 'moon' && b.parent !== loc && b.parent !== ship.ref))) continue;
+      const k = pr > 8 && d2 < pr * pr ? d2 * 0.25 : d2; // inside a visible disc counts as a strong hit
+      if (k < bd) { bd = k; bi = i; }
+    }
+    if (bi >= 0) setTgt(bi); return bi >= 0;
+  }
   const act = (code, back) => { // discrete actions shared by keyboard and touch buttons
     switch (code) {
-      case 'Tab': target = (target + (back ? sys.n - 1 : 1)) % sys.n; break;
-      case 'TabBack': target = (target + sys.n - 1) % sys.n; break;
-      case 'Full': if (document.fullscreenElement) document.exitFullscreen(); else if (canvas.requestFullscreen) canvas.requestFullscreen().catch(() => {}); break;
+      case 'Tab': setTgt((target + (back ? sys.n - 1 : 1)) % sys.n); break;
+      case 'TabBack': setTgt((target + sys.n - 1) % sys.n); break;
+      case 'Full': if (document.fullscreenElement) document.exitFullscreen(); else { const el = canvas.parentElement || canvas; if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); } break; // wrapper, so the UI overlay stays visible
       case 'KeyF':
         if (cruise) dropCruise(Math.min(cruiseV, 5000)); else if (charge >= 0) { charge = -1; blip(500, 120, 0.3, 'sine', 0.12); }
         else if (dist(target) > sys.list[target].arrive * 1.2 && !bench.on) { charge = 1.2; cruiseV = 0; } else blip(220, 180, 0.15, 'square', 0.06); // too close: denied beep
@@ -784,36 +797,27 @@ async function createEngine(canvas, systemId, opts = {}) {
   const kd = (e) => onKey(e, 1), ku = (e) => onKey(e, 0);
   const mm = (e) => { if (document.pointerLockElement === canvas) { mdx += e.movementX; mdy += e.movementY; } };
   // ---- touch: floating thumbstick (left 40%), drag-to-look (right), HUD buttons. All state preallocated. ----
-  const BTN = [['KeyF', 'CRUISE', 0], ['ShiftLeft', 'BOOST', 1], ['Space', 'UP', 1], ['KeyX', 'DOWN', 1], ['KeyQ', 'ROLL<', 1], ['KeyE', 'ROLL>', 1],
-    ['TabBack', '<TGT', 0], ['Tab', 'TGT>', 0], ['KeyV', 'CAM', 0], ['Full', 'FULL', 0], ['KeyM', 'SND', 0]];
-  const bxy = new Float32Array(BTN.length * 3), bptr = new Int32Array(BTN.length).fill(-1);
-  const tc = { on: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches), jid: -1, jox: 0, joy: 0, jx: 0, jy: 0, lid: -1, lx: 0, ly: 0 };
-  const layoutBtns = (s) => { // canvas-pixel layout, recomputed per frame (no allocation)
-    const P = [W - 92 * s, H - 96 * s, 54, W - 214 * s, H - 64 * s, 42, W - 54 * s, H - 268 * s, 36, W - 54 * s, H - 188 * s, 36, W * 0.4 - 46 * s, H - 54 * s, 34, W * 0.4 + 46 * s, H - 54 * s, 34,
-      W - 338 * s, 48 * s, 32, W - 266 * s, 48 * s, 32, W - 194 * s, 48 * s, 32, W - 50 * s, 48 * s, 32, W - 122 * s, 48 * s, 32];
-    for (let i = 0; i < BTN.length; i++) { bxy[i * 3] = P[i * 3]; bxy[i * 3 + 1] = P[i * 3 + 1]; bxy[i * 3 + 2] = P[i * 3 + 2] * s; }
-  };
+  const tc = { tid: -1, tx: 0, ty: 0, tt: 0, tm: 0, on: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches), jid: -1, jox: 0, joy: 0, jx: 0, jy: 0, lid: -1, lx: 0, ly: 0 };
   const pc = (e) => { scr[0] = (e.offsetX * W) / (canvas.clientWidth || 1); scr[1] = (e.offsetY * H) / (canvas.clientHeight || 1); };
   const pd = (e) => {
     canvas.focus(); audioInit();
-    if (e.pointerType === 'mouse') { if (document.pointerLockElement !== canvas && canvas.requestPointerLock) canvas.requestPointerLock(); return; }
+    if (e.pointerType === 'mouse') { // click: select what's under the cursor (or under the crosshair while flying with a locked mouse)
+      if (document.pointerLockElement === canvas) pick(W / 2, H / 2, 70 * hs); else { pc(e); pick(scr[0], scr[1], 40 * hs); if (canvas.requestPointerLock) canvas.requestPointerLock(); }
+      return; }
     e.preventDefault(); tc.on = true; pc(e); const x = scr[0], y = scr[1], id = e.pointerId;
-    if (canvas.setPointerCapture) canvas.setPointerCapture(id);
-    for (let i = 0; i < BTN.length; i++) {
-      const dx = x - bxy[i * 3], dy = y - bxy[i * 3 + 1], r = bxy[i * 3 + 2] * 1.25;
-      if (dx * dx + dy * dy < r * r) { bptr[i] = id; if (BTN[i][2]) keys[BTN[i][0]] = 1; else act(BTN[i][0]); return; }
-    }
+    if (canvas.setPointerCapture) canvas.setPointerCapture(id); tc.tid = id; tc.tx = x; tc.ty = y; tc.tt = performance.now(); tc.tm = 0;
     if (x < W * 0.4 && tc.jid < 0) { tc.jid = id; tc.jox = x; tc.joy = y; tc.jx = tc.jy = 0; }
     else if (tc.lid < 0) { tc.lid = id; tc.lx = x; tc.ly = y; }
   };
   const pmv = (e) => {
     if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 74 * hs;
+    if (id === tc.tid) tc.tm = Math.max(tc.tm, Math.abs(scr[0] - tc.tx) + Math.abs(scr[1] - tc.ty));
     if (id === tc.jid) { tc.jx = Math.max(-1, Math.min(1, (scr[0] - tc.jox) / R)); tc.jy = Math.max(-1, Math.min(1, (scr[1] - tc.joy) / R)); }
     else if (id === tc.lid) { const k = 3.2 / W / 0.0022; mdx += (scr[0] - tc.lx) * k; mdy += (scr[1] - tc.ly) * k; tc.lx = scr[0]; tc.ly = scr[1]; }
   };
   const pu = (e) => {
     const id = e.pointerId; if (id === tc.jid) { tc.jid = -1; tc.jx = tc.jy = 0; } if (id === tc.lid) tc.lid = -1;
-    for (let i = 0; i < BTN.length; i++) if (bptr[i] === id) { bptr[i] = -1; if (BTN[i][2]) keys[BTN[i][0]] = 0; }
+    if (id === tc.tid) { tc.tid = -1; if (tc.tm < 14 * hs && performance.now() - tc.tt < 320) pick(tc.tx, tc.ty, 46 * hs); } // short tap = select target
   };
   const noCtx = (e) => e.preventDefault();
   window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('mousemove', mm);
@@ -922,9 +926,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     const tx = pos[to] - cam[0], ty = pos[to + 1] - cam[1], tz = pos[to + 2] - cam[2];
     const vis = project(tx, ty, tz) && scr[0] > 0 && scr[1] > 0 && scr[0] < W && scr[1] < H;
     if (vis && !(prValid && prBody === target)) {
-      const x = scr[0], y = scr[1], r = Math.max(24 * s, (tbdy.R * (tbdy.sphere ? 1.05 : 2)) / scr[2] / tanY() * H * 0.5), l = Math.min(r * 0.4, 30 * s);
+      const e = smooth(0, 0.35, tgtT), x = scr[0], y = scr[1], r = Math.max(24 * s, (tbdy.R * (tbdy.sphere ? 1.05 : 2)) / scr[2] / tanY() * H * 0.5) * (1 + 2.5 * (1 - e)), l = Math.min(r * 0.4, 30 * s);
+      if (tgtT < 1.6) { const a = 1 - smooth(0.8, 1.6, tgtT); seg(cx, cy, x, y, 0.5, 1, 0.8, 0.5 * a, 1.5 * s); circ(x, y, r * 1.15, 2 * s, 0.5, 1, 0.8, 0.6 * a * e); } // lock-on: brackets snap in, link line from the crosshair
       for (let k = 0; k < 4; k++) { const sx = k & 1 ? 1 : -1, sy = k & 2 ? 1 : -1; seg(x + sx * r, y + sy * r, x + sx * (r - l), y + sy * r, 0.5, 1, 0.8, 0.95, 2.2 * s); seg(x + sx * r, y + sy * r, x + sx * r, y + sy * (r - l), 0.5, 1, 0.8, 0.95, 2.2 * s); }
       const lx = Math.min(x + r + 10 * s, W - 260 * s), ly = Math.max(y - r, 70 * s);
+      if (tgtT < 2) { ts('TARGET LOCKED'); tout(lx, ly - 22 * s, 14 * s, 0.5, 1, 0.8, 1 - smooth(1.2, 2, tgtT), 0); }
       ts(tbdy.name); tout(lx, ly, 22 * s, 0.65, 1, 0.85, 1, 0);
       tdist(td - tbdy.R); ts('   '); tdist(closing); ts('/s'); tout(lx, ly + 27 * s, 17 * s, 0.65, 1, 0.85, 0.85, 0);
       if (!disc[target]) { ts('UNCHARTED - fly close to log'); tout(lx, ly + 50 * s, 16 * s, 1, 0.72, 0.3, 0.9, 0); }
@@ -1016,26 +1022,19 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     let creditY = H - 12 * s;
     if (tc.on) { // on-screen controls: translucent filled discs with outline rings
-      layoutBtns(s);
-      for (let i = 0; i < BTN.length; i++) {
-        const x = bxy[i * 3], y = bxy[i * 3 + 1], r = bxy[i * 3 + 2], on = bptr[i] >= 0 || (i === 0 && (cruise || charge >= 0)) || (i === 8 && thirdPerson) || (i === 10 && au.on);
-        circ(x, y, r, 0, on ? 0.35 : 0.02, on ? 0.25 : 0.05, on ? 0.05 : 0.1, on ? 0.55 : 0.4);
-        circ(x, y, r, 2.5 * s, on ? 1 : 0.55, on ? 0.8 : 0.85, on ? 0.3 : 1, on ? 1 : 0.7);
-        const lbl = BTN[i][1]; ts(lbl); tout(x, y - 9 * s, Math.min((r > 44 * s ? 19 : 16) * s, (r * 1.7) / (lbl.length * 0.6)), on ? 1 : 0.85, on ? 0.9 : 0.95, on ? 0.5 : 1, 1, 0.5);
-      }
       const R = 74 * s, jx = tc.jid >= 0 ? tc.jox : 130 * s, jy = tc.jid >= 0 ? tc.joy : H - 130 * s;
       circ(jx, jy, R, 0, 0.02, 0.05, 0.1, tc.jid >= 0 ? 0.3 : 0.18); circ(jx, jy, R, 2.5 * s, 0.55, 0.85, 1, tc.jid >= 0 ? 0.7 : 0.35);
       circ(jx + tc.jx * R, jy + tc.jy * R, 30 * s, 0, 0.55, 0.85, 1, tc.jid >= 0 ? 0.5 : 0.25);
       if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.6, H - 34 * s, 16 * s, 0.75, 0.9, 1, 0.75, 0.5); }
     } else if (showHelp) {
-      const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'TAB target   F supercruise   V camera   M sound   B benchmark   J system   G stats   [ ] exposure   H help';
+      const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'CLICK or T target   TAB next   F supercruise   V camera   M sound   B bench   J system   G stats   H help';
       const fz = Math.min(17 * s, (W - 40 * s) / (l2.length * 0.6)), by = H - 30 * s - fz * 2.6, bw = (l2.length * 0.6 * fz) / 2 + 20 * s;
       seg(cx - bw, by + fz * 1.15, cx + bw, by + fz * 1.15, 0.01, 0.025, 0.05, 0.4, fz * 3.2);
       ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
       creditY = H - 10 * s;
     }
     if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
-      if (tc.on) tout(W - 16 * s, 92 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 1); else tout(cx, creditY - 13 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 0.5); }
+      tout(L, T + PH + 10 * s, 12 * s, 0.75, 0.85, 0.95, 0.7, 0); }
   }
 
   // ---- per-frame update ----
@@ -1148,7 +1147,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         disc[i] = 1; nDisc++; toastI = i; toastT = 5; toastAll = nDisc === sys.n; chime(toastAll); saveLog();
       }
     }
-    toastT -= dt; flash *= Math.exp(-dt * 3.5);
+    toastT -= dt; tgtT += dt; flash *= Math.exp(-dt * 3.5);
     const boosting = (K.ShiftLeft || K.ShiftRight) && spd > 50 && !cruise ? 1 : 0, thr = Math.min(1, Math.hypot(inX, inY, inZ));
     const fovT = (65 + boosting * 9 + warpVis * 16 - (charge >= 0 ? (1.2 - charge) * 4 : 0)) * D2R; fov += (fovT - fov) * Math.min(1, dt * 4);
     audioFrame(thr, boosting, charge >= 0 ? 1 - charge / 1.2 : 0, heat);
@@ -1284,7 +1283,13 @@ async function createEngine(canvas, systemId, opts = {}) {
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
-    setTarget: (id) => { if (sys.idx[id] !== undefined) target = sys.idx[id]; },
+    setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
+    act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
+    get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
+      third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed }; },
+    bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
+      color: b.type === 'star' ? b.star.color : (b.def.surface && b.def.surface.c && b.def.surface.c[0]) || null })),
+    unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
     debugView: (id, dx, dy, dz, lx, ly, lz) => { const i = sys.idx[id]; if (i === undefined) return; const R = sys.list[i].R; ship.ref = i; ship.off[0] = dx * R; ship.off[1] = dy * R; ship.off[2] = dz * R; ship.vel.fill(0); ship.w.fill(0); cruise = false; qlook(ship.q, 0, lx === undefined ? -dx : lx, ly === undefined ? -dy : ly, lz === undefined ? -dz : lz, 0, 1, 0); },
     flyTo: (id, lat, lon, altM = 5000, pitchDeg = -25) => { // place the ship above a real location (lat/lon in degrees), looking north
@@ -1310,14 +1315,105 @@ async function createEngine(canvas, systemId, opts = {}) {
 }
 
 /* ============================== REACT COMPONENT ============================== */
+/* ============================== UI OVERLAY (DOM: target chip + list, menu, touch action buttons) ============================== */
+const fmtD = (m) => { const a = Math.abs(m); return a < 1e4 ? Math.round(m) + ' m' : a < 1e7 ? (m / 1e3).toFixed(1) + ' km' : a < 1e10 ? (m / 1e6).toFixed(1) + ' Mm' : (m / 1e9).toFixed(2) + ' Gm'; };
+const ICON = { // 24x24 stroke icons
+  cruise: 'M4 6l7 6-7 6M12 6l7 6-7 6', stop: 'M7 7h10v10H7z', boost: 'M13 3L5 14h6l-1 7 8-11h-6z', up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6',
+  rl: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4', rr: 'M20 12a8 8 0 1 1-3-6.2M20 4v4h-4', menu: 'M4 7h16M4 12h16M4 17h16', close: 'M6 6l12 12M18 6L6 18',
+  snd: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6', mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6', cam: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 .1',
+  full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', help: 'M9 9a3 3 0 1 1 4 2.8c-1 .4-1 1.2-1 2.2M12 17v.5', stats: 'M5 19V11M10 19V5M15 19v-6M20 19V9',
+  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
+const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>;
+const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
+const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
+const TYPE_LBL = { star: 'Star', planet: 'Planet', moon: 'Moon', station: 'Station', comet: 'Comet' };
+function Overlay({ eng }) {
+  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false);
+  useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 200); return () => clearInterval(id); }, [eng, list]);
+  useEffect(() => { const k = (e) => { if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); } };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
+  if (!ui) return null;
+  function openList() { eng.unlockMouse(); setMenu(false); setList((l) => (l ? null : eng.bodies())); }
+  const btn = (extra) => ({ ...panel, pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer',
+    font: '600 11px ui-monospace,Consolas,monospace', letterSpacing: 1, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', ...extra });
+  const hold = (code) => ({ onPointerDown: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); eng.hold(code, 1); },
+    onPointerUp: () => eng.hold(code, 0), onPointerCancel: () => eng.hold(code, 0), onContextMenu: (e) => e.preventDefault() });
+  const tap = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
+  const round = (d, on, x) => btn({ width: d, height: d, borderRadius: '50%', ...(on ? { borderColor: C.warn, color: C.warn, background: 'rgba(60,40,5,.7)' } : {}), ...x });
+  const cruiseLbl = ui.cruise ? 'STOP' : ui.charging ? 'CANCEL' : ui.canCruise ? 'CRUISE' : 'CLOSE';
+  const rows = list ? list.filter((b) => b.type !== 'star' || true) : null;
+  const depth = (b) => (b.type === 'star' ? 0 : b.parent && list.find((x) => x.id === b.parent).type !== 'star' ? 2 : 1);
+  const order = rows ? (() => { const out = [], kids = (pid) => rows.filter((b) => b.parent === pid); const walk = (b) => { out.push(b); kids(b.id).forEach(walk); }; rows.filter((b) => !b.parent).forEach(walk); return out; })() : null;
+  const dot = (b) => { const c = b.color ? 'rgb(' + b.color.map((v) => Math.round(Math.min(1, Math.pow(v, 0.6)) * 255)).join(',') + ')' : b.type === 'station' ? '#8cf' : '#ddd';
+    return <span style={{ width: b.type === 'station' ? 10 : 14 - depth(b) * 2, height: b.type === 'station' ? 10 : 14 - depth(b) * 2, borderRadius: b.type === 'station' ? 2 : '50%', background: c, boxShadow: '0 0 6px ' + c, flex: 'none' }} />; };
+  const item = (icon, label, on, fn) => <div {...tap(fn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', color: on ? C.acc : C.fg, background: on ? 'rgba(80,255,190,.08)' : 'transparent' }}><Ico n={icon} s={20} /><span>{label}</span></div>;
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
+      {/* target chip + menu (top right) */}
+      <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <div {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
+          <span style={{ color: C.acc }}><Ico n="tgt" s={22} /></span>
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+            <span style={{ fontSize: 10, color: C.dim }}>TARGET  ▾</span>
+            <span style={{ fontSize: 16, color: C.acc, letterSpacing: 0.5 }}>{ui.name}</span>
+            <span style={{ fontSize: 11, color: C.dim, letterSpacing: 0 }}>{fmtD(ui.dist)}</span>
+          </span>
+        </div>
+        <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
+      </div>
+      {/* menu */}
+      {menu && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 230, padding: 6 }}>
+        {item(ui.sound ? 'snd' : 'mute', ui.sound ? 'Sound: on' : 'Sound: off', ui.sound, () => eng.act('KeyM'))}
+        {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
+        {item('full', 'Fullscreen', false, () => eng.act('Full'))}
+        {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
+        {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
+        {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
+        {item('bench', ui.bench ? 'Stop benchmark' : 'Run benchmark', ui.bench, () => { eng.act('KeyB'); setMenu(false); })}
+      </div>}
+      {/* target list */}
+      {list && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, bottom: 12, width: 'min(340px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}>
+          <span style={{ flex: 1, letterSpacing: 1 }}>CHOOSE TARGET</span><span {...tap(() => setList(null))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
+        <div style={{ overflowY: 'auto', padding: 6, WebkitOverflowScrolling: 'touch' }}>
+          {order.map((b) => { const on = b.id === ui.target; return (
+            <div key={b.id} {...tap(() => { eng.setTarget(b.id); setList(null); })} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px 10px ' + (10 + depth(b) * 18) + 'px', borderRadius: 10, cursor: 'pointer', background: on ? 'rgba(80,255,190,.12)' : 'transparent', border: on ? '1px solid rgba(125,255,200,.5)' : '1px solid transparent' }}>
+              {dot(b)}
+              <span style={{ flex: 1, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                <span style={{ color: on ? C.acc : C.fg, fontSize: depth(b) > 1 ? 13 : 15 }}>{b.name}{!b.found && <span style={{ color: C.warn, fontSize: 10, marginLeft: 6 }}>UNCHARTED</span>}</span>
+                <span style={{ color: C.dim, fontSize: 11 }}>{TYPE_LBL[b.type]}</span></span>
+              <span style={{ color: C.dim, fontSize: 12 }}>{fmtD(b.dist)}</span></div>); })}
+        </div>
+        <div style={{ padding: '8px 14px', fontSize: 11, color: C.dim, borderTop: '1px solid ' + C.line }}>Tip: you can also tap / click a planet on screen</div>
+      </div>}
+      {/* controls help */}
+      {help && <div {...tap(() => setHelp(false))} style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, left: '50%', top: '50%', transform: 'translate(-50%,-50%)', padding: '18px 22px', maxWidth: 'calc(100% - 32px)', lineHeight: 1.7, fontSize: 13 }}>
+        {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Target button (top right): list of all targets<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
+          : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />F supercruise · V camera · M sound · G stats · B benchmark · J system · H hint bar</div>}
+        <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
+      {/* touch action cluster */}
+      {ui.touch && <>
+        <div {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
+          <Ico n={ui.cruise || ui.charging ? 'stop' : 'cruise'} s={30} />{cruiseLbl}</div>
+        <div {...hold('ShiftLeft')} style={round(70, false, { position: 'absolute', right: 128, bottom: 18 })}><Ico n="boost" s={26} />BOOST</div>
+        <div {...hold('Space')} style={round(60, false, { position: 'absolute', right: 34, bottom: 196 })}><Ico n="up" s={28} />UP</div>
+        <div {...hold('KeyX')} style={round(60, false, { position: 'absolute', right: 34, bottom: 128 })}><Ico n="down" s={28} />DOWN</div>
+        <div {...hold('KeyQ')} style={round(56, false, { position: 'absolute', left: 'calc(40% - 64px)', bottom: 16 })}><Ico n="rl" s={24} />ROLL</div>
+        <div {...hold('KeyE')} style={round(56, false, { position: 'absolute', left: 'calc(40% + 8px)', bottom: 16 })}><Ico n="rr" s={24} />ROLL</div>
+      </>}
+    </div>);
+}
+
 export default function SpaceRoam({ systemId = 'sol', onReady, style, offscreen = false, renderScale = 0 }) {
-  const ref = useRef(null), eng = useRef(null), [err, setErr] = useState(null);
+  const ref = useRef(null), eng = useRef(null), [err, setErr] = useState(null), [api, setApi] = useState(null);
   useEffect(() => {
     let dead = false, e = null;
-    createEngine(ref.current, systemId, { offscreen, renderScale }).then((x) => { if (dead) return x.destroy(); eng.current = e = x; onReady && onReady(x); }).catch((x) => setErr(String((x && x.message) || x)));
+    createEngine(ref.current, systemId, { offscreen, renderScale }).then((x) => { if (dead) return x.destroy(); eng.current = e = x; setApi(x); onReady && onReady(x); }).catch((x) => setErr(String((x && x.message) || x)));
     return () => { dead = true; eng.current = null; e && e.destroy(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { eng.current && eng.current.switchStarSystem(systemId); }, [systemId]); // V2 interstellar hook
   if (err) return <div style={{ color: '#9cf', font: '16px monospace', padding: 24, background: '#000', height: '100%' }}>SpaceRoam: {err}</div>;
-  return <canvas ref={ref} tabIndex={0} style={{ width: '100%', height: '100%', display: 'block', outline: 'none', cursor: 'crosshair', background: '#000', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', ...style }} />;
+  return (<div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#000', ...style }}>
+    <canvas ref={ref} tabIndex={0} style={{ width: '100%', height: '100%', display: 'block', outline: 'none', cursor: 'crosshair', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} />
+    {api && <Overlay eng={api} />}</div>);
 }

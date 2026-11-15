@@ -29,6 +29,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `Q` / `E` | roll |
 | Mouse (click to lock pointer), or arrow keys | pitch / yaw |
 | `Shift` | boost (×8) |
+| Click a planet / label, or `T` | choose target (`T` opens the target list) |
 | `Tab` / `Shift+Tab` | cycle target |
 | `F` | Supercruise to target: auto-aligns, accelerates exponentially, decelerates automatically, drops out on arrival. `F` or `S` cancels |
 | `V` | third-person view (raymarched ship) |
@@ -87,8 +88,11 @@ Play in landscape; the **FULL** button hides the browser bars.
 - **Left side:** a floating thumbstick appears wherever your thumb lands. Up/down is forward/reverse thrust,
   left/right is strafe, and throttle is analog.
 - **Right side:** drag anywhere to pitch and yaw.
-- **Buttons:** CRUISE (Supercruise), BOOST (hold), UP/DOWN (hold), ROLL< / ROLL> (hold), <TGT / TGT> (cycle
-  target), CAM (third person), FULL (fullscreen), SND (mute).
+- **Targeting:** tap any planet, moon or label to select it, or tap the **TARGET** chip (top right) for a list
+  of every body, grouped by planet, with distances. The selected target gets a lock-on animation and a chime.
+- **Buttons:** icon buttons by your right thumb: CRUISE (it changes to STOP / CANCEL, and is dimmed when you're too
+  close), BOOST, UP and DOWN (hold). ROLL buttons sit at the bottom centre. Sound, camera, fullscreen, controls help,
+  stats, star system and benchmark live in the ☰ menu.
 - **Resolution:** touch devices render at one pixel per CSS pixel and use a lighter quality preset (fewer
   atmosphere samples, cloud octaves and terrain-march octaves). On every device, **adaptive resolution**
   lowers the render scale down to 50 % when frames get slower than about 40 fps, and raises it again when
@@ -141,6 +145,10 @@ tail is the same instanced-box framework with an additive volumetric entry point
 The asteroid belt has two layers:
 - 2,000 orbiting asteroids whose elements are kept in f64 and positioned on the CPU each frame.
 - A procedural cell-grid field of up to about 1,800 rocks that appears around you inside the belt.
+
+**UI overlay.** The buttons, the target chip and list, the ☰ menu and the controls help are a small React/DOM
+layer over the canvas. It polls the engine about 5 times a second, so it never touches the render loop. The 3D
+HUD stays in WebGPU.
 
 **Post and HUD.** A spiral-tap bloom, a depth-occlusion-tested analytic sun glare, warp streaks, the re-entry
 plasma and ACES tone mapping. The HUD is drawn with WebGPU from instanced antialiased line segments, filled or
