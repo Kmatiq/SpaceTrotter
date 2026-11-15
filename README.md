@@ -6,7 +6,7 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
-**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~210 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~217 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
 
 ```bash
 npm install
@@ -165,11 +165,11 @@ build was run end to end, including the full benchmark.
 
 | | |
 | --- | --- |
-| Source `SpaceRoam.jsx` | 79.6 KB |
-| Minified | **55.8 KB** |
-| Minified + gzip | **23.1 KB** |
-| Minified + brotli | 20.5 KB |
-| …of which WGSL (all shaders) | 21.4 KB |
+| Source `SpaceRoam.jsx` | 107.9 KB |
+| Minified | **74.3 KB** |
+| Minified + gzip | **30.7 KB** |
+| Minified + brotli | 27.3 KB |
+| …of which WGSL (all shaders) | 24.5 KB |
 
 ## Verification status
 
@@ -187,7 +187,9 @@ build was run end to end, including the full benchmark.
 
 ## Known limitations
 
-- Collision uses a conservative sphere (radius + 60 % of the maximum terrain height), not the exact
-  procedural terrain.
+- Earth imagery (Blue Marble, ~500 m/px) gets soft below about 2 km altitude; the Moon mosaic holds up better.
+- Earth and the Moon use the game's reduced scale, so real places appear about 5× smaller than life.
+- Real maps need network access; the single file falls back to the procedural surface offline.
+- GPU cost near the surface (map lookups + heightfield march) is not yet measured on the target hardware.
 - No moon-on-planet eclipses.
 - Distant belt asteroids orbit far slower than Kepler speeds, so they stay approachable.
