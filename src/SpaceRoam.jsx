@@ -675,6 +675,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   let clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
   const banner = (txt, hot) => { bannerS = txt; bannerT = 3.2; bannerHot = hot; };
   const rq = new Float64Array(4), tpr = new Float64Array(3), tv = new Float64Array(3); let tpRef = -1, tpTgt = -1; // target velocity in the ship's reference frame
+  const fpr = new Float64Array(3), fv = new Float64Array(3); let fRef = -1, anc = 0; // riding along: velocity of the ship's frame (small body) relative to its parent
   // ---- fun layer: exploration log, supercruise charge, flash, FOV kick, dust, procedural audio ----
   const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
   for (let i = 0; i < 480; i++) dust[i] = hash(i, 77, 3);
@@ -941,14 +942,15 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(tbdy.name); tout(x - ax * 46 * s, y - ay * 46 * s - 9 * s, 18 * s, 0.65, 1, 0.85, 0.95, 0.5);
     }
     // space dust: world-anchored motes in a wrapped box around the camera (reference-body frame) → speed streaks
-    if (!bench.on && !cruise && spd > 3 && !prValid) {
-      const D = Math.max(256, Math.pow(4, Math.ceil(Math.log(spd * 2.5) / Math.log(4)))), h = D / 2, kv = Math.min(0.12, (0.3 * D) / spd), fa = Math.min(1, (spd - 3) / 30);
-      const ox = cam[0] - pos[ship.ref * 3], oy = cam[1] - pos[ship.ref * 3 + 1], oz = cam[2] - pos[ship.ref * 3 + 2];
+    const dvx = ship.vel[0] + fv[0], dvy = ship.vel[1] + fv[1], dvz = ship.vel[2] + fv[2], dsp = Math.hypot(dvx, dvy, dvz); // motion relative to the dust frame
+    if (!bench.on && !cruise && dsp > 3 && !prValid) {
+      const D = Math.max(256, Math.pow(4, Math.ceil(Math.log(dsp * 2.5) / Math.log(4)))), h = D / 2, kv = Math.min(0.12, (0.3 * D) / dsp), fa = Math.min(1, (dsp - 3) / 30);
+      const ox = cam[0] - pos[anc * 3], oy = cam[1] - pos[anc * 3 + 1], oz = cam[2] - pos[anc * 3 + 2];
       for (let i = 0; i < 160; i++) {
         let x = dust[i * 3] * D - ox, y = dust[i * 3 + 1] * D - oy, z = dust[i * 3 + 2] * D - oz;
         x -= D * Math.floor(x / D) + h; y -= D * Math.floor(y / D) + h; z -= D * Math.floor(z / D) + h; // wrap into [-h, h)
         const r = Math.hypot(x, y, z) / h; if (r > 1 || !project(x, y, z)) continue; const ax = scr[0], ay = scr[1];
-        if (!project(x + ship.vel[0] * kv, y + ship.vel[1] * kv, z + ship.vel[2] * kv)) continue;
+        if (!project(x + dvx * kv, y + dvy * kv, z + dvz * kv)) continue;
         const a = fa * 0.85 * (1 - r) * (1 - r); seg(ax, ay, scr[0], scr[1], 0.75, 0.85, 1, a, 1.4 * s);
       }
     }
@@ -998,13 +1000,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 9 * s; circ(x, y, k * 0.6, 2 * s, 1, 0.8, 0.3, 0.85); seg(x - k * 1.6, y, x - k * 0.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x + k * 0.6, y, x + k * 1.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x, y - k * 0.6, x, y - k * 1.4, 1, 0.8, 0.3, 0.85, 2 * s); }
     // telemetry panel (top-left): dim labels, bright values, on a translucent backing
     const L = 18 * s, T = 16 * s, F = 19 * s, LH = 27 * s, VX = L + 16 * s + 84 * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6;
-    let rows = 3 + (md ? 1 : 0) + (al ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
+    const ride = anc !== ship.ref && !cruise; let rows = 3 + (ride ? 1 : 0) + (md ? 1 : 0) + (al ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
     const PW = (bench.res ? 560 : 330) * s, PH = 46 * s + rows * LH; seg(L, T + PH / 2, L + PW, T + PH / 2, 0.01, 0.025, 0.05, 0.42, PH); seg(L, T, L, T + PH, 0.45, 0.85, 1, 0.85, 2.5 * s);
     let Y = T + 12 * s; const X = L + 16 * s;
     ts(sys.def.name); ts(' SYSTEM'); tout(X, Y, 14 * s, 0.5, 0.75, 0.95, 0.75, 0); Y += 24 * s;
     lab('SPEED', X, Y); tdist(spd); ts('/s'); tout(VX, Y - 4 * s, 25 * s, 0.85, 0.95, 1, 1, 0); Y += LH + 6 * s;
     if (md) { lab('MODE', X, Y); ts(bench.on ? 'BENCHMARK' : cruise ? 'SUPERCRUISE' : 'CHARGING'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
     if (al) { lab('ALTITUDE', X, Y); if (landed) ts('LANDED'); else tdist(Math.max(0, altT - clr)); tout(VX, Y, F, 0.55, 1, 0.65, 1, 0); Y += LH; }
+    if (ride) { lab('RIDING', X, Y); ts(sys.list[ship.ref].name); ts('  '); tdist(Math.hypot(fv[0], fv[1], fv[2])); ts('/s'); tout(VX, Y, F, 0.6, 0.85, 1, 1, 0); Y += LH; }
     lab('TARGET', X, Y); ts(tbdy.name); ts('  '); tdist(td - tbdy.R); tout(VX, Y, F, 0.65, 1, 0.85, 1, 0); Y += LH;
     if (cruise) { lab('ETA', X, Y); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
     if (bench.on) { lab('BENCH', X, Y); tn(60 - bench.t, 1); ts(' s left'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
@@ -1071,6 +1074,10 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let j = 0; j < 3; j++) { const r = pos[to + j] - pos[ro2 + j]; tv[j] = ok ? (r - tpr[j]) / dt : 0; tpr[j] = r; }
       if (!(Math.abs(tv[0]) + Math.abs(tv[1]) + Math.abs(tv[2]) < 1e9)) tv.fill(0); // time jumps
       tpRef = ship.ref; tpTgt = target;
+      const rb = sys.list[ship.ref]; anc = rb.type === 'station' || rb.type === 'comet' ? Math.max(rb.parent, 0) : ship.ref;
+      const ao = anc * 3, okf = fRef === ship.ref && dt > 0;
+      for (let j = 0; j < 3; j++) { const r = pos[ro2 + j] - pos[ao + j]; fv[j] = okf ? (r - fpr[j]) / dt : 0; fpr[j] = r; }
+      if (!(Math.abs(fv[0]) + Math.abs(fv[1]) + Math.abs(fv[2]) < 1e9)) fv.fill(0); fRef = ship.ref;
     }
     // nearest surface altitude (drives speed limits)
     let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R * (i === prBody && prValid ? 1 + prH : 1));

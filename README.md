@@ -46,7 +46,8 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   browser (localStorage).
 - **Supercruise:** `F` charges for 1.2 s (the ship auto-aligns to the target), then jumps with a flash.
   Cruise flies in the target's own moving frame, so fast movers (orbiting stations, the comet) can't outrun you.
-  On arrival you enter the target's reference frame and stay with it.
+  On arrival you enter the target's reference frame and stay with it. While you ride along with a station or comet, the HUD shows
+  **RIDING** with its speed, and space dust streams past at that speed, so the shared motion stays visible.
   Drop-out on arrival also flashes. Pressing `F` while charging cancels.
 - **Sound:** fully procedural (WebAudio). You hear an engine rumble and thrust hiss, a boost roar, a charge
   whine, jump and drop whooshes, discovery chimes and a quiet ambient drone. `M` mutes.
