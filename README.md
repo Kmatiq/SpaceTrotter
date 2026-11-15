@@ -45,6 +45,8 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   fun fact and the log count. Uncharted bodies have amber markers. Progress is saved per system in your
   browser (localStorage).
 - **Supercruise:** `F` charges for 1.2 s (the ship auto-aligns to the target), then jumps with a flash.
+  Cruise flies in the target's own moving frame, so fast movers (orbiting stations, the comet) can't outrun you.
+  On arrival you enter the target's reference frame and stay with it.
   Drop-out on arrival also flashes. Pressing `F` while charging cancels.
 - **Sound:** fully procedural (WebAudio). You hear an engine rumble and thrust hiss, a boost roar, a charge
   whine, jump and drop whooshes, discovery chimes and a quiet ambient drone. `M` mutes.

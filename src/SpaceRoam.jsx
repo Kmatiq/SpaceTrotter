@@ -674,7 +674,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
   let clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
   const banner = (txt, hot) => { bannerS = txt; bannerT = 3.2; bannerHot = hot; };
-  const rq = new Float64Array(4);
+  const rq = new Float64Array(4), tpr = new Float64Array(3), tv = new Float64Array(3); let tpRef = -1, tpTgt = -1; // target velocity in the ship's reference frame
   // ---- fun layer: exploration log, supercruise charge, flash, FOV kick, dust, procedural audio ----
   const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
   for (let i = 0; i < 480; i++) dust[i] = hash(i, 77, 3);
@@ -1066,6 +1066,12 @@ async function createEngine(canvas, systemId, opts = {}) {
       }
       rqRef = solid ? ship.ref : -1; rq[0] = bq[q]; rq[1] = bq[q + 1]; rq[2] = bq[q + 2]; rq[3] = bq[q + 3];
     }
+    { // velocity of the target relative to the current reference frame (finite difference, reset when either changes)
+      const to = target * 3, ro2 = ship.ref * 3, ok = tpRef === ship.ref && tpTgt === target && dt > 0;
+      for (let j = 0; j < 3; j++) { const r = pos[to + j] - pos[ro2 + j]; tv[j] = ok ? (r - tpr[j]) / dt : 0; tpr[j] = r; }
+      if (!(Math.abs(tv[0]) + Math.abs(tv[1]) + Math.abs(tv[2]) < 1e9)) tv.fill(0); // time jumps
+      tpRef = ship.ref; tpTgt = target;
+    }
     // nearest surface altitude (drives speed limits)
     let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R * (i === prBody && prValid ? 1 + prH : 1));
     altT = prValid ? dist(prBody) - sys.list[prBody].R * (1 + prH) : Infinity;
@@ -1086,9 +1092,10 @@ async function createEngine(canvas, systemId, opts = {}) {
       const tbd = sys.list[target], to = target * 3, dx = pos[to] - abs[0], dy = pos[to + 1] - abs[1], dz = pos[to + 2] - abs[2], d = Math.hypot(dx, dy, dz);
       qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, dx, dy, dz, up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
       qrot(fw, 0, ship.q, 0, 0, 0, -1); const al = (fw[0] * dx + fw[1] * dy + fw[2] * dz) / d, surf = Math.max(d - tbd.arrive, 0);
-      const vdes = surf * 1.4 * Math.pow(Math.max(0, (al - 0.85) / 0.15), 2);
+      const home = d < 200 * tbd.arrive, vdes = surf * 1.4 * Math.max(Math.pow(Math.max(0, (al - 0.85) / 0.15), 2), home ? 0.35 : 0); // final approach: guaranteed closing speed
       cruiseV = Math.min(vdes, Math.max(cruiseV, 2000) * Math.exp(dt * 2.2));
-      for (let j = 0; j < 3; j++) { ship.off[j] += fw[j] * cruiseV * dt; ship.vel[j] = fw[j] * Math.min(cruiseV, 5e4); }
+      const ux = home ? dx / d : fw[0], uy = home ? dy / d : fw[1], uz = home ? dz / d : fw[2]; // home straight at the target when close
+      for (let j = 0; j < 3; j++) { ship.off[j] += ((j === 0 ? ux : j === 1 ? uy : uz) * cruiseV + tv[j]) * dt; ship.vel[j] = fw[j] * Math.min(cruiseV, 5e4); } // cruise in the target's frame: fast movers can't outrun us; inside its SOI we co-move
       if (d < tbd.arrive * 1.03 || (K.KeyS && !K.KeyW)) dropCruise(Math.min(cruiseV, Math.max(alt * 0.2, 200)));
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
@@ -1280,7 +1287,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   const api = {
     switchStarSystem, startBenchmark: startBench,
-    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
+    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
