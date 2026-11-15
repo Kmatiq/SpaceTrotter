@@ -531,7 +531,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- render targets (recreated only on resize) ----
   let W = 0, H = 0, hdrT, depT, bg1, outT = null;
   const resize = () => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = opts.renderScale || (tc.on ? 1 : Math.min(window.devicePixelRatio || 1, 2)); // phones: 1 canvas px per CSS px
     const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
     if (w === W && h === H) return;
     W = canvas.width = w; H = canvas.height = h;
@@ -610,10 +610,11 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
 
   // ---- input ----
-  const onKey = (e, d) => {
-    keys[e.code] = d; if (!d) return;
-    switch (e.code) {
-      case 'Tab': e.preventDefault(); target = (target + (e.shiftKey ? sys.n - 1 : 1)) % sys.n; break;
+  const act = (code, back) => { // discrete actions shared by keyboard and touch buttons
+    switch (code) {
+      case 'Tab': target = (target + (back ? sys.n - 1 : 1)) % sys.n; break;
+      case 'TabBack': target = (target + sys.n - 1) % sys.n; break;
+      case 'Full': if (document.fullscreenElement) document.exitFullscreen(); else if (canvas.requestFullscreen) canvas.requestFullscreen().catch(() => {}); break;
       case 'KeyF': cruise = !cruise && dist(target) > sys.list[target].arrive * 1.2; cruiseV = 0; break;
       case 'KeyB': bench.on ? stopBench(false) : startBench(); break;
       case 'KeyV': thirdPerson = !thirdPerson; break;
@@ -622,10 +623,44 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
   };
+  const onKey = (e, d) => { keys[e.code] = d; if (e.code === 'Tab') e.preventDefault(); if (d && !e.repeat) act(e.code, e.shiftKey); };
   const kd = (e) => onKey(e, 1), ku = (e) => onKey(e, 0);
   const mm = (e) => { if (document.pointerLockElement === canvas) { mdx += e.movementX; mdy += e.movementY; } };
-  const md = () => { canvas.focus(); if (document.pointerLockElement !== canvas) canvas.requestPointerLock && canvas.requestPointerLock(); };
-  window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('mousemove', mm); canvas.addEventListener('mousedown', md);
+  // ---- touch: floating thumbstick (left 40%), drag-to-look (right), HUD buttons. All state preallocated. ----
+  const BTN = [['KeyF', 'CRUISE', 0], ['ShiftLeft', 'BOOST', 1], ['Space', 'UP', 1], ['KeyX', 'DOWN', 1], ['KeyQ', 'ROLL<', 1], ['KeyE', 'ROLL>', 1],
+    ['TabBack', '<TGT', 0], ['Tab', 'TGT>', 0], ['KeyV', 'CAM', 0], ['Full', 'FULL', 0]];
+  const bxy = new Float32Array(BTN.length * 3), bptr = new Int32Array(BTN.length).fill(-1);
+  const tc = { on: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches), jid: -1, jox: 0, joy: 0, jx: 0, jy: 0, lid: -1, lx: 0, ly: 0 };
+  const layoutBtns = (s) => { // canvas-pixel layout, recomputed per frame (no allocation)
+    const P = [W - 80 * s, H - 90 * s, 44, W - 190 * s, H - 62 * s, 34, W - 62 * s, H - 205 * s, 30, W - 62 * s, H - 285 * s, 30, 255 * s, H - 52 * s, 28, 330 * s, H - 52 * s, 28,
+      W - 300 * s, 46 * s, 26, W - 230 * s, 46 * s, 26, W - 160 * s, 46 * s, 26, W - 90 * s, 46 * s, 26];
+    for (let i = 0; i < BTN.length; i++) { bxy[i * 3] = P[i * 3]; bxy[i * 3 + 1] = P[i * 3 + 1]; bxy[i * 3 + 2] = P[i * 3 + 2] * s; }
+  };
+  const pc = (e) => { scr[0] = (e.offsetX * W) / (canvas.clientWidth || 1); scr[1] = (e.offsetY * H) / (canvas.clientHeight || 1); };
+  const pd = (e) => {
+    canvas.focus();
+    if (e.pointerType === 'mouse') { if (document.pointerLockElement !== canvas && canvas.requestPointerLock) canvas.requestPointerLock(); return; }
+    e.preventDefault(); tc.on = true; pc(e); const x = scr[0], y = scr[1], id = e.pointerId;
+    if (canvas.setPointerCapture) canvas.setPointerCapture(id);
+    for (let i = 0; i < BTN.length; i++) {
+      const dx = x - bxy[i * 3], dy = y - bxy[i * 3 + 1], r = bxy[i * 3 + 2] * 1.25;
+      if (dx * dx + dy * dy < r * r) { bptr[i] = id; if (BTN[i][2]) keys[BTN[i][0]] = 1; else act(BTN[i][0]); return; }
+    }
+    if (x < W * 0.4 && tc.jid < 0) { tc.jid = id; tc.jox = x; tc.joy = y; tc.jx = tc.jy = 0; }
+    else if (tc.lid < 0) { tc.lid = id; tc.lx = x; tc.ly = y; }
+  };
+  const pmv = (e) => {
+    if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 70 * Math.max(0.75, H / 1200);
+    if (id === tc.jid) { tc.jx = Math.max(-1, Math.min(1, (scr[0] - tc.jox) / R)); tc.jy = Math.max(-1, Math.min(1, (scr[1] - tc.joy) / R)); }
+    else if (id === tc.lid) { const k = 3.2 / W / 0.0022; mdx += (scr[0] - tc.lx) * k; mdy += (scr[1] - tc.ly) * k; tc.lx = scr[0]; tc.ly = scr[1]; }
+  };
+  const pu = (e) => {
+    const id = e.pointerId; if (id === tc.jid) { tc.jid = -1; tc.jx = tc.jy = 0; } if (id === tc.lid) tc.lid = -1;
+    for (let i = 0; i < BTN.length; i++) if (bptr[i] === id) { bptr[i] = -1; if (BTN[i][2]) keys[BTN[i][0]] = 0; }
+  };
+  const noCtx = (e) => e.preventDefault();
+  window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('mousemove', mm);
+  canvas.addEventListener('pointerdown', pd); canvas.addEventListener('pointermove', pmv); canvas.addEventListener('pointerup', pu); canvas.addEventListener('pointercancel', pu); canvas.addEventListener('contextmenu', noCtx);
 
   const dist = (i) => { const o = i * 3; return Math.hypot(pos[o] - abs[0], pos[o + 1] - abs[1], pos[o + 2] - abs[2]); };
 
@@ -754,7 +789,17 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts('GPU avg '); tn(r.gpuAvg, 2); ts('  p99 '); tn(r.gpuP99, 2); ts('  max '); tn(r.gpuMax, 2); ts(' ms'); tout(L, Y, F, 1, 0.9, 0.5, 0.9, 0); Y += LH;
       ts('CPU avg '); tn(r.cpuAvg, 2); ts('  p99 '); tn(r.cpuP99, 2); ts(' ms (frame interval)'); tout(L, Y, F, 1, 0.9, 0.5, 0.9, 0); Y += LH;
     }
-    if (showHelp) {
+    if (tc.on) { // on-screen controls
+      layoutBtns(s);
+      const ring = (x, y, r, a, cr, cg, cb) => { for (let k = 0; k < 20; k++) { const a0 = (k / 20) * 6.2832, a1 = ((k + 1) / 20) * 6.2832; seg(x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r, cr, cg, cb, a, 2 * s); } };
+      for (let i = 0; i < BTN.length; i++) {
+        const x = bxy[i * 3], y = bxy[i * 3 + 1], r = bxy[i * 3 + 2], on = bptr[i] >= 0 || (i === 0 && cruise) || (i === 8 && thirdPerson);
+        ring(x, y, r, on ? 0.95 : 0.45, on ? 1 : 0.55, on ? 0.8 : 0.85, on ? 0.3 : 1); ts(BTN[i][1]); tout(x, y - 7 * s, (r > 40 * s ? 15 : 13) * s, on ? 1 : 0.7, on ? 0.85 : 0.9, on ? 0.4 : 1, 0.9, 0.5);
+      }
+      const R = 70 * s, jx = tc.jid >= 0 ? tc.jox : 140 * s, jy = tc.jid >= 0 ? tc.joy : H - 140 * s;
+      ring(jx, jy, R, tc.jid >= 0 ? 0.6 : 0.25, 0.55, 0.85, 1); ring(jx + tc.jx * R, jy + tc.jy * R, 26 * s, tc.jid >= 0 ? 0.9 : 0.35, 0.55, 0.85, 1);
+      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 7 * s, 13 * s, 0.7, 0.9, 1, 0.5, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.62, H - 30 * s, 14 * s, 0.7, 0.85, 1, 0.5, 0.5); }
+    } else if (showHelp) {
       const by = H - 70 * s;
       ts('W/S thrust  A/D strafe  SPACE/X up/down  Q/E roll  MOUSE pitch/yaw (click to lock)  SHIFT boost'); tout(cx, by, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
       ts('TAB target  F supercruise  V 3rd person  B benchmark  J switch system  [ ] exposure  H hide help'); tout(cx, by + 24 * s, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
@@ -776,7 +821,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (nr !== ship.ref) { const o = nr * 3; ship.off[0] = abs[0] - pos[o]; ship.off[1] = abs[1] - pos[o + 1]; ship.off[2] = abs[2] - pos[o + 2]; ship.ref = nr; }
     // nearest surface altitude (drives speed limits)
     let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R);
-    const K = keys, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0), inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0);
+    const K = keys, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy;
     // rotation: quaternion integration of local angular velocity (no Euler angles anywhere)
     const sens = 0.0022 / Math.max(dt, 1e-3);
     const wx = -mdy * sens + ((K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0)) * 1.2, wy = -mdx * sens + ((K.ArrowLeft ? 1 : 0) - (K.ArrowRight ? 1 : 0)) * 1.2, wz = ((K.KeyQ ? 1 : 0) - (K.KeyE ? 1 : 0)) * 1.6;
@@ -797,7 +842,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
       const vmax = Math.min(Math.max(150, alt * 0.35), 3e7) * (K.ShiftLeft || K.ShiftRight ? 8 : 1), acc = vmax * 1.3 * dt;
-      qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.hypot(inX, inY, inZ) || 1;
+      qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); ship.off[j] += ship.vel[j] * dt; }
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
@@ -936,7 +981,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTime: (t) => { simT = t; }, setExposure: (e) => { exposure = e; }, toggleThirdPerson: () => { thirdPerson = !thirdPerson; },
     destroy() {
       dead = true; cancelAnimationFrame(raf);
-      window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('mousemove', mm); canvas.removeEventListener('mousedown', md);
+      window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('mousemove', mm);
+      canvas.removeEventListener('pointerdown', pd); canvas.removeEventListener('pointermove', pmv); canvas.removeEventListener('pointerup', pu); canvas.removeEventListener('pointercancel', pu); canvas.removeEventListener('contextmenu', noCtx);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
       device.destroy();
     },
@@ -946,14 +992,14 @@ async function createEngine(canvas, systemId, opts = {}) {
 }
 
 /* ============================== REACT COMPONENT ============================== */
-export default function SpaceRoam({ systemId = 'sol', onReady, style, offscreen = false }) {
+export default function SpaceRoam({ systemId = 'sol', onReady, style, offscreen = false, renderScale = 0 }) {
   const ref = useRef(null), eng = useRef(null), [err, setErr] = useState(null);
   useEffect(() => {
     let dead = false, e = null;
-    createEngine(ref.current, systemId, { offscreen }).then((x) => { if (dead) return x.destroy(); eng.current = e = x; onReady && onReady(x); }).catch((x) => setErr(String((x && x.message) || x)));
+    createEngine(ref.current, systemId, { offscreen, renderScale }).then((x) => { if (dead) return x.destroy(); eng.current = e = x; onReady && onReady(x); }).catch((x) => setErr(String((x && x.message) || x)));
     return () => { dead = true; eng.current = null; e && e.destroy(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { eng.current && eng.current.switchStarSystem(systemId); }, [systemId]); // V2 interstellar hook
   if (err) return <div style={{ color: '#9cf', font: '16px monospace', padding: 24, background: '#000', height: '100%' }}>SpaceRoam: {err}</div>;
-  return <canvas ref={ref} tabIndex={0} style={{ width: '100%', height: '100%', display: 'block', outline: 'none', cursor: 'crosshair', background: '#000', ...style }} />;
+  return <canvas ref={ref} tabIndex={0} style={{ width: '100%', height: '100%', display: 'block', outline: 'none', cursor: 'crosshair', background: '#000', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', ...style }} />;
 }

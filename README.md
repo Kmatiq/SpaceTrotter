@@ -35,6 +35,19 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `[` / `]` | exposure |
 | `H` | hide help |
 
+### Touch (phones / tablets)
+
+Play in landscape; the **FULL** button hides the browser bars.
+
+- **Left side:** a floating thumbstick appears wherever your thumb lands. Up/down is forward/reverse thrust,
+  left/right is strafe, and throttle is analog.
+- **Right side:** drag anywhere to pitch and yaw.
+- **Buttons:** CRUISE (Supercruise), BOOST (hold), UP/DOWN (hold), ROLL< / ROLL> (hold), <TGT / TGT> (cycle
+  target), CAM (third person), FULL (fullscreen).
+- **Resolution:** touch devices render at one pixel per CSS pixel to keep frame rates playable. Override it
+  with `<SpaceRoam renderScale={…} />`.
+- **Browser support:** WebGPU is needed: Chrome on Android 12+, or Safari on iOS/iPadOS 26+.
+
 ## Architecture
 
 **Precision (no jitter from 1 m to 26 Gm).** All positions are simulated in Float64 on the CPU. Each frame,
