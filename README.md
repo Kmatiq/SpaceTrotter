@@ -49,6 +49,26 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 - **Sense of speed:** space-dust streaks in normal flight, and the field of view widens with boost and
   Supercruise.
 
+### Fly to the surface (real satellite data for Earth and the Moon)
+
+- **Landing:** fly down into the atmosphere and land anywhere on a rocky world. Collision uses the exact
+  rendered ground: a compute shader probes the terrain height under the ship every few frames. Near a solid
+  body the ship co-rotates with it, so the ground doesn't slide under you. The HUD shows **ALT** and **LANDED**.
+- **Real maps:** as you approach Earth or the Moon, real map tiles stream in and replace the procedural
+  surface. Higher-resolution tiles load as you descend.
+  - Earth imagery: [NASA GIBS](https://earthdata.nasa.gov/gibs) Blue Marble Next Generation (Web-Mercator,
+    up to zoom 8).
+  - Earth elevation: [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen Terrarium,
+    up to zoom 10). Real mountains are shown with 2.5× vertical relief, and real coastlines drive the ocean
+    glint.
+  - Moon imagery: [NASA Moon Trek](https://trek.nasa.gov/moon/) LRO WAC global mosaic (up to zoom 8).
+  - Procedural micro-detail is blended in where the imagery runs out of resolution.
+  - Credits are shown in the HUD whenever the imagery is visible.
+- **Offline:** everything else stays procedural, and if the tile servers can't be reached (offline, or the
+  single-file build without network) the generated surface is used instead.
+- **API:** `api.flyTo('earth', lat, lon, altitudeMetres, pitchDeg)` jumps to a real place, e.g.
+  `flyTo('earth', 45.8, 6.9, 9000, -12)` for Mont Blanc.
+
 ### Touch (phones / tablets)
 
 Play in landscape; the **FULL** button hides the browser bars.

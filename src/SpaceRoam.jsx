@@ -22,10 +22,10 @@ registerStarSystem({
       surface: { gas: 1, c: [[0.9, 0.78, 0.52], [0.72, 0.6, 0.38], 0, [0.95, 0.9, 0.75], 0], bands: { amt: 0.35, freq: 7, turb: 4, speed: 0.004 } },
       atmosphere: { height: 0.05, rayleigh: [0.25, 0.2, 0.1], mie: 0.35, g: 0.7 } },
     { id: 'earth', name: 'Earth', fact: 'The only known world with life - and with you.', type: 'planet', radius: 1, orbit: { au: 1, period: 1500, phase: 0.4 }, spin: { period: 600, tilt: 23.4 },
-      surface: { c: [[0.07, 0.15, 0.04], [0.33, 0.26, 0.15], [0.004, 0.025, 0.08], [0.85, 0.88, 0.93], 0], ocean: 0.03, scale: 1.7, height: 0.006, mix: 0.35, caps: 0.86, lights: 1, specular: 1, seed: 7 },
-      atmosphere: { height: 0.025, rayleigh: [0.058, 0.135, 0.33], mie: 0.025, g: 0.8, clouds: 0.55, cloudHeight: 0.0035, cloudSpeed: 0.02 } },
+      surface: { c: [[0.07, 0.15, 0.04], [0.33, 0.26, 0.15], [0.004, 0.025, 0.08], [0.85, 0.88, 0.93], 0], ocean: 0.03, scale: 1.7, height: 0.006, mix: 0.35, caps: 0.86, lights: 1, specular: 1, seed: 7, maps: 'earth' },
+      atmosphere: { height: 0.025, rayleigh: [0.058, 0.135, 0.33], mie: 0.025, g: 0.8, clouds: 0.38, cloudHeight: 0.0035, cloudSpeed: 0.02 } },
     { id: 'luna', name: 'Luna', fact: 'Always shows the same face to Earth.', type: 'moon', parent: 'earth', radius: 0.273, orbit: { pr: 14, period: 400, inc: 5, phase: 2 }, spin: { period: 400, tilt: 1.5 },
-      surface: { c: [[0.44, 0.43, 0.42], [0.17, 0.17, 0.18], 0, 0, 0], scale: 1.6, height: 0.003, craters: 0.55, craterScale: 8, mix: 1.8, seed: 11 } },
+      surface: { c: [[0.44, 0.43, 0.42], [0.17, 0.17, 0.18], 0, 0, 0], scale: 1.6, height: 0.003, craters: 0.55, craterScale: 8, mix: 1.8, seed: 11, maps: 'moon' } },
     { id: 'gateway', name: 'Gateway Station', fact: 'Humanity\'s first deep-space harbour.', type: 'station', parent: 'earth', size: 1500, orbit: { pr: 1.45, period: 900, inc: 12, phase: 0.2 } },
     { id: 'mars', name: 'Mars', fact: 'Home to Olympus Mons, 2.5x taller than Everest.', type: 'planet', radius: 0.532, orbit: { au: 1.52, period: 2100, inc: 1.8, phase: 4.1 }, spin: { period: 620, tilt: 25 },
       surface: { c: [[0.46, 0.18, 0.07], [0.24, 0.11, 0.06], 0, [0.92, 0.9, 0.86], 0], scale: 2, height: 0.007, craters: 0.35, craterScale: 7, mix: 1.1, caps: 0.9, seed: 5 },
@@ -95,6 +95,10 @@ struct Hud{a:vec4f,c:vec4f,b:vec4f};
 @group(0)@binding(3) var<storage,read> HD:array<Hud>;
 @group(0)@binding(4) var atl:texture_2d<f32>;
 @group(0)@binding(5) var smp:sampler;
+@group(0)@binding(6) var<storage,read> TH:array<vec2u>;// tile hash: key -> layer
+@group(0)@binding(7) var TA:texture_2d_array<f32>;// streamed map tiles (256x256)
+struct PB{i:vec4f,o:vec4f};
+@group(2)@binding(0) var<storage,read_write> PRB:PB;
 @group(1)@binding(0) var scn:texture_2d<f32>;
 @group(1)@binding(1) var dep:texture_depth_2d;
 const PI=3.14159265;
@@ -145,17 +149,42 @@ fn crats(p:vec3f,n:f32)->vec4f{var s=vec4f(0.);var f=1.;for(var i=0;i<5;i++){let
 // 14 ringCol,specular | 15 animSpeed,corona,cloudH,_
 struct VB{@builtin(position) p:vec4f,@location(0) @interpolate(flat) id:u32};
 struct FO{@location(0) c:vec4f,@builtin(frag_depth) d:f32};
-struct TR{h:f32,n:vec3f,f:f32,c:f32};
+struct TR{h:f32,n:vec3f,f:f32,c:f32,m:f32};
 @vertex fn vsB(@builtin(vertex_index) v:u32,@builtin(instance_index) i:u32)->VB{
  let b=BD[i].d;let h=max(b[13].w*b[0].w,4.*g.mi.w*b[1].x);
  return VB(g.vp*vec4f(b[0].xyz+cube(v)*h,1.),i);}
+// ---- streamed real maps (Earth: Blue Marble + Terrarium elevation, Moon: LRO WAC); procedural fallback ----
+fn tfind(k:u32)->i32{var h=(k*2654435761u)>>20u;for(var i=0;i<16;i++){let e=TH[h&4095u];if(e.x==k){return i32(e.y);}if(e.x==0xffffffffu){return -1;}h+=1u;}return -1;}
+fn tuv(n:vec3f,eq:bool)->vec2f{let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
+ if(eq){return vec2f((lo+PI)/PI,(PI*.5-la)/PI);}let m=clamp(la,-1.4844,1.4844);return vec2f((lo+PI)/(2.*PI),(1.-log(tan(m)+1./cos(m))/PI)*.5);}
+fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool)->vec4f{var z=min(i32(max(zd,0.)),zm);
+ loop{if(z<0){break;}let s=f32(1u<<u32(z));let t=uv*s;let w=select(s,s*2.,eq);
+  let ix=u32(clamp(floor(t.x),0.,w-1.));let iy=u32(clamp(floor(t.y),0.,s-1.));
+  let L=tfind((kind<<30u)|(u32(z)<<26u)|(iy<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
+ return vec4f(-1.);}
+fn dec(c:vec4f)->f32{return c.r*65280.+c.g*255.+c.b*.99609375-32768.;}// Terrarium RGB -> metres
+fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),10,false);if(r.x<0.){return vec2f(0.);}
+ let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
+ let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
+ return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
+fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,2u,eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),8,eq);
+ if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
+fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
+ let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
+ if(b[12].w>1.5){if(tsel(2u,tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
+ let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
+ let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
+ let ex=elev(normalize(n+t1*ep),fp).x;let ey=elev(normalize(n+t2*ep),fp).x;const EK=3.9e-7;// metres -> R (x2.5 relief)
+ let ld=smoothstep(0.,30.,e.x);
+ return TR(max(e.x,0.)*EK+ld*dt.x*da,(t1*(max(ex,0.)-max(e.x,0.))+t2*(max(ey,0.)-max(e.x,0.)))/ep*EK+ld*dt.yzw*s*da,e.x*.001,0.,1.);}
 fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
+ if(b[12].w>.5){let r=terrMap(b,n,fp);if(r.m>.5){return r;}}
  let s=b[5].w;let sd=vec3f(b[8].w);
  let f=fbm(n*s+sd,lod(fp,s),.5);var h=f.x;var gr=f.yzw*s;
  let ol=b[3].w;if(ol>-5.){if(h<ol){h=ol;gr=vec3f(0.);}h-=ol;}
  h*=b[4].w;gr*=b[4].w;var cr=0.;
  if(b[8].x>0.){let cs=b[8].y;let c=crats(n*cs+sd*1.3,clamp(log2(.5/(fp*cs))/1.26,0.,5.));h+=b[8].x*c.x/cs;gr+=b[8].x*c.yzw;cr=c.x;}
- return TR(h,gr,f.x,cr);}
+ return TR(h,gr,f.x,cr,0.);}
 fn cloud(b:array<vec4f,16>,n:vec3f,fp:f32)->f32{
  let p=ry(n,g.mi.x*b[15].x);let w=fbm(p*3.,4.,.5);
  let f=fbm(p*7.+w.yzw*.04+vec3f(w.x*.6),min(lod(fp,7.),11.),.56).x;let th=.3-b[11].w*.55;return smoothstep(th,th+.35,f)*smoothstep(th-.15,th+.6,f);}
@@ -235,17 +264,20 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  // ---- surface ----
  if(tS>0.){let p=ro+rd*tS;let n=normalize(p);var N=n;var col:vec3f;var spec=0.;var em=vec3f(0.);var rough=.3;
   if(gas){col=gasCol(b,n,fpS);}else{
-   let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));
-   let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=b[3].w;let hr=T.h/max(b[4].w,1e-6);
-   if(ol>-5.&&T.f<ol){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;
-    let wv=vn(n*6000.+vec3f(g.mi.x*.5)).yzw*.004;N=normalize(n+wv-dot(wv,n)*n);rough=clamp(.07+fpS*3e3,.07,.5);}
+   let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));let mm=b[12].w;
+   let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=select(b[3].w,0.,T.m>.5&&mm<1.5);let hr=T.h/max(b[4].w,1e-6);
+   var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS);}
+   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=A.rgb*select(1.15,1.7,mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
+   if(wat&&mm<1.5){spec=b[14].w;}else{wat=false;}}
+   else if(wat){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;}
    else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
     if(ol>-5.){col=mix(col,b[6].xyz,smoothstep(.55,.75,hr)*.8);col=mix(b[4].xyz*1.1,col,smoothstep(0.,.03,T.f-ol));}}
-   let cl=b[6].w;if(cl<1.5){let k=smoothstep(cl,cl+.03,abs(n.y)+m*.06);col=mix(col,b[6].xyz,k);spec*=1.-k;}
+   if(wat){let wv=vn(n*6000.+vec3f(g.mi.x*.5)).yzw*.004;N=normalize(n+wv-dot(wv,n)*n);rough=clamp(.07+fpS*3e3,.07,.5);}
+   let cl=b[6].w;if(cl<1.5&&A.w<.5){let k=smoothstep(cl,cl+.03,abs(n.y)+m*.06);col=mix(col,b[6].xyz,k);spec*=1.-k;}
    let aa=b[7].w;
    if(aa>0.){let r1=1.-abs(vn(n*b[5].w*5.+vec3f(3.3)).x);let r2=1.-abs(vn(n*b[5].w*17.+vec3f(1.1)).x);col=mix(col,b[7].xyz,clamp(aa*(pow(r1,40.)+.6*pow(r2,70.)+.25*smoothstep(.3,.7,m)),0.,1.));}
    if(aa<0.){let f=fbm(n*b[5].w*3.+vec3f(9.),5.,.55).x;col=mix(col,b[7].xyz,smoothstep(.18,.38,f)*min(-aa,1.));em+=vec3f(1.,.32,.05)*smoothstep(.46,.56,f)*3.*-aa;}
-   if(b[10].w>0.&&!(ol>-5.&&T.f<ol)){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,m)*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*smoothstep(.03,.1,T.f-ol);}}
+   if(b[10].w>0.&&!wat){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,select(m,.3,A.w>.5))*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*select(smoothstep(.03,.1,T.f-ol),1.,A.w>.5);}}
   var sT=sunT(b,p,L);
   if(ringOn&&abs(L.y)>1e-4){let tr=-p.y/L.y;if(tr>0.){let rq=p+L*tr;sT*=1.-ringD(b,length(rq.xz),.01)*b[13].z*.9;}}
   if(b[11].w>0.){let ch=b[15].z;sT*=1.-.7*cloud(b,normalize(p+L*(ch/max(dot(n,L),.15))),.01);}
@@ -276,6 +308,8 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(rC.a>0.){acc=rC+(1.-rC.a)*acc;tD=min(tD,tR);}
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
  return FO(acc,zdep(max(tD,1e-9)*R,rdw));}
+// exact ground height under the ship for collision (same terrain function as the raymarch)
+@compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),max(b[4].w,1e-4)*.08);PRB.o=vec4f(r.h,r.f,r.m,1.);}
 // ================= SDF UBER-SHADER (stations, asteroids, comets, ship) =================
 // Inst: a=center(cam-rel m),halfSize | q=orientation | b=type(0 rock,1 station,2 comet,3 ship,4 tail),seed,light,param
 struct VS{@builtin(position) p:vec4f,@location(0) @interpolate(flat) id:u32,@location(1) @interpolate(flat) im:f32};
@@ -473,7 +507,7 @@ function packStatic(F, slot, b, sys) { // writes static uber-shader parameters f
   const bd = s.bands || {}, sp = s.spot || {};
   F.set([s.craters || 0, s.craterScale || 8, s.mix || 0.8, s.seed || 1, bd.amt || 0, bd.freq || 10, bd.turb || 1, sp.amt || 0,
     sp.lat || 0, sp.lon || 0, sp.size || 0.1, s.lights || 0, at.height || 0, at.mie || 0, at.g || 0.75, at.clouds || 0], o + 32);
-  set(12, at.rayleigh || [0, 0, 0], 0);
+  set(12, at.rayleigh || [0, 0, 0], s.maps === 'earth' ? 1 : s.maps === 'moon' ? 2 : 0); // streamed real maps
   F.set([ri.inner || 0, ri.outer || 0, ri.opacity || 0, b.box], o + 52);
   set(14, ri.color || [0, 0, 0], s.specular || 0);
   F.set([bd.speed || at.cloudSpeed || 0, 0, at.cloudHeight || 0.004, 0], o + 60);
@@ -505,16 +539,23 @@ async function createEngine(canvas, systemId, opts = {}) {
   const atlas = device.createTexture({ size: [AW, AH], format: 'rgba8unorm', usage: T.TEXTURE_BINDING | T.COPY_DST | T.RENDER_ATTACHMENT });
   device.queue.copyExternalImageToTexture({ source: oc }, { texture: atlas }, [AW, AH]);
 
+  // ---- streamed map tiles: 256x256 texture array + open-addressing hash (key -> layer) ----
+  const NTL = 224, tileTex = device.createTexture({ size: [256, 256, NTL], format: 'rgba8unorm', usage: T.TEXTURE_BINDING | T.COPY_DST | T.RENDER_ATTACHMENT });
+  const thF = new Uint32Array(8192).fill(0xffffffff), thBuf = buf(thF.byteLength, U.STORAGE | U.COPY_DST); device.queue.writeBuffer(thBuf, 0, thF);
+  const probeIn = new Float32Array(8), probeBuf = buf(32, U.STORAGE | U.COPY_DST | U.COPY_SRC), probeRd = buf(32, U.MAP_READ | U.COPY_DST);
+  const VFC = VF | GPUShaderStage.COMPUTE;
   const bgl0 = device.createBindGroupLayout({ entries: [
-    { binding: 0, visibility: VF, buffer: {} }, { binding: 1, visibility: VF, buffer: { type: 'read-only-storage' } },
+    { binding: 0, visibility: VFC, buffer: {} }, { binding: 1, visibility: VFC, buffer: { type: 'read-only-storage' } },
     { binding: 2, visibility: VF, buffer: { type: 'read-only-storage' } }, { binding: 3, visibility: VF, buffer: { type: 'read-only-storage' } },
-    { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VF, sampler: {} }] });
+    { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VFC, sampler: {} },
+    { binding: 6, visibility: VFC, buffer: { type: 'read-only-storage' } }, { binding: 7, visibility: VFC, texture: { viewDimension: '2d-array' } }] });
   const bgl1 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
     { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } }] });
   const bg0 = device.createBindGroup({ layout: bgl0, entries: [
     { binding: 0, resource: { buffer: gBuf } }, { binding: 1, resource: { buffer: bBuf } }, { binding: 2, resource: { buffer: iBuf } },
-    { binding: 3, resource: { buffer: hBuf } }, { binding: 4, resource: atlas.createView() }, { binding: 5, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) }] });
+    { binding: 3, resource: { buffer: hBuf } }, { binding: 4, resource: atlas.createView() }, { binding: 5, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+    { binding: 6, resource: { buffer: thBuf } }, { binding: 7, resource: tileTex.createView({ dimension: '2d-array' }) }] });
   const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] }), pl1 = device.createPipelineLayout({ bindGroupLayouts: [bgl0, bgl1] });
 
   const PM = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
@@ -528,6 +569,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   const skyP = pipe('vsF', 'fsSky', HDR, undefined, 3), sdfP = pipe('vsS', 'fsS', HDR, undefined, 2, 'front'),
     bodyP = pipe('vsB', 'fsB', HDR, PM, 2, 'front'), tailP = pipe('vsS', 'fsT', HDR, ADD, 1, 'front'),
     postP = pipe('vsF', 'fsPost', fmt, undefined, 0, 0, pl1), hudP = pipe('vsH', 'fsH', fmt, AL, 0);
+  const bglP = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }] });
+  const probeP = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [bgl0, device.createBindGroupLayout({ entries: [] }), bglP] }), compute: { module: mod, entryPoint: 'csProbe' } });
+  const bgP = device.createBindGroup({ layout: bglP, entries: [{ binding: 0, resource: { buffer: probeBuf } }] });
 
   // ---- render targets (recreated only on resize) ----
   let W = 0, H = 0, hdrT, depT, bg1, outT = null;
@@ -569,6 +613,53 @@ async function createEngine(canvas, systemId, opts = {}) {
   const astr = new Float64Array(MAXI * 8);
   let sys = null, nAst = 0, simT = 0, target = 1, cruise = false, cruiseV = 0, warpVis = 0, thirdPerson = false, showHelp = true, lastDist = 0, closing = 0;
   let capReq = null, capBusy = false;
+  // ---- tile streaming (only network use; procedural surface stays as fallback/offline) ----
+  const TSRC = [(z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpeg`,
+    (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
+    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
+  const TZM = [8, 10, 8], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+  let tFly = 0, thDirty = false, tilesSeen = false;
+  const tileLoad = (k, kind, z, x, y) => {
+    tFly++; tmap.set(k, -1);
+    fetch(TSRC[kind](z, x, y), { mode: 'cors' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then((bl) => createImageBitmap(bl, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })).then((bm) => {
+        tFly--; if (dead) return; let sl = 0, old = Infinity;
+        for (let i = 0; i < NTL; i++) { if (tKey[i] === 0xffffffff) { sl = i; break; } if (tUse[i] < old) { old = tUse[i]; sl = i; } }
+        if (tKey[sl] !== 0xffffffff) tmap.delete(tKey[sl]);
+        tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); thDirty = true; tilesSeen = true;
+        device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
+      }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
+  };
+  const want = (kind, z, x, y) => { const k = ((kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
+    let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }
+    for (let pass = 0; pass < 2; pass++) for (let i = 0; i < sys.n; i++) { // nearest mapped body first
+      if ((pass === 0) !== (i === near)) continue;
+      const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
+      const eq = mp === 'moon', o = i * 3, d = dist(i);
+      for (let kind = eq ? 2 : 0; kind <= (eq ? 2 : 1); kind++) {
+        const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
+        if (d > 8 * b.R) continue;
+        const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;
+        tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, cx / d, cy / d, cz / d);
+        const lon = Math.atan2(-t3[2], t3[0]), lat = Math.asin(Math.max(-1, Math.min(1, t3[1]))), an = Math.max((d - b.R) / b.R, 1e-6);
+        const zt = Math.min(TZM[kind], Math.floor(Math.log2((eq ? Math.PI : 2 * Math.PI) / (256 * an * gF[43] * 1.5))));
+        for (let z = zb + 1; z <= zt; z++) {
+          const n = 1 << z, w = eq ? 2 * n : n; let u, v;
+          if (eq) { u = ((lon + Math.PI) / Math.PI) * n; v = ((Math.PI / 2 - lat) / Math.PI) * n; }
+          else { const la = Math.max(-1.4844, Math.min(1.4844, lat)); u = ((lon + Math.PI) / (2 * Math.PI)) * n; v = ((1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2) * n; }
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const y = Math.floor(v) + dy; if (y >= 0 && y < n) want(kind, z, (((Math.floor(u) + dx) % w) + w) % w, y); }
+        }
+      }
+    }
+    if (thDirty) { thDirty = false; thF.fill(0xffffffff); // rebuild the GPU hash (rare: only when a tile arrives)
+      for (let sl = 0; sl < NTL; sl++) { const k = tKey[sl]; if (k === 0xffffffff) continue; let h = Math.imul(k, 2654435761) >>> 20;
+        for (let p = 0; p < 16; p++, h++) { const e = (h & 4095) * 2; if (thF[e] === 0xffffffff) { thF[e] = k; thF[e + 1] = sl; break; } } }
+      device.queue.writeBuffer(thBuf, 0, thF); }
+  }
+  // ---- surface flight: GPU height probe + co-rotating frame ----
+  let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
+  const rq = new Float64Array(4);
   // ---- fun layer: exploration log, supercruise charge, flash, FOV kick, dust, procedural audio ----
   const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
   for (let i = 0; i < 480; i++) dust[i] = hash(i, 77, 3);
@@ -855,6 +946,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     ts('CPU    '); tn(avgDt * 1000, 2); ts(' ms'); tout(L, Y, F, 0.6, 0.9, 1, 0.7, 0); Y += LH;
     if (hasTS) { ts('GPU    '); tn(gpuMs, 2); ts(' ms'); tout(L, Y, F, gpuMs > 11 ? 1 : 0.6, gpuMs > 11 ? 0.5 : 0.9, gpuMs > 11 ? 0.4 : 1, 0.7, 0); Y += LH; }
     ts('TARGET '); ts(tbdy.name); tout(L, Y, F, 0.6, 1, 0.85, 0.9, 0); Y += LH;
+    if (altT < 2e6) { ts(landed ? 'ALT    LANDED' : 'ALT    '); if (!landed) tdist(altT); tout(L, Y, F, landed ? 0.5 : 0.6, 1, landed ? 0.5 : 0.85, 0.95, 0); Y += LH; }
+    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Imagery: NASA GIBS Blue Marble - Elevation: AWS Terrain Tiles (Mapzen)'); tout(W - 14 * s, H - 14 * s, 12 * s, 0.7, 0.8, 0.9, 0.55, 1); }
     ts('LOG    '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); ts(' discovered'); tout(L, Y, F, 1, 0.75, 0.3, 0.9, 0); Y += LH;
     if (cruise) { ts('ETA    '); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
     if (bench.on) { ts('BENCH  '); tn(60 - bench.t, 1); ts(' s left'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
@@ -893,9 +986,20 @@ async function createEngine(canvas, systemId, opts = {}) {
     const ro = ship.ref * 3; abs[0] = pos[ro] + ship.off[0]; abs[1] = pos[ro + 1] + ship.off[1]; abs[2] = pos[ro + 2] + ship.off[2];
     let nr = 0, best = Infinity;
     for (let i = 1; i < sys.n; i++) { const b = sys.list[i]; if (b.soi < best && dist(i) < b.soi) { best = b.soi; nr = i; } }
-    if (nr !== ship.ref) { const o = nr * 3; ship.off[0] = abs[0] - pos[o]; ship.off[1] = abs[1] - pos[o + 1]; ship.off[2] = abs[2] - pos[o + 2]; ship.ref = nr; }
+    if (nr !== ship.ref) { const o = nr * 3; ship.off[0] = abs[0] - pos[o]; ship.off[1] = abs[1] - pos[o + 1]; ship.off[2] = abs[2] - pos[o + 2]; ship.ref = nr; prValid = false; }
+    { // co-rotate with solid bodies so the ground doesn't slide underneath (ship pos, velocity and attitude follow the spin)
+      const rb = sys.list[ship.ref], q = ship.ref * 4, solid = rb.sphere && rb.type !== 'star' && !(rb.def.surface && rb.def.surface.gas);
+      if (solid && rqRef === ship.ref && !bench.on) {
+        tq[0] = -rq[0]; tq[1] = -rq[1]; tq[2] = -rq[2]; tq[3] = rq[3]; qmul(dq, 0, bq, q, tq, 0); // delta = now * prev^-1
+        qrot(ship.off, 0, dq, 0, ship.off[0], ship.off[1], ship.off[2]); qrot(ship.vel, 0, dq, 0, ship.vel[0], ship.vel[1], ship.vel[2]);
+        qmul(sq, 0, dq, 0, ship.q, 0); ship.q.set(sq); qnorm(ship.q, 0);
+        abs[0] = pos[ro] + ship.off[0]; abs[1] = pos[ro + 1] + ship.off[1]; abs[2] = pos[ro + 2] + ship.off[2];
+      }
+      rqRef = solid ? ship.ref : -1; rq[0] = bq[q]; rq[1] = bq[q + 1]; rq[2] = bq[q + 2]; rq[3] = bq[q + 3];
+    }
     // nearest surface altitude (drives speed limits)
-    let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R);
+    let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R * (i === prBody && prValid ? 1 + prH : 1));
+    altT = prValid ? dist(prBody) - sys.list[prBody].R * (1 + prH) : Infinity;
     const K = keys, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy;
     // rotation: quaternion integration of local angular velocity (no Euler angles anywhere)
     const sens = 0.0022 / Math.max(dt, 1e-3);
@@ -920,7 +1024,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
-      const vmax = Math.min(Math.max(150, alt * 0.35), 3e7) * (K.ShiftLeft || K.ShiftRight ? 8 : 1), acc = vmax * 1.3 * dt;
+      const vmax = Math.min(Math.max(40, alt * 0.35), 3e7) * (K.ShiftLeft || K.ShiftRight ? 8 : 1), acc = vmax * 1.3 * dt;
       qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); ship.off[j] += ship.vel[j] * dt; }
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
@@ -928,9 +1032,12 @@ async function createEngine(canvas, systemId, opts = {}) {
     // collision: keep above every sphere surface (terrain margin) and outside stations
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
     for (let i = 0; i < sys.n; i++) {
-      const b = sys.list[i], s = b.def && b.def.surface, mr = b.R * (1 + (s && !s.gas ? (s.height || 0) * 0.6 : 0)) + (b.type === 'station' ? b.R * 0.1 : 30), d = dist(i);
+      const b = sys.list[i], s = b.def && b.def.surface, d = dist(i);
+      const mr = i === prBody && prValid ? b.R * (1 + prH) + 2.5 : b.R + (b.type === 'station' ? b.R * 0.1 : 30); // exact ground once probed (probe starts at 5% R, far above any terrain)
       if (d < mr && !bench.on) { const o = i * 3, k = mr / d; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + (abs[j] - pos[o + j]) * k; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } }
     }
+    landed = prValid && altT < 4 && !cruise && !bench.on;
+    if (landed && inY <= 0 && inZ >= 0 && Math.abs(inX) < 0.1) { ship.vel.fill(0); } // resting on the ground
     // camera
     if (bench.on) { bench.t += dt; benchCam(dt); if (bench.t >= 60) stopBench(true); bench.n++; abs.set(cam); } // HUD distances from the tour camera
     else {
@@ -1025,7 +1132,20 @@ async function createEngine(canvas, systemId, opts = {}) {
     Q.writeBuffer(gBuf, 0, gF); Q.writeBuffer(bBuf, 0, bodyF, 0, sys.nSph * BSTR);
     if (ni) Q.writeBuffer(iBuf, 0, instF, 0, ni * ISTR); if (hn) Q.writeBuffer(hBuf, 0, hudF, 0, hn * HSTR);
     // ---- encode ----
+    if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
+    // ground probe: nearest solid body, direction in its local (spin) frame
+    let doProbe = false;
+    if (!prBusy && frame % 3 === 0) {
+      let bi = -1, bd = Infinity; for (let i = 1; i < sys.n; i++) { const b = sys.list[i]; if (!b.sphere || (b.def.surface && b.def.surface.gas)) continue; const d = (dist(i) - b.R) / b.R; if (d < bd) { bd = d; bi = i; } }
+      if (bi > 0 && bd < 0.05) {
+        const o = bi * 3, q = bi * 4, d = dist(bi); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+        qrot(t3, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
+        probeIn[0] = t3[0]; probeIn[1] = t3[1]; probeIn[2] = t3[2]; probeIn[3] = slotOf[bi]; Q.writeBuffer(probeBuf, 0, probeIn);
+        const cp = enc.beginComputePass(); cp.setPipeline(probeP); cp.setBindGroup(0, bg0); cp.setBindGroup(2, bgP); cp.dispatchWorkgroups(1); cp.end();
+        enc.copyBufferToBuffer(probeBuf, 16, probeRd, 0, 16); doProbe = true; prSent = bi;
+      } else if (bd >= 0.05) { prValid = false; prBody = -1; }
+    }
     let p = enc.beginRenderPass(sceneDesc);
     p.setBindGroup(0, bg0);
     p.setPipeline(skyP); p.draw(3);
@@ -1051,8 +1171,11 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let y = 0; y < cap.h; y++) for (let x = 0; x < cap.w; x++) { const i = y * cap.bpr + x * 4, o = (y * cap.w + x) * 4; px[o] = src[i + (bgra ? 2 : 0)]; px[o + 1] = src[i + 1]; px[o + 2] = src[i + (bgra ? 0 : 2)]; px[o + 3] = 255; }
       cap.buf.destroy(); capBusy = false; const c = new OffscreenCanvas(cap.w, cap.h); c.getContext('2d').putImageData(new ImageData(px, cap.w, cap.h), 0, 0);
       c.convertToBlob({ type: 'image/png' }).then((b) => { const r = new FileReader(); r.onload = () => cap.res(r.result); r.readAsDataURL(b); }); });
+    if (doProbe) { prBusy = true; probeRd.mapAsync(GPUMapMode.READ, 0, 16).then(onProbe, onProbeErr); }
     if (doRead) { rdBusy = true; rdBuf.mapAsync(GPUMapMode.READ, 0, 16).then(onRead, onReadErr); }
   }
+  const onProbe = () => { const v = new Float32Array(probeRd.getMappedRange(0, 16)); prH = v[0]; prBody = prSent; prValid = v[3] > 0.5; probeRd.unmap(); prBusy = false; };
+  const onProbeErr = () => { prBusy = false; };
   const nextOff = () => { raf = requestAnimationFrame(tick); };
   const onRead = () => { const v = new BigUint64Array(rdBuf.getMappedRange(0, 16)); const d = Number(v[1] - v[0]) / 1e6; if (d > 0 && d < 1000) gpuMs += (d - gpuMs) * 0.3; rdBuf.unmap(); rdBusy = false; };
   const onReadErr = () => { rdBusy = false; };
@@ -1063,10 +1186,19 @@ async function createEngine(canvas, systemId, opts = {}) {
   const api = {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam) }; },
-    capture: () => new Promise((res) => { capReq = { res }; }), // PNG data URL of the next frame
+    capture: () => new Promise((res) => { capReq = { res }; }),
+    get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) target = sys.idx[id]; },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
     debugView: (id, dx, dy, dz, lx, ly, lz) => { const i = sys.idx[id]; if (i === undefined) return; const R = sys.list[i].R; ship.ref = i; ship.off[0] = dx * R; ship.off[1] = dy * R; ship.off[2] = dz * R; ship.vel.fill(0); ship.w.fill(0); cruise = false; qlook(ship.q, 0, lx === undefined ? -dx : lx, ly === undefined ? -dy : ly, lz === undefined ? -dz : lz, 0, 1, 0); },
+    flyTo: (id, lat, lon, altM = 5000, pitchDeg = -25) => { // place the ship above a real location (lat/lon in degrees), looking north
+      const i = sys.idx[id]; if (i === undefined) return; const b = sys.list[i], la = lat * D2R, lo = lon * D2R, q = i * 4, r = b.R + altM;
+      qrot(t3, 0, bq, q, Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)); const ux = t3[0], uy = t3[1], uz = t3[2];
+      qrot(t3, 0, bq, q, -Math.sin(la) * Math.cos(lo), Math.cos(la), Math.sin(la) * Math.sin(lo)); // local north
+      const p = pitchDeg * D2R, fx = t3[0] * Math.cos(p) + ux * Math.sin(p), fy = t3[1] * Math.cos(p) + uy * Math.sin(p), fz = t3[2] * Math.cos(p) + uz * Math.sin(p);
+      target = i; cruise = false; charge = -1; ship.ref = i; rqRef = -1; prValid = false; ship.off[0] = ux * r; ship.off[1] = uy * r; ship.off[2] = uz * r; ship.vel.fill(0); ship.w.fill(0);
+      qlook(ship.q, 0, fx, fy, fz, ux, uy, uz);
+    },
     setTime: (t) => { simT = t; }, setExposure: (e) => { exposure = e; }, toggleThirdPerson: () => { thirdPerson = !thirdPerson; },
     destroy() {
       dead = true; cancelAnimationFrame(raf);
