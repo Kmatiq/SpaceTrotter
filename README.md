@@ -6,7 +6,7 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
-**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~217 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~223 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
 
 ```bash
 npm install
@@ -35,6 +35,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `B` | 60 s benchmark |
 | `J` | switch star system (Sol ↔ Kestrel V2 demo) |
 | `[` / `]` | exposure |
+| `G` | performance stats (CPU/GPU ms) |
 | `H` | hide help |
 
 ### Gameplay
@@ -51,9 +52,18 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 
 ### Fly to the surface (real satellite data for Earth and the Moon)
 
-- **Landing:** fly down into the atmosphere and land anywhere on a rocky world. Collision uses the exact
-  rendered ground: a compute shader probes the terrain height under the ship every few frames. Near a solid
-  body the ship co-rotates with it, so the ground doesn't slide under you. The HUD shows **ALT** and **LANDED**.
+- **Landing:** fly down into the atmosphere and land anywhere on a rocky world. A compute shader probes the
+  exact terrain height under the ship every frame. The view always stays a clearance above the ground: 25 m,
+  plus more when you're fast. A soft cushion limits your descent rate as you get close, so you settle gently
+  instead of crashing or clipping through. Boost is capped near the ground. Near a solid body the ship
+  co-rotates with it, so the ground doesn't slide under you.
+- **Atmospheric entry:** dive into an atmosphere fast and you get a plasma sheath. Flames stream around the
+  screen edges, with heat-haze refraction, buffeting camera shake and a re-entry roar. Banners announce
+  entering and leaving the atmosphere, approaching an airless surface, and touching down (with a jolt and a
+  thump).
+- **Flight HUD:** near a surface the HUD switches to an artificial horizon with a pitch ladder (dashed below
+  the horizon). Large ALT, V/S, SPD and PITCH readouts flank the reticle. Orbit lines and labels of bodies
+  hidden behind the planet are removed.
 - **Real maps:** as you approach Earth or the Moon, real map tiles stream in and replace the procedural
   surface. Higher-resolution tiles load as you descend.
   - Earth imagery: [NASA GIBS](https://earthdata.nasa.gov/gibs) Blue Marble Next Generation (Web-Mercator,
@@ -129,10 +139,12 @@ The asteroid belt has two layers:
 - 2,000 orbiting asteroids whose elements are kept in f64 and positioned on the CPU each frame.
 - A procedural cell-grid field of up to about 1,800 rocks that appears around you inside the belt.
 
-**Post and HUD.** A spiral-tap bloom, a depth-occlusion-tested analytic sun glare, warp streaks and ACES tone
-mapping. The HUD is drawn with WebGPU: instanced antialiased line segments, and glyphs from an atlas rasterised
-once at startup from the system monospace font. It shows target brackets, off-screen arrows, distance,
-closing velocity, orbit paths and telemetry.
+**Post and HUD.** A spiral-tap bloom, a depth-occlusion-tested analytic sun glare, warp streaks, the re-entry
+plasma and ACES tone mapping. The HUD is drawn with WebGPU from instanced antialiased line segments, filled or
+outlined circles, and glyphs from an atlas rasterised once at startup from the system monospace font. Glyphs
+get a dark outline in the shader so text stays readable over bright planets. It scales from the CSS size of the
+screen, so it's readable on phones and on 4K screens. It shows a telemetry panel, target brackets, off-screen
+arrows, distance, closing velocity, orbit paths, banners and the surface flight HUD.
 
 **Per-frame allocations.** All CPU mirrors (`Float32Array` for globals, bodies, instances and HUD, plus the
 f64 state) and all GPU buffers are preallocated. Pass descriptors and the submit array are reused. Numbers are
@@ -165,11 +177,11 @@ build was run end to end, including the full benchmark.
 
 | | |
 | --- | --- |
-| Source `SpaceRoam.jsx` | 107.9 KB |
-| Minified | **74.3 KB** |
-| Minified + gzip | **30.7 KB** |
-| Minified + brotli | 27.3 KB |
-| …of which WGSL (all shaders) | 24.5 KB |
+| Source `SpaceRoam.jsx` | 118.2 KB |
+| Minified | **80.2 KB** |
+| Minified + gzip | **33.3 KB** |
+| Minified + brotli | 29.5 KB |
+| …of which WGSL (all shaders) | 25.5 KB |
 
 ## Verification status
 

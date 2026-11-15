@@ -85,7 +85,7 @@ registerStarSystem({
 
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
-struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f};
+struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f};
 struct Body{d:array<vec4f,16>};
 struct Inst{a:vec4f,q:vec4f,b:vec4f};
 struct Hud{a:vec4f,c:vec4f,b:vec4f};
@@ -407,7 +407,9 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
  return vec4f(c,1.);}
 // ================= POST: bloom-lite, sun glare, warp streaks, ACES =================
 @fragment fn fsPost(@builtin(position) f:vec4f)->@location(0) vec4f{
- let ip=vec2i(f.xy);let mx=vec2i(g.res.xy)-1;var c=textureLoad(scn,ip,0).rgb;let sk=g.res.y/1440.;
+ let mx=vec2i(g.res.xy)-1;let sk=g.res.y/1440.;let hu0=(f.xy-g.res.xy*.5)/g.res.y;let hr=length(hu0);let ha=atan2(hu0.y,hu0.x);let he=g.fx.x*smoothstep(.22,.85,hr);
+ var ip=vec2i(f.xy);if(he>0.){let hq=f.xy*.035/max(sk,.3);let w=vec2f(vn(vec3f(hq,g.mi.x*6.)).x,vn(vec3f(hq.yx+vec2f(7.),g.mi.x*6.)).x);ip=clamp(ip+vec2i(w*he*9.*sk),vec2i(0),mx);} // heat-haze refraction
+ var c=textureLoad(scn,ip,0).rgb;
  var bl=vec3f(0.);for(var i=0;i<16;i++){let a=f32(i)*2.39996;let r=(3.+f32(i)*2.2)*sk;let s=textureLoad(scn,clamp(ip+vec2i(vec2f(cos(a),sin(a))*r),vec2i(0),mx),0).rgb;bl+=max(s-vec3f(1.),vec3f(0.))/(1.+f32(i)*.3);}
  c+=bl*.035;
  if(g.ss.w>0.){let sp=g.ss.xy*g.res.xy;var vis=0.;var tot=0.;
@@ -419,18 +421,27 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
  if(g.wp.x>0.){let u=(f.xy-g.res.xy*.5)/g.res.y;let r=length(u);let a=atan2(u.y,u.x);
   let s=pow(vn(vec3f(a*24.,r*3.-g.mi.x*14.,0.)).x*.5+.5,10.)*smoothstep(.05,.6,r)*g.wp.x;c+=vec3f(.55,.75,1.)*s*.8;}
  c+=vec3f(.75,.85,1.)*g.wp.y*3.;
+ if(g.fx.x>0.){let t=g.mi.x;let n1=vn(vec3f(cos(ha)*9.+9.,sin(ha)*9.,hr*5.-t*9.)).x*.5+.5;let n2=vn(vec3f(cos(ha)*22.,sin(ha)*22.+4.,hr*12.-t*19.)).x*.5+.5;
+  let fl=pow(clamp(n1*.65+n2*.4,0.,1.2),5.)*he;let gl=pow(smoothstep(.35,1.,hr),3.)*g.fx.x;
+  c=c*(1.-.25*he)+vec3f(1.,.36,.08)*fl*1.8+vec3f(1.,.3,.35)*gl*.35+vec3f(1.,.5,.2)*g.fx.y*.6;} // plasma sheath + touchdown/entry flash
  c*=g.mi.z;c=clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),vec3f(0.),vec3f(1.));
  let uv=f.xy*g.res.zw-.5;c*=1.-dot(uv,uv)*.35;
  c=pow(c,vec3f(1./2.2))+(hf(vec3i(ip,7))-.5)/255.;return vec4f(c,1.);}
 // ================= HUD: instanced AA segments + glyphs =================
-struct VH{@builtin(position) p:vec4f,@location(0) uv:vec2f,@location(1) c:vec4f,@location(2) @interpolate(flat) k:vec2f};
+struct VH{@builtin(position) p:vec4f,@location(0) uv:vec2f,@location(1) c:vec4f,@location(2) @interpolate(flat) k:vec3f};
 @vertex fn vsH(@builtin(vertex_index) v:u32,@builtin(instance_index) i:u32)->VH{
  let h=HD[i];var Q=array(vec2f(0,0),vec2f(1,0),vec2f(1,1),vec2f(0,0),vec2f(1,1),vec2f(0,1));let q=Q[v];var px:vec2f;var uv:vec2f;
  if(h.b.x>=0.){px=h.a.xy+q*vec2f(h.a.z*.625,h.a.z);let ch=u32(h.b.x)-32u;uv=(vec2f(f32(ch%16u),f32(ch/16u))+q)/vec2f(16.,6.);}
+ else if(h.b.x<-1.5){let r=h.a.z+h.b.y*.5+1.5;uv=(q*2.-1.)*r;px=h.a.xy+uv;}
  else{let d=h.a.zw-h.a.xy;let l=max(length(d),1e-3);let t=d/l;let n=vec2f(-t.y,t.x);let w=h.b.y*.5+1.;px=h.a.xy+t*(q.x*(l+2.)-1.)+n*(q.y*2.-1.)*w;uv=vec2f(0.,(q.y*2.-1.)*w);}
- return VH(vec4f(px.x*g.res.z*2.-1.,1.-px.y*g.res.w*2.,0.,1.),uv,h.c,h.b.xy);}
+ return VH(vec4f(px.x*g.res.z*2.-1.,1.-px.y*g.res.w*2.,0.,1.),uv,h.c,vec3f(h.b.xy,h.a.z));}
 @fragment fn fsH(v:VH)->@location(0) vec4f{
- var a:f32;if(v.k.x>=0.){a=textureSampleLevel(atl,smp,v.uv,0.).r;}else{a=clamp(v.k.y*.5+.5-abs(v.uv.y),0.,1.);}
+ var a:f32;
+ if(v.k.x>=0.){a=textureSampleLevel(atl,smp,v.uv,0.).r;let e=vec2f(2.2/480.,2.2/288.);
+  var o=0.;for(var i=0;i<8;i++){let an=f32(i)*.7854;o=max(o,textureSampleLevel(atl,smp,v.uv+vec2f(cos(an),sin(an))*e,0.).r);}
+  let oa=max(a,min(o*1.6,1.)*.8);return vec4f(v.c.rgb*a/max(oa,1e-4),v.c.a*oa);} // dark outline keeps text readable on bright planets
+ else if(v.k.x<-1.5){let d=length(v.uv);a=select(clamp(v.k.y*.5+.5-abs(d-v.k.z),0.,1.),clamp(v.k.z-d+.5,0.,1.),v.k.y<=0.);}
+ else{a=clamp(v.k.y*.5+.5-abs(v.uv.y),0.,1.);}
  return vec4f(v.c.rgb,v.c.a*a);}
 `;
 
@@ -440,6 +451,7 @@ const qmul = (o, oi, a, ai, b, bi) => { // o = a*b (x,y,z,w)
   o[oi] = aw * bx + ax * bw + ay * bz - az * by; o[oi + 1] = aw * by - ax * bz + ay * bw + az * bx;
   o[oi + 2] = aw * bz + ax * by - ay * bx + az * bw; o[oi + 3] = aw * bw - ax * bx - ay * by - az * bz;
 };
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const qnorm = (q, i) => { const l = Math.hypot(q[i], q[i + 1], q[i + 2], q[i + 3]) || 1; q[i] /= l; q[i + 1] /= l; q[i + 2] /= l; q[i + 3] /= l; };
 const qaxis = (o, oi, x, y, z, ang) => { const s = Math.sin(ang / 2); o[oi] = x * s; o[oi + 1] = y * s; o[oi + 2] = z * s; o[oi + 3] = Math.cos(ang / 2); };
 const qrot = (o, oi, q, qi, x, y, z) => { // o = q * v * q^-1
@@ -659,6 +671,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
+  // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
+  let clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
+  const banner = (txt, hot) => { bannerS = txt; bannerT = 3.2; bannerHot = hot; };
   const rq = new Float64Array(4);
   // ---- fun layer: exploration log, supercruise charge, flash, FOV kick, dust, procedural audio ----
   const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
@@ -695,12 +710,12 @@ async function createEngine(canvas, systemId, opts = {}) {
     n.buffer = au.nb; b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(f0, t); b.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(b); b.connect(g); g.connect(au.m); n.start(t); n.stop(t + dur); }
   const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.18); blip(990, 990, 0.5, 'sine', 0.16, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.14, 0.26); blip(1760, 1760, 1.2, 'triangle', 0.1, 0.42); } };
-  function audioFrame(thr, boost, chg) {
+  function audioFrame(thr, boost, chg, ht) {
     const c = au.ctx; if (!c) return; const t = c.currentTime, w = warpVis;
     au.eg.gain.setTargetAtTime((0.04 + thr * 0.16) * (1 - w * 0.7), t, 0.12); au.eo.frequency.setTargetAtTime(38 + thr * 26 + boost * 30, t, 0.25); au.eo2.frequency.setTargetAtTime(19 + thr * 13 + boost * 15, t, 0.25);
     au.ef.frequency.setTargetAtTime(140 + thr * 500 + boost * 1100, t, 0.15);
     au.hg.gain.setTargetAtTime(thr * 0.1 * (1 + boost * 1.5), t, 0.1); au.hf.frequency.setTargetAtTime(500 + boost * 1800, t, 0.2);
-    au.wg.gain.setTargetAtTime(w * 0.22 + chg * 0.12, t, 0.15); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800, t, 0.2);
+    au.wg.gain.setTargetAtTime(w * 0.22 + chg * 0.12 + ht * 0.4, t, 0.15); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
     au.sg.gain.setTargetAtTime(chg * 0.07 + w * 0.015, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
   function dropCruise(v) { cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.35); blip(180, 45, 0.7, 'sine', 0.35); }
@@ -760,6 +775,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'KeyB': bench.on ? stopBench(false) : startBench(); break;
       case 'KeyV': thirdPerson = !thirdPerson; break;
       case 'KeyH': showHelp = !showHelp; break;
+      case 'KeyG': showStats = !showStats; break;
       case 'KeyJ': switchStarSystem(sys.def.id === 'sol' ? 'kestrel' : 'sol'); break;
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
@@ -773,8 +789,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   const bxy = new Float32Array(BTN.length * 3), bptr = new Int32Array(BTN.length).fill(-1);
   const tc = { on: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches), jid: -1, jox: 0, joy: 0, jx: 0, jy: 0, lid: -1, lx: 0, ly: 0 };
   const layoutBtns = (s) => { // canvas-pixel layout, recomputed per frame (no allocation)
-    const P = [W - 80 * s, H - 90 * s, 44, W - 190 * s, H - 62 * s, 34, W - 62 * s, H - 205 * s, 30, W - 62 * s, H - 285 * s, 30, 255 * s, H - 52 * s, 28, 330 * s, H - 52 * s, 28,
-      W - 300 * s, 46 * s, 26, W - 230 * s, 46 * s, 26, W - 160 * s, 46 * s, 26, W - 90 * s, 46 * s, 26, W - 370 * s, 46 * s, 26];
+    const P = [W - 92 * s, H - 96 * s, 54, W - 214 * s, H - 64 * s, 42, W - 54 * s, H - 268 * s, 36, W - 54 * s, H - 188 * s, 36, W * 0.4 - 46 * s, H - 54 * s, 34, W * 0.4 + 46 * s, H - 54 * s, 34,
+      W - 338 * s, 48 * s, 32, W - 266 * s, 48 * s, 32, W - 194 * s, 48 * s, 32, W - 50 * s, 48 * s, 32, W - 122 * s, 48 * s, 32];
     for (let i = 0; i < BTN.length; i++) { bxy[i * 3] = P[i * 3]; bxy[i * 3 + 1] = P[i * 3 + 1]; bxy[i * 3 + 2] = P[i * 3 + 2] * s; }
   };
   const pc = (e) => { scr[0] = (e.offsetX * W) / (canvas.clientWidth || 1); scr[1] = (e.offsetY * H) / (canvas.clientHeight || 1); };
@@ -791,7 +807,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     else if (tc.lid < 0) { tc.lid = id; tc.lx = x; tc.ly = y; }
   };
   const pmv = (e) => {
-    if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 70 * Math.max(0.75, H / 1200);
+    if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 74 * hs;
     if (id === tc.jid) { tc.jx = Math.max(-1, Math.min(1, (scr[0] - tc.jox) / R)); tc.jy = Math.max(-1, Math.min(1, (scr[1] - tc.joy) / R)); }
     else if (id === tc.lid) { const k = 3.2 / W / 0.0022; mdx += (scr[0] - tc.lx) * k; mdy += (scr[1] - tc.ly) * k; tc.lx = scr[0]; tc.ly = scr[1]; }
   };
@@ -845,6 +861,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- HUD builders (write straight into the preallocated instance array) ----
   let hn = 0; const tb = new Uint8Array(256); let tl = 0;
   const seg = (x0, y0, x1, y1, r, g, b, a, w) => { if (hn >= MAXH) return; const o = hn++ * HSTR; hudF[o] = x0; hudF[o + 1] = y0; hudF[o + 2] = x1; hudF[o + 3] = y1; hudF[o + 4] = r; hudF[o + 5] = g; hudF[o + 6] = b; hudF[o + 7] = a; hudF[o + 8] = -1; hudF[o + 9] = w; };
+  const circ = (x, y, r, th, cr, cg, cb, a) => { if (hn >= MAXH) return; const o = hn++ * HSTR; hudF[o] = x; hudF[o + 1] = y; hudF[o + 2] = r; hudF[o + 3] = 0; hudF[o + 4] = cr; hudF[o + 5] = cg; hudF[o + 6] = cb; hudF[o + 7] = a; hudF[o + 8] = -2; hudF[o + 9] = th; };
   const ts = (s) => { for (let i = 0; i < s.length && tl < 255; i++) tb[tl++] = s.charCodeAt(i); };
   const tn = (v, dec) => {
     if (!isFinite(v)) { ts('--'); return; } if (v < 0) { tb[tl++] = 45; v = -v; }
@@ -859,6 +876,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < tl; i++) { const c = tb[i]; if (c !== 32 && hn < MAXH) { const o = hn++ * HSTR; hudF[o] = x + i * adv; hudF[o + 1] = y; hudF[o + 2] = sz; hudF[o + 4] = r; hudF[o + 5] = g; hudF[o + 6] = b; hudF[o + 7] = a; hudF[o + 8] = c; } }
     tl = 0;
   };
+  const hidden = (i) => { // is body i behind the planet/moon we are flying over?
+    if (!prValid || i === prBody) return false; const o = i * 3, q = prBody * 3, dx = pos[o] - cam[0], dy = pos[o + 1] - cam[1], dz = pos[o + 2] - cam[2], dl = Math.hypot(dx, dy, dz);
+    const cx = pos[q] - cam[0], cy = pos[q + 1] - cam[1], cz = pos[q + 2] - cam[2], t = (cx * dx + cy * dy + cz * dz) / dl, Rb = sys.list[prBody].R;
+    return t > 0 && t < dl && cx * cx + cy * cy + cz * cz - t * t < Rb * Rb; };
+  const lab = (t, x, y) => { ts(t); tout(x, y + 3 * hs, 15 * hs, 0.5, 0.72, 0.9, 0.85, 0); }; // dim panel label
   const tanY = () => Math.tan(fov / 2);
   const project = (x, y, z) => { // camera-relative f64 point -> screen px in scr[], returns false if behind
     const vz = x * fw[0] + y * fw[1] + z * fw[2]; if (vz < 1e-3) return false;
@@ -866,10 +888,10 @@ async function createEngine(canvas, systemId, opts = {}) {
     scr[0] = (0.5 + 0.5 * (x * rt[0] + y * rt[1] + z * rt[2]) / (vz * tx)) * W; scr[1] = (0.5 - 0.5 * (x * up[0] + y * up[1] + z * up[2]) / (vz * ty)) * H; scr[2] = vz; return true;
   };
   function buildHud(dt, spd) {
-    hn = 0; const s = Math.max(0.75, H / 1200), cx = W / 2, cy = H / 2, C = 0.45, Cg = 0.9, Cb = 1;
+    hn = 0; const ch = canvas.clientHeight || H, s = hs = (H / ch) * Math.max(0.85, Math.min(1.45, ch / 850)), cx = W / 2, cy = H / 2; // HUD scale from CSS size: readable on phones and 4K alike
     // orbit paths: planets around the star + moons/stations of the local planet
     const loc = ship.ref > 0 ? (sys.list[ship.ref].parent > 0 ? sys.list[ship.ref].parent : ship.ref) : -1;
-    for (let i = 1; i < sys.n; i++) {
+    for (let i = 1; i < sys.n && !prValid; i++) {
       const b = sys.list[i]; if (!(b.parent === 0 || b.parent === loc)) continue;
       const p = b.parent * 3, hi = i === target, a = hi ? 0.55 : 0.16, N = b.ecc > 0 ? 160 : 128;
       let px = 0, py = 0, ok = false;
@@ -889,30 +911,31 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (i === target || prad > 60 || scr[0] < 0 || scr[1] < 0 || scr[0] > W || scr[1] > H) continue;
       if (b.type === 'station' && dist(i) > 2e8) continue;
       if (b.type === 'moon' && b.parent !== loc && b.parent !== ship.ref) continue;
-      const x = scr[0], y = scr[1], m = 4 * s, C = disc[i] ? 0.45 : 1, Cg = disc[i] ? 0.9 : 0.7, Cb = disc[i] ? 1 : 0.25; // amber = uncharted
-      seg(x - m, y, x, y - m, C, Cg, Cb, 0.5, 1.2 * s); seg(x, y - m, x + m, y, C, Cg, Cb, 0.5, 1.2 * s); seg(x + m, y, x, y + m, C, Cg, Cb, 0.5, 1.2 * s); seg(x, y + m, x - m, y, C, Cg, Cb, 0.5, 1.2 * s);
-      ts(b.name); tout(x + 9 * s, y - 8 * s, 15 * s, C, Cg, Cb, 0.55, 0);
+      if (hidden(i)) continue;
+      const x = scr[0], y = scr[1], C = disc[i] ? 0.55 : 1, Cg = disc[i] ? 0.9 : 0.72, Cb = disc[i] ? 1 : 0.3; // amber = uncharted
+      circ(x, y, 4.5 * s, 1.6 * s, C, Cg, Cb, 0.7);
+      ts(b.name); tout(x + 10 * s, y - 9 * s, 17 * s, C, Cg, Cb, 0.8, 0);
     }
     // target bracket / off-screen arrow
     const to = target * 3, tbdy = sys.list[target], td = dist(target);
     closing += ((lastDist - td) / Math.max(dt, 1e-4) - closing) * Math.min(1, dt * 4); lastDist = td;
     const tx = pos[to] - cam[0], ty = pos[to + 1] - cam[1], tz = pos[to + 2] - cam[2];
     const vis = project(tx, ty, tz) && scr[0] > 0 && scr[1] > 0 && scr[0] < W && scr[1] < H;
-    if (vis) {
-      const x = scr[0], y = scr[1], r = Math.max(22 * s, (tbdy.R * (tbdy.sphere ? 1.05 : 2)) / scr[2] / tanY() * H * 0.5), l = Math.min(r * 0.4, 30 * s);
-      for (let k = 0; k < 4; k++) { const sx = k & 1 ? 1 : -1, sy = k & 2 ? 1 : -1; seg(x + sx * r, y + sy * r, x + sx * (r - l), y + sy * r, 0.5, 1, 0.8, 0.9, 2 * s); seg(x + sx * r, y + sy * r, x + sx * r, y + sy * (r - l), 0.5, 1, 0.8, 0.9, 2 * s); }
-      ts(tbdy.name); tout(x + r + 8 * s, y - r, 20 * s, 0.6, 1, 0.85, 1, 0);
-      tdist(td - tbdy.R); tout(x + r + 8 * s, y - r + 24 * s, 17 * s, 0.6, 1, 0.85, 0.85, 0);
-      tdist(closing); ts('/s'); tout(x + r + 8 * s, y - r + 45 * s, 17 * s, 0.6, 1, 0.85, 0.7, 0);
-      if (!disc[target]) { ts('UNCHARTED - fly close to log'); tout(x + r + 8 * s, y - r + 66 * s, 14 * s, 1, 0.7, 0.25, 0.85, 0); }
-    } else {
+    if (vis && !(prValid && prBody === target)) {
+      const x = scr[0], y = scr[1], r = Math.max(24 * s, (tbdy.R * (tbdy.sphere ? 1.05 : 2)) / scr[2] / tanY() * H * 0.5), l = Math.min(r * 0.4, 30 * s);
+      for (let k = 0; k < 4; k++) { const sx = k & 1 ? 1 : -1, sy = k & 2 ? 1 : -1; seg(x + sx * r, y + sy * r, x + sx * (r - l), y + sy * r, 0.5, 1, 0.8, 0.95, 2.2 * s); seg(x + sx * r, y + sy * r, x + sx * r, y + sy * (r - l), 0.5, 1, 0.8, 0.95, 2.2 * s); }
+      const lx = Math.min(x + r + 10 * s, W - 260 * s), ly = Math.max(y - r, 70 * s);
+      ts(tbdy.name); tout(lx, ly, 22 * s, 0.65, 1, 0.85, 1, 0);
+      tdist(td - tbdy.R); ts('   '); tdist(closing); ts('/s'); tout(lx, ly + 27 * s, 17 * s, 0.65, 1, 0.85, 0.85, 0);
+      if (!disc[target]) { ts('UNCHARTED - fly close to log'); tout(lx, ly + 50 * s, 16 * s, 1, 0.72, 0.3, 0.9, 0); }
+    } else if (!vis) {
       let ax = tx * rt[0] + ty * rt[1] + tz * rt[2], ay = -(tx * up[0] + ty * up[1] + tz * up[2]); const l = Math.hypot(ax, ay) || 1; ax /= l; ay /= l;
-      const R = Math.min(W, H) * 0.42, x = cx + ax * R, y = cy + ay * R, k = 16 * s;
-      seg(x, y, x - ax * k - ay * k * 0.6, y - ay * k + ax * k * 0.6, 0.5, 1, 0.8, 0.9, 2.5 * s); seg(x, y, x - ax * k + ay * k * 0.6, y - ay * k - ax * k * 0.6, 0.5, 1, 0.8, 0.9, 2.5 * s);
-      ts(tbdy.name); tout(x - ax * 40 * s, y - ay * 40 * s, 16 * s, 0.6, 1, 0.85, 0.9, 0.5);
+      const R = Math.min(W, H) * 0.4, x = cx + ax * R, y = cy + ay * R, k = 18 * s;
+      seg(x, y, x - ax * k - ay * k * 0.6, y - ay * k + ax * k * 0.6, 0.5, 1, 0.8, 0.95, 3 * s); seg(x, y, x - ax * k + ay * k * 0.6, y - ay * k - ax * k * 0.6, 0.5, 1, 0.8, 0.95, 3 * s);
+      ts(tbdy.name); tout(x - ax * 46 * s, y - ay * 46 * s - 9 * s, 18 * s, 0.65, 1, 0.85, 0.95, 0.5);
     }
     // space dust: world-anchored motes in a wrapped box around the camera (reference-body frame) → speed streaks
-    if (!bench.on && !cruise && spd > 3) {
+    if (!bench.on && !cruise && spd > 3 && !prValid) {
       const D = Math.max(256, Math.pow(4, Math.ceil(Math.log(spd * 2.5) / Math.log(4)))), h = D / 2, kv = Math.min(0.12, (0.3 * D) / spd), fa = Math.min(1, (spd - 3) / 30);
       const ox = cam[0] - pos[ship.ref * 3], oy = cam[1] - pos[ship.ref * 3 + 1], oz = cam[2] - pos[ship.ref * 3 + 2];
       for (let i = 0; i < 160; i++) {
@@ -923,55 +946,96 @@ async function createEngine(canvas, systemId, opts = {}) {
         const a = fa * 0.85 * (1 - r) * (1 - r); seg(ax, ay, scr[0], scr[1], 0.75, 0.85, 1, a, 1.4 * s);
       }
     }
+    // flight HUD near a surface: artificial horizon + pitch ladder (local vertical), big ALT / V-SPEED / SPEED readouts
+    if (prValid && !bench.on) {
+      const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]);
+      const nx = (cam[0] - pos[o]) / d, ny = (cam[1] - pos[o + 1]) / d, nz = (cam[2] - pos[o + 2]) / d, fa = Math.min(1, (0.05 - altT / sys.list[prBody].R) * 60);
+      const pitch = Math.asin(Math.max(-1, Math.min(1, nx * fw[0] + ny * fw[1] + nz * fw[2]))) / D2R;
+      let ux = nx * rt[0] + ny * rt[1] + nz * rt[2], uy = -(nx * up[0] + ny * up[1] + nz * up[2]); const ul = Math.hypot(ux, uy);
+      if (ul > 0.03 && fa > 0) { ux /= ul; uy /= ul; const fpx = (H * 0.5) / tanY(), px = -uy, py = ux;
+        for (let p = -80; p <= 80; p += 10) {
+          const dp = pitch - p; if (Math.abs(dp) > 26) continue; const off = Math.tan(dp * D2R) * fpx, mx = cx - ux * off, my = cy - uy * off;
+          const hz = p === 0, half = hz ? Math.min(W * 0.3, 420 * s) : 80 * s, gap = hz ? 110 * s : 34 * s, a = fa * (hz ? 0.75 : 0.5) * (1 - smooth(18, 26, Math.abs(dp)));
+          const nd = p < 0 ? 3 : 1, sl = (half - gap) / nd; // below-horizon rungs are dashed
+          for (let k = 0; k < nd; k++) { const g0 = gap + k * sl, g1 = gap + (k + (nd > 1 ? 0.6 : 1)) * sl;
+            seg(mx - px * g1, my - py * g1, mx - px * g0, my - py * g0, 0.55, 1, 0.7, a, (hz ? 2.4 : 1.6) * s); seg(mx + px * g0, my + py * g0, mx + px * g1, my + py * g1, 0.55, 1, 0.7, a, (hz ? 2.4 : 1.6) * s); }
+          if (!hz) { const tk = (p > 0 ? 9 : -9) * s; seg(mx - px * half, my - py * half, mx - px * half + ux * tk, my - py * half + uy * tk, 0.55, 1, 0.7, a, 1.6 * s); seg(mx + px * half, my + py * half, mx + px * half + ux * tk, my + py * half + uy * tk, 0.55, 1, 0.7, a, 1.6 * s);
+            tn(Math.abs(p), 0); tout(mx + px * (half + 24 * s), my + py * (half + 24 * s) - 8 * s, 16 * s, 0.55, 1, 0.7, a, 0.5); }
+        }
+      }
+      const vr = ship.vel[0] * nx + ship.vel[1] * ny + ship.vel[2] * nz, rx = cx + 150 * s, lx2 = cx - 150 * s;
+      ts(landed ? 'LANDED' : 'ALT'); tout(rx, cy - 44 * s, 15 * s, 0.55, 1, 0.7, 0.75 * fa, 0);
+      if (!landed) { tdist(Math.max(0, altT - clr)); tout(rx, cy - 22 * s, 26 * s, 0.75, 1, 0.8, fa, 0); }
+      ts('V/S '); if (vr > 0) ts('+'); tn(Math.abs(vr) < 1e4 ? vr : vr / 1e3, 0); ts(Math.abs(vr) < 1e4 ? ' m/s' : ' km/s'); tout(rx, cy + 14 * s, 17 * s, vr < -150 && altT < 3000 ? 1 : 0.55, vr < -150 && altT < 3000 ? 0.45 : 1, vr < -150 && altT < 3000 ? 0.35 : 0.7, 0.9 * fa, 0);
+      ts('SPD'); tout(lx2, cy - 44 * s, 15 * s, 0.55, 1, 0.7, 0.75 * fa, 1); tdist(spd); ts('/s'); tout(lx2, cy - 22 * s, 26 * s, 0.75, 1, 0.8, fa, 1);
+      ts('PITCH '); tn(pitch, 0); tout(lx2, cy + 14 * s, 17 * s, 0.55, 1, 0.7, 0.9 * fa, 1);
+    }
     // supercruise charge ring
-    if (charge >= 0) { const k = 1 - charge / 1.2, R = 46 * s, N = Math.max(1, Math.floor(40 * k));
-      for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.9, 3 * s); }
-      ts('CHARGING SUPERCRUISE'); tout(cx, cy + 62 * s, 16 * s, 1, 0.8, 0.3, 0.9, 0.5); }
+    if (charge >= 0) { const k = 1 - charge / 1.2, R = 50 * s, N = Math.max(1, Math.floor(40 * k));
+      circ(cx, cy, R, 1.2 * s, 1, 0.8, 0.3, 0.25);
+      for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.95, 4 * s); }
+      ts('CHARGING SUPERCRUISE'); tout(cx, cy + 70 * s, 19 * s, 1, 0.8, 0.3, 0.95, 0.5); }
+    // event banner (atmosphere entry/exit, surface approach, touchdown)
+    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * 0.72, bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
+      seg(cx - bw, by, cx + bw, by, 0.02, 0.03, 0.05, 0.5 * a, 46 * s); seg(cx - bw, by - 23 * s, cx + bw, by - 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s); seg(cx - bw, by + 23 * s, cx + bw, by + 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s);
+      ts(bannerS); tout(cx, by - 12 * s, 24 * s, bannerHot ? 1 : 0.7, bannerHot ? 0.75 : 1, bannerHot ? 0.45 : 0.85, a, 0.5); }
     // discovery toast
-    if (toastT > 0 && toastI >= 0) { const tb2 = sys.list[toastI], a = Math.min(1, toastT, (5 - toastT) * 4), ty0 = H * 0.2;
-      seg(cx - 330 * s, ty0 + 50 * s, cx + 330 * s, ty0 + 50 * s, 0, 0.02, 0.05, 0.55 * a, 128 * s); // dark backing band
-      ts(toastAll ? 'SYSTEM SURVEYED - EVERY BODY LOGGED' : 'NEW DISCOVERY'); tout(cx, ty0, 16 * s, 1, 0.75, 0.3, a, 0.5);
-      ts(tb2.name); tout(cx, ty0 + 24 * s, 34 * s, 1, 1, 1, a, 0.5);
-      if (tb2.def && tb2.def.fact) { ts(tb2.def.fact); tout(cx, ty0 + 66 * s, 16 * s, 0.7, 0.9, 1, a * 0.9, 0.5); }
-      ts('LOG '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); tout(cx, ty0 + 92 * s, 15 * s, 1, 0.75, 0.3, a * 0.8, 0.5); }
+    if (toastT > 0 && toastI >= 0) { const tb2 = sys.list[toastI], a = Math.min(1, toastT, (5 - toastT) * 4), ty0 = Math.max(H * 0.2, 185 * s), bw = Math.min(W * 0.5 - 10 * s, 400 * s);
+      seg(cx - bw, ty0 + 52 * s, cx + bw, ty0 + 52 * s, 0.01, 0.02, 0.05, 0.6 * a, 135 * s); seg(cx - bw, ty0 - 15 * s, cx + bw, ty0 - 15 * s, 1, 0.75, 0.3, 0.8 * a, 2 * s);
+      ts(toastAll ? 'SYSTEM SURVEYED - EVERY BODY LOGGED' : 'NEW DISCOVERY'); tout(cx, ty0, 18 * s, 1, 0.75, 0.3, a, 0.5);
+      ts(tb2.name); tout(cx, ty0 + 25 * s, 40 * s, 1, 1, 1, a, 0.5);
+      if (tb2.def && tb2.def.fact) { const fz = Math.min(19 * s, (bw * 2 - 20 * s) / (tb2.def.fact.length * 0.6)); ts(tb2.def.fact); tout(cx, ty0 + 74 * s, fz, 0.75, 0.9, 1, a * 0.95, 0.5); }
+      ts('LOG '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); tout(cx, ty0 + 100 * s, 16 * s, 1, 0.75, 0.3, a * 0.85, 0.5); }
     // reticle + velocity vector
-    const rr = 10 * s; seg(cx - 2.2 * rr, cy, cx - rr, cy, 0.7, 0.9, 1, 0.6, 1.5 * s); seg(cx + rr, cy, cx + 2.2 * rr, cy, 0.7, 0.9, 1, 0.6, 1.5 * s); seg(cx, cy + rr, cx, cy + 1.8 * rr, 0.7, 0.9, 1, 0.6, 1.5 * s);
-    if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 7 * s; seg(x - k, y, x + k, y, 1, 0.8, 0.3, 0.8, 1.5 * s); seg(x, y - k, x, y + k, 1, 0.8, 0.3, 0.8, 1.5 * s); }
-    // left telemetry panel
-    const L = 28 * s; let Y = 40 * s; const F = 18 * s, LH = 25 * s;
-    ts('SYSTEM '); ts(sys.def.name); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
-    ts(bench.on ? 'MODE   BENCHMARK' : cruise ? 'MODE   SUPERCRUISE' : charge >= 0 ? 'MODE   CHARGING' : 'MODE   FLIGHT'); tout(L, Y, F, cruise || bench.on ? 1 : 0.6, cruise || bench.on ? 0.8 : 0.9, cruise || bench.on ? 0.3 : 1, 0.9, 0); Y += LH;
-    ts('SPEED  '); tdist(spd); ts('/s'); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
-    ts('FRAME  '); ts(sys.list[ship.ref].name); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
-    ts('CPU    '); tn(avgDt * 1000, 2); ts(' ms'); tout(L, Y, F, 0.6, 0.9, 1, 0.7, 0); Y += LH;
-    if (hasTS) { ts('GPU    '); tn(gpuMs, 2); ts(' ms'); tout(L, Y, F, gpuMs > 11 ? 1 : 0.6, gpuMs > 11 ? 0.5 : 0.9, gpuMs > 11 ? 0.4 : 1, 0.7, 0); Y += LH; }
-    ts('TARGET '); ts(tbdy.name); tout(L, Y, F, 0.6, 1, 0.85, 0.9, 0); Y += LH;
-    if (altT < 2e6) { ts(landed ? 'ALT    LANDED' : 'ALT    '); if (!landed) tdist(altT); tout(L, Y, F, landed ? 0.5 : 0.6, 1, landed ? 0.5 : 0.85, 0.95, 0); Y += LH; }
-    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Imagery: NASA GIBS Blue Marble - Elevation: AWS Terrain Tiles (Mapzen)'); tout(W - 14 * s, H - 14 * s, 12 * s, 0.7, 0.8, 0.9, 0.55, 1); }
-    ts('LOG    '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); ts(' discovered'); tout(L, Y, F, 1, 0.75, 0.3, 0.9, 0); Y += LH;
-    if (cruise) { ts('ETA    '); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
-    if (bench.on) { ts('BENCH  '); tn(60 - bench.t, 1); ts(' s left'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
+    const rr = 11 * s; seg(cx - 2.4 * rr, cy, cx - rr, cy, 0.75, 0.92, 1, 0.75, 2 * s); seg(cx + rr, cy, cx + 2.4 * rr, cy, 0.75, 0.92, 1, 0.75, 2 * s); seg(cx, cy + rr, cx, cy + 2 * rr, 0.75, 0.92, 1, 0.75, 2 * s);
+    circ(cx, cy, 2 * s, 0, 0.75, 0.92, 1, 0.8);
+    if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 9 * s; circ(x, y, k * 0.6, 2 * s, 1, 0.8, 0.3, 0.85); seg(x - k * 1.6, y, x - k * 0.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x + k * 0.6, y, x + k * 1.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x, y - k * 0.6, x, y - k * 1.4, 1, 0.8, 0.3, 0.85, 2 * s); }
+    // telemetry panel (top-left): dim labels, bright values, on a translucent backing
+    const L = 18 * s, T = 16 * s, F = 19 * s, LH = 27 * s, VX = L + 16 * s + 84 * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6;
+    let rows = 3 + (md ? 1 : 0) + (al ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
+    const PW = (bench.res ? 560 : 330) * s, PH = 46 * s + rows * LH; seg(L, T + PH / 2, L + PW, T + PH / 2, 0.01, 0.025, 0.05, 0.42, PH); seg(L, T, L, T + PH, 0.45, 0.85, 1, 0.85, 2.5 * s);
+    let Y = T + 12 * s; const X = L + 16 * s;
+    ts(sys.def.name); ts(' SYSTEM'); tout(X, Y, 14 * s, 0.5, 0.75, 0.95, 0.75, 0); Y += 24 * s;
+    lab('SPEED', X, Y); tdist(spd); ts('/s'); tout(VX, Y - 4 * s, 25 * s, 0.85, 0.95, 1, 1, 0); Y += LH + 6 * s;
+    if (md) { lab('MODE', X, Y); ts(bench.on ? 'BENCHMARK' : cruise ? 'SUPERCRUISE' : 'CHARGING'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
+    if (al) { lab('ALTITUDE', X, Y); if (landed) ts('LANDED'); else tdist(Math.max(0, altT - clr)); tout(VX, Y, F, 0.55, 1, 0.65, 1, 0); Y += LH; }
+    lab('TARGET', X, Y); ts(tbdy.name); ts('  '); tdist(td - tbdy.R); tout(VX, Y, F, 0.65, 1, 0.85, 1, 0); Y += LH;
+    if (cruise) { lab('ETA', X, Y); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
+    if (bench.on) { lab('BENCH', X, Y); tn(60 - bench.t, 1); ts(' s left'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
+    lab('LOG', X, Y); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); ts(' found'); tout(VX, Y, F, 1, 0.75, 0.3, 1, 0); Y += LH;
+    if (showStats) {
+      lab('FRAME', X, Y); ts(sys.list[ship.ref].name); tout(VX, Y, F, 0.85, 0.95, 1, 0.8, 0); Y += LH;
+      lab('CPU', X, Y); tn(avgDt * 1000, 2); ts(' ms'); tout(VX, Y, F, 0.85, 0.95, 1, 0.8, 0); Y += LH;
+      if (hasTS) { lab('GPU', X, Y); tn(gpuMs, 2); ts(' ms'); tout(VX, Y, F, gpuMs > 11 ? 1 : 0.85, gpuMs > 11 ? 0.5 : 0.95, gpuMs > 11 ? 0.4 : 1, 0.8, 0); Y += LH; }
+    }
     if (bench.res) {
       Y += LH * 0.5; const r = bench.res;
-      ts('BENCHMARK  '); tn(r.frames, 0); ts(' frames  '); tn(W, 0); ts('x'); tn(H, 0); tout(L, Y, F, 1, 0.9, 0.5, 0.9, 0); Y += LH;
-      ts('GPU avg '); tn(r.gpuAvg, 2); ts('  p99 '); tn(r.gpuP99, 2); ts('  max '); tn(r.gpuMax, 2); ts(' ms'); tout(L, Y, F, 1, 0.9, 0.5, 0.9, 0); Y += LH;
-      ts('CPU avg '); tn(r.cpuAvg, 2); ts('  p99 '); tn(r.cpuP99, 2); ts(' ms (frame interval)'); tout(L, Y, F, 1, 0.9, 0.5, 0.9, 0); Y += LH;
+      ts('BENCHMARK  '); tn(r.frames, 0); ts(' frames  '); tn(W, 0); ts('x'); tn(H, 0); tout(X, Y, F * 0.9, 1, 0.9, 0.5, 1, 0); Y += LH;
+      ts('GPU avg '); tn(r.gpuAvg, 2); ts('  p99 '); tn(r.gpuP99, 2); ts('  max '); tn(r.gpuMax, 2); ts(' ms'); tout(X, Y, F * 0.9, 1, 0.9, 0.5, 1, 0); Y += LH;
+      ts('CPU avg '); tn(r.cpuAvg, 2); ts('  p99 '); tn(r.cpuP99, 2); ts(' ms (interval)'); tout(X, Y, F * 0.9, 1, 0.9, 0.5, 1, 0); Y += LH;
     }
-    if (tc.on) { // on-screen controls
+    let creditY = H - 12 * s;
+    if (tc.on) { // on-screen controls: translucent filled discs with outline rings
       layoutBtns(s);
-      const ring = (x, y, r, a, cr, cg, cb) => { for (let k = 0; k < 20; k++) { const a0 = (k / 20) * 6.2832, a1 = ((k + 1) / 20) * 6.2832; seg(x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r, cr, cg, cb, a, 2 * s); } };
       for (let i = 0; i < BTN.length; i++) {
         const x = bxy[i * 3], y = bxy[i * 3 + 1], r = bxy[i * 3 + 2], on = bptr[i] >= 0 || (i === 0 && (cruise || charge >= 0)) || (i === 8 && thirdPerson) || (i === 10 && au.on);
-        ring(x, y, r, on ? 0.95 : 0.45, on ? 1 : 0.55, on ? 0.8 : 0.85, on ? 0.3 : 1); ts(BTN[i][1]); tout(x, y - 7 * s, (r > 40 * s ? 15 : 13) * s, on ? 1 : 0.7, on ? 0.85 : 0.9, on ? 0.4 : 1, 0.9, 0.5);
+        circ(x, y, r, 0, on ? 0.35 : 0.02, on ? 0.25 : 0.05, on ? 0.05 : 0.1, on ? 0.55 : 0.4);
+        circ(x, y, r, 2.5 * s, on ? 1 : 0.55, on ? 0.8 : 0.85, on ? 0.3 : 1, on ? 1 : 0.7);
+        const lbl = BTN[i][1]; ts(lbl); tout(x, y - 9 * s, Math.min((r > 44 * s ? 19 : 16) * s, (r * 1.7) / (lbl.length * 0.6)), on ? 1 : 0.85, on ? 0.9 : 0.95, on ? 0.5 : 1, 1, 0.5);
       }
-      const R = 70 * s, jx = tc.jid >= 0 ? tc.jox : 140 * s, jy = tc.jid >= 0 ? tc.joy : H - 140 * s;
-      ring(jx, jy, R, tc.jid >= 0 ? 0.6 : 0.25, 0.55, 0.85, 1); ring(jx + tc.jx * R, jy + tc.jy * R, 26 * s, tc.jid >= 0 ? 0.9 : 0.35, 0.55, 0.85, 1);
-      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 7 * s, 13 * s, 0.7, 0.9, 1, 0.5, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.62, H - 30 * s, 14 * s, 0.7, 0.85, 1, 0.5, 0.5); }
+      const R = 74 * s, jx = tc.jid >= 0 ? tc.jox : 130 * s, jy = tc.jid >= 0 ? tc.joy : H - 130 * s;
+      circ(jx, jy, R, 0, 0.02, 0.05, 0.1, tc.jid >= 0 ? 0.3 : 0.18); circ(jx, jy, R, 2.5 * s, 0.55, 0.85, 1, tc.jid >= 0 ? 0.7 : 0.35);
+      circ(jx + tc.jx * R, jy + tc.jy * R, 30 * s, 0, 0.55, 0.85, 1, tc.jid >= 0 ? 0.5 : 0.25);
+      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.6, H - 34 * s, 16 * s, 0.75, 0.9, 1, 0.75, 0.5); }
     } else if (showHelp) {
-      const by = H - 70 * s;
-      ts('W/S thrust  A/D strafe  SPACE/X up/down  Q/E roll  MOUSE pitch/yaw (click to lock)  SHIFT boost'); tout(cx, by, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
-      ts('TAB target  F supercruise  V 3rd person  M sound  B benchmark  J switch system  [ ] exposure  H hide help'); tout(cx, by + 24 * s, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
+      const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'TAB target   F supercruise   V camera   M sound   B benchmark   J system   G stats   [ ] exposure   H help';
+      const fz = Math.min(17 * s, (W - 40 * s) / (l2.length * 0.6)), by = H - 30 * s - fz * 2.6, bw = (l2.length * 0.6 * fz) / 2 + 20 * s;
+      seg(cx - bw, by + fz * 1.15, cx + bw, by + fz * 1.15, 0.01, 0.025, 0.05, 0.4, fz * 3.2);
+      ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
+      creditY = H - 10 * s;
     }
+    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Imagery: NASA GIBS Blue Marble - Elevation: AWS Terrain Tiles (Mapzen)');
+      if (tc.on) tout(W - 16 * s, 92 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 1); else tout(cx, creditY - 13 * s, 13 * s, 0.75, 0.85, 0.95, 0.7, 0.5); }
   }
 
   // ---- per-frame update ----
@@ -986,7 +1050,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const ro = ship.ref * 3; abs[0] = pos[ro] + ship.off[0]; abs[1] = pos[ro + 1] + ship.off[1]; abs[2] = pos[ro + 2] + ship.off[2];
     let nr = 0, best = Infinity;
     for (let i = 1; i < sys.n; i++) { const b = sys.list[i]; if (b.soi < best && dist(i) < b.soi) { best = b.soi; nr = i; } }
-    if (nr !== ship.ref) { const o = nr * 3; ship.off[0] = abs[0] - pos[o]; ship.off[1] = abs[1] - pos[o + 1]; ship.off[2] = abs[2] - pos[o + 2]; ship.ref = nr; prValid = false; }
+    if (nr !== ship.ref) { const o = nr * 3; ship.off[0] = abs[0] - pos[o]; ship.off[1] = abs[1] - pos[o + 1]; ship.off[2] = abs[2] - pos[o + 2]; ship.ref = nr; }
     { // co-rotate with solid bodies so the ground doesn't slide underneath (ship pos, velocity and attitude follow the spin)
       const rb = sys.list[ship.ref], q = ship.ref * 4, solid = rb.sphere && rb.type !== 'star' && !(rb.def.surface && rb.def.surface.gas);
       if (solid && rqRef === ship.ref && !bench.on) {
@@ -1024,25 +1088,51 @@ async function createEngine(canvas, systemId, opts = {}) {
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
-      const vmax = Math.min(Math.max(40, alt * 0.35), 3e7) * (K.ShiftLeft || K.ShiftRight ? 8 : 1), acc = vmax * 1.3 * dt;
+      const vmax = Math.min(Math.min(Math.max(40, alt * 0.35), 3e7) * (K.ShiftLeft || K.ShiftRight ? 8 : 1), 60 + alt * 1.5), acc = vmax * 1.3 * dt;
       qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); ship.off[j] += ship.vel[j] * dt; }
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
-    // collision: keep above every sphere surface (terrain margin) and outside stations
+    // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
+    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 2000) * 0.08 - clr) * Math.min(1, dt * 3);
     for (let i = 0; i < sys.n; i++) {
-      const b = sys.list[i], s = b.def && b.def.surface, d = dist(i);
-      const mr = i === prBody && prValid ? b.R * (1 + prH) + 2.5 : b.R + (b.type === 'station' ? b.R * 0.1 : 30); // exact ground once probed (probe starts at 5% R, far above any terrain)
-      if (d < mr && !bench.on) { const o = i * 3, k = mr / d; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + (abs[j] - pos[o + j]) * k; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } }
+      const b = sys.list[i], d = dist(i), o = i * 3, gas = b.def && b.def.surface && b.def.surface.gas;
+      const mr = i === prBody && prValid ? b.R * (1 + prH) + clr : b.type === 'station' ? b.R * 1.1 : b.type === 'star' ? b.R * 1.03 : gas ? b.R * 1.004 : b.R + clr;
+      if (bench.on || d > mr * 1.5 + 1e4) continue;
+      const nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d, vr = ship.vel[0] * nx + ship.vel[1] * ny + ship.vel[2] * nz;
+      const vd = 3 + Math.max(d - mr, 0) * 1.2; // max descent rate shrinks smoothly to 3 m/s at the floor → gentle settle instead of a crash
+      if (vr < -vd) { const k = -vd - vr; ship.vel[0] += nx * k; ship.vel[1] += ny * k; ship.vel[2] += nz * k; }
+      if (d < mr) { const k = mr / d; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + (abs[j] - pos[o + j]) * k; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } }
     }
-    landed = prValid && altT < 4 && !cruise && !bench.on;
+    if (prValid) altT = dist(prBody) - sys.list[prBody].R * (1 + prH);
+    const wasLanded = landed; landed = prValid && !cruise && !bench.on && altT < clr + (landed ? 8 : 3); // hysteresis
+    if (landed && !wasLanded && v0 < 400) { thump = 1; blip(80, 32, 0.6, 'sine', 0.45); whoosh(0.7, 500, 90, 0.22); banner('TOUCHDOWN - ' + sys.list[prBody].name, false); }
     if (landed && inY <= 0 && inZ >= 0 && Math.abs(inX) < 0.1) { ship.vel.fill(0); } // resting on the ground
+    // atmosphere entry / exit + low-orbit banners and re-entry heat
+    let ia = -1, ial = 0;
+    for (let i = 1; i < sys.n; i++) { const b = sys.list[i], at = b.def && b.def.atmosphere; if (!at || !b.sphere) continue;
+      const al = dist(i) - b.R * (i === prBody && prValid ? 1 + prH : 1); if (al < b.R * at.height) { ia = i; ial = al; } }
+    if (!bench.on && ia !== inAtm) { if (ia >= 0) { banner('ENTERING ' + sys.list[ia].name.toUpperCase() + ' ATMOSPHERE', true); whoosh(2.4, 180, 1400, 0.3); eflash = 0.35; }
+      else banner('LEAVING ' + sys.list[inAtm].name.toUpperCase() + ' ATMOSPHERE', false); }
+    inAtm = ia;
+    const lb = prValid && !(sys.list[prBody].def.atmosphere) ? prBody : -1; if (!bench.on && lb >= 0 && lb !== lowB) banner('SURFACE APPROACH - ' + sys.list[lb].name.toUpperCase(), false); lowB = lb;
+    let heatT = 0;
+    if (ia >= 0 && !bench.on && !cruise) { const b = sys.list[ia], f = 1 - ial / (b.R * b.def.atmosphere.height), o = ia * 3, d = dist(ia);
+      const dens = smooth(0.02, 0.15, f) * (1 - smooth(0.6, 0.93, f)), vr = -(ship.vel[0] * (abs[0] - pos[o]) + ship.vel[1] * (abs[1] - pos[o + 1]) + ship.vel[2] * (abs[2] - pos[o + 2])) / d;
+      heatT = dens * smooth(0.15, 0.4, (Math.max(vr, 0) + 0.3 * v0) / Math.max(ial, 1)); }
+    heat += (heatT - heat) * Math.min(1, dt * (heatT > heat ? 2.5 : 1.2)); thump *= Math.exp(-dt * 5); eflash *= Math.exp(-dt * 3); bannerT -= dt;
     // camera
     if (bench.on) { bench.t += dt; benchCam(dt); if (bench.t >= 60) stopBench(true); bench.n++; abs.set(cam); } // HUD distances from the tour camera
     else {
       camQ.set(ship.q);
-      if (thirdPerson) { qrot(t3, 0, ship.q, 0, 0, 9, 52); for (let j = 0; j < 3; j++) cam[j] = abs[j] + t3[j]; } else cam.set(abs);
+      if (thirdPerson) { qrot(t3, 0, ship.q, 0, 0, 9, 52); for (let j = 0; j < 3; j++) cam[j] = abs[j] + t3[j];
+        if (prValid) { const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), g = sys.list[prBody].R * (1 + prH) + 10; // chase cam never dips into the ground
+          if (d < g) for (let j = 0; j < 3; j++) cam[j] = pos[o + j] + (cam[j] - pos[o + j]) * (g / d); }
+      } else cam.set(abs);
+      const sh = heat * 0.006 + thump * 0.018; // buffeting during re-entry, jolt on touchdown
+      if (sh > 1e-4) { const t = now * 0.001, ax = Math.sin(t * 41) + Math.sin(t * 67 + 1), ay = Math.sin(t * 53 + 2) + Math.sin(t * 29 + 4), al = Math.hypot(ax, ay) || 1;
+        qaxis(dq, 0, ax / al, ay / al, 0, sh * al * 0.5); qmul(sq, 0, camQ, 0, dq, 0); camQ.set(sq); }
     }
     qrot(rt, 0, camQ, 0, 1, 0, 0); qrot(up, 0, camQ, 0, 0, 1, 0); qrot(fw, 0, camQ, 0, 0, 0, -1);
     const spd = bench.on ? Math.hypot(bench.v[0], bench.v[1], bench.v[2]) : cruise ? cruiseV : Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]);
@@ -1055,7 +1145,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     toastT -= dt; flash *= Math.exp(-dt * 3.5);
     const boosting = (K.ShiftLeft || K.ShiftRight) && spd > 50 && !cruise ? 1 : 0, thr = Math.min(1, Math.hypot(inX, inY, inZ));
     const fovT = (65 + boosting * 9 + warpVis * 16 - (charge >= 0 ? (1.2 - charge) * 4 : 0)) * D2R; fov += (fovT - fov) * Math.min(1, dt * 4);
-    audioFrame(thr, boosting, charge >= 0 ? 1 - charge / 1.2 : 0);
+    audioFrame(thr, boosting, charge >= 0 ? 1 - charge / 1.2 : 0, heat);
 
     // ---- globals ----
     const ty = Math.tan(fov / 2), tx = (ty * W) / H, near = 0.25, f = 1 / ty;
@@ -1071,7 +1161,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
-    gF[48] = warpVis; gF[49] = flash;
+    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash;
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----
     let nb = 0; const L = sys.def.scale;
@@ -1136,7 +1226,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const enc = device.createCommandEncoder();
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
-    if (!prBusy && frame % 3 === 0) {
+    if (!prBusy) {
       let bi = -1, bd = Infinity; for (let i = 1; i < sys.n; i++) { const b = sys.list[i]; if (!b.sphere || (b.def.surface && b.def.surface.gas)) continue; const d = (dist(i) - b.R) / b.R; if (d < bd) { bd = d; bi = i; } }
       if (bi > 0 && bd < 0.05) {
         const o = bi * 3, q = bi * 4, d = dist(bi); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
@@ -1185,7 +1275,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   const api = {
     switchStarSystem, startBenchmark: startBench,
-    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam) }; },
+    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) target = sys.idx[id]; },
