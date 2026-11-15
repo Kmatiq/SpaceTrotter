@@ -6,7 +6,7 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
-**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~224 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~233 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
 
 ```bash
 npm install
@@ -189,9 +189,9 @@ build was run end to end, including the full benchmark.
 | | |
 | --- | --- |
 | Source `SpaceRoam.jsx` | 118.2 KB |
-| Minified | **80.5 KB** |
-| Minified + gzip | **33.5 KB** |
-| Minified + brotli | 29.6 KB |
+| Minified | **89.5 KB** |
+| Minified + gzip | **36.7 KB** |
+| Minified + brotli | 32.5 KB |
 | …of which WGSL (all shaders) | 25.5 KB |
 
 ## Verification status
