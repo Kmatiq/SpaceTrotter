@@ -35,6 +35,18 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `[` / `]` | exposure |
 | `H` | hide help |
 
+### Gameplay
+
+- **Exploration log:** fly close to a planet, moon, station or comet to discover it. You get a toast with a
+  fun fact and the log count. Uncharted bodies have amber markers. Progress is saved per system in your
+  browser (localStorage).
+- **Supercruise:** `F` charges for 1.2 s (the ship auto-aligns to the target), then jumps with a flash.
+  Drop-out on arrival also flashes. Pressing `F` while charging cancels.
+- **Sound:** fully procedural (WebAudio). You hear an engine rumble and thrust hiss, a boost roar, a charge
+  whine, jump and drop whooshes, discovery chimes and a quiet ambient drone. `M` mutes.
+- **Sense of speed:** space-dust streaks in normal flight, and the field of view widens with boost and
+  Supercruise.
+
 ### Touch (phones / tablets)
 
 Play in landscape; the **FULL** button hides the browser bars.
@@ -43,7 +55,7 @@ Play in landscape; the **FULL** button hides the browser bars.
   left/right is strafe, and throttle is analog.
 - **Right side:** drag anywhere to pitch and yaw.
 - **Buttons:** CRUISE (Supercruise), BOOST (hold), UP/DOWN (hold), ROLL< / ROLL> (hold), <TGT / TGT> (cycle
-  target), CAM (third person), FULL (fullscreen).
+  target), CAM (third person), FULL (fullscreen), SND (mute).
 - **Resolution:** touch devices render at one pixel per CSS pixel to keep frame rates playable. Override it
   with `<SpaceRoam renderScale={…} />`.
 - **Browser support:** WebGPU is needed: Chrome on Android 12+, or Safari on iOS/iPadOS 26+.

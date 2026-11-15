@@ -13,53 +13,53 @@ export const registerStarSystem = (def) => (STAR_SYSTEMS[def.id] = def);
 registerStarSystem({
   id: 'sol', name: 'Sol',
   scale: { radius: 1.2e6, radiusExp: 0.75, au: 4e9, auExp: 0.55, lightRef: 4e9, lightExp: 0.5 },
-  star: { id: 'sun', name: 'Sun', radius: 109, color: [1, 0.85, 0.66], intensity: 40, corona: 1 },
+  star: { id: 'sun', name: 'Sun', fact: 'Holds 99.8% of the Solar System\'s mass.', radius: 109, color: [1, 0.85, 0.66], intensity: 40, corona: 1 },
   spawn: { near: 'earth', dist: 3.2 },
   bodies: [
-    { id: 'mercury', name: 'Mercury', type: 'planet', radius: 0.383, orbit: { au: 0.39, period: 700, inc: 7, phase: 1.1 }, spin: { period: 900, tilt: 0.03 },
+    { id: 'mercury', name: 'Mercury', fact: 'A day on Mercury lasts longer than its year.', type: 'planet', radius: 0.383, orbit: { au: 0.39, period: 700, inc: 7, phase: 1.1 }, spin: { period: 900, tilt: 0.03 },
       surface: { c: [[0.45, 0.42, 0.39], [0.3, 0.29, 0.28], 0, 0, 0], scale: 2.2, height: 0.003, craters: 0.6, craterScale: 9, mix: 0.7, seed: 3 } },
-    { id: 'venus', name: 'Venus', type: 'planet', radius: 0.95, orbit: { au: 0.72, period: 1100, inc: 3.4, phase: 2.6 }, spin: { period: -2000, tilt: 177 },
+    { id: 'venus', name: 'Venus', fact: 'Hot enough at the surface to melt lead.', type: 'planet', radius: 0.95, orbit: { au: 0.72, period: 1100, inc: 3.4, phase: 2.6 }, spin: { period: -2000, tilt: 177 },
       surface: { gas: 1, c: [[0.9, 0.78, 0.52], [0.72, 0.6, 0.38], 0, [0.95, 0.9, 0.75], 0], bands: { amt: 0.35, freq: 7, turb: 4, speed: 0.004 } },
       atmosphere: { height: 0.05, rayleigh: [0.25, 0.2, 0.1], mie: 0.35, g: 0.7 } },
-    { id: 'earth', name: 'Earth', type: 'planet', radius: 1, orbit: { au: 1, period: 1500, phase: 0.4 }, spin: { period: 600, tilt: 23.4 },
-      surface: { c: [[0.07, 0.15, 0.04], [0.33, 0.26, 0.15], [0.004, 0.025, 0.08], [0.85, 0.88, 0.93], 0], ocean: 0.03, scale: 1.7, height: 0.006, mix: 0.9, caps: 0.86, lights: 1, specular: 1, seed: 7 },
+    { id: 'earth', name: 'Earth', fact: 'The only known world with life - and with you.', type: 'planet', radius: 1, orbit: { au: 1, period: 1500, phase: 0.4 }, spin: { period: 600, tilt: 23.4 },
+      surface: { c: [[0.07, 0.15, 0.04], [0.33, 0.26, 0.15], [0.004, 0.025, 0.08], [0.85, 0.88, 0.93], 0], ocean: 0.03, scale: 1.7, height: 0.006, mix: 0.35, caps: 0.86, lights: 1, specular: 1, seed: 7 },
       atmosphere: { height: 0.025, rayleigh: [0.058, 0.135, 0.33], mie: 0.025, g: 0.8, clouds: 0.55, cloudHeight: 0.0035, cloudSpeed: 0.02 } },
-    { id: 'luna', name: 'Luna', type: 'moon', parent: 'earth', radius: 0.273, orbit: { pr: 14, period: 400, inc: 5, phase: 2 }, spin: { period: 400, tilt: 1.5 },
+    { id: 'luna', name: 'Luna', fact: 'Always shows the same face to Earth.', type: 'moon', parent: 'earth', radius: 0.273, orbit: { pr: 14, period: 400, inc: 5, phase: 2 }, spin: { period: 400, tilt: 1.5 },
       surface: { c: [[0.44, 0.43, 0.42], [0.17, 0.17, 0.18], 0, 0, 0], scale: 1.6, height: 0.003, craters: 0.55, craterScale: 8, mix: 1.8, seed: 11 } },
-    { id: 'gateway', name: 'Gateway Station', type: 'station', parent: 'earth', size: 1500, orbit: { pr: 1.45, period: 900, inc: 12, phase: 0.2 } },
-    { id: 'mars', name: 'Mars', type: 'planet', radius: 0.532, orbit: { au: 1.52, period: 2100, inc: 1.8, phase: 4.1 }, spin: { period: 620, tilt: 25 },
+    { id: 'gateway', name: 'Gateway Station', fact: 'Humanity\'s first deep-space harbour.', type: 'station', parent: 'earth', size: 1500, orbit: { pr: 1.45, period: 900, inc: 12, phase: 0.2 } },
+    { id: 'mars', name: 'Mars', fact: 'Home to Olympus Mons, 2.5x taller than Everest.', type: 'planet', radius: 0.532, orbit: { au: 1.52, period: 2100, inc: 1.8, phase: 4.1 }, spin: { period: 620, tilt: 25 },
       surface: { c: [[0.46, 0.18, 0.07], [0.24, 0.11, 0.06], 0, [0.92, 0.9, 0.86], 0], scale: 2, height: 0.007, craters: 0.35, craterScale: 7, mix: 1.1, caps: 0.9, seed: 5 },
       atmosphere: { height: 0.018, rayleigh: [0.05, 0.03, 0.018], mie: 0.04, g: 0.65 } },
-    { id: 'ares', name: 'Ares Ring', type: 'station', parent: 'mars', size: 1200, orbit: { pr: 1.6, period: 800, inc: 25, phase: 3 } },
+    { id: 'ares', name: 'Ares Ring', fact: 'Built from asteroid iron hauled in from the belt.', type: 'station', parent: 'mars', size: 1200, orbit: { pr: 1.6, period: 800, inc: 25, phase: 3 } },
     { id: 'belt', type: 'belt', inner: 2.2, outer: 3.3, count: 2000, thickness: 0.035, color: [0.36, 0.32, 0.28] },
-    { id: 'jupiter', name: 'Jupiter', type: 'planet', radius: 11.2, orbit: { au: 5.2, period: 4200, inc: 1.3, phase: 5.3 }, spin: { period: 260, tilt: 3.1 },
+    { id: 'jupiter', name: 'Jupiter', fact: 'Its Great Red Spot is wider than Earth.', type: 'planet', radius: 11.2, orbit: { au: 5.2, period: 4200, inc: 1.3, phase: 5.3 }, spin: { period: 260, tilt: 3.1 },
       surface: { gas: 1, c: [[0.82, 0.72, 0.57], [0.52, 0.33, 0.2], 0, [0.93, 0.88, 0.78], [0.72, 0.27, 0.13]], bands: { amt: 1, freq: 19, turb: 2.4, speed: 0.01 }, spot: { lat: -22, lon: 40, size: 0.13, amt: 1 } },
       atmosphere: { height: 0.012, rayleigh: [0.03, 0.05, 0.09], mie: 0.02, g: 0.7 } },
-    { id: 'io', name: 'Io', type: 'moon', parent: 'jupiter', radius: 0.286, orbit: { pr: 4.2, period: 300, phase: 1 }, spin: { period: 300 },
+    { id: 'io', name: 'Io', fact: 'The most volcanic body in the Solar System.', type: 'moon', parent: 'jupiter', radius: 0.286, orbit: { pr: 4.2, period: 300, phase: 1 }, spin: { period: 300 },
       surface: { c: [[0.86, 0.78, 0.36], [0.78, 0.55, 0.24], 0, 0, [0.22, 0.1, 0.04]], scale: 2, height: 0.002, accent: -1, mix: 0.8, seed: 2 } },
-    { id: 'europa', name: 'Europa', type: 'moon', parent: 'jupiter', radius: 0.245, orbit: { pr: 6.2, period: 480, phase: 3.3 }, spin: { period: 480 },
+    { id: 'europa', name: 'Europa', fact: 'An ocean of liquid water hides under the ice.', type: 'moon', parent: 'jupiter', radius: 0.245, orbit: { pr: 6.2, period: 480, phase: 3.3 }, spin: { period: 480 },
       surface: { c: [[0.84, 0.8, 0.72], [0.7, 0.62, 0.5], 0, 0, [0.42, 0.22, 0.1]], scale: 1.5, height: 0.0008, accent: 0.9, craters: 0.05, craterScale: 6, mix: 0.6, seed: 9 } },
-    { id: 'ganymede', name: 'Ganymede', type: 'moon', parent: 'jupiter', radius: 0.413, orbit: { pr: 9, period: 760, phase: 5 }, spin: { period: 760 },
+    { id: 'ganymede', name: 'Ganymede', fact: 'The largest moon - bigger than Mercury.', type: 'moon', parent: 'jupiter', radius: 0.413, orbit: { pr: 9, period: 760, phase: 5 }, spin: { period: 760 },
       surface: { c: [[0.52, 0.48, 0.43], [0.3, 0.27, 0.24], 0, 0, [0.62, 0.6, 0.57]], scale: 1.8, height: 0.002, accent: 0.4, craters: 0.4, craterScale: 8, mix: 1.2, seed: 13 } },
-    { id: 'jovian', name: 'Jovian Relay', type: 'station', parent: 'jupiter', size: 1800, orbit: { pr: 2.2, period: 900, inc: 8, phase: 4 } },
-    { id: 'saturn', name: 'Saturn', type: 'planet', radius: 9.45, orbit: { au: 9.5, period: 6000, inc: 2.5, phase: 0.9 }, spin: { period: 280, tilt: 26.7 },
+    { id: 'jovian', name: 'Jovian Relay', fact: 'Relays signals from the outer system to Earth.', type: 'station', parent: 'jupiter', size: 1800, orbit: { pr: 2.2, period: 900, inc: 8, phase: 4 } },
+    { id: 'saturn', name: 'Saturn', fact: 'Light enough to float in a giant bathtub.', type: 'planet', radius: 9.45, orbit: { au: 9.5, period: 6000, inc: 2.5, phase: 0.9 }, spin: { period: 280, tilt: 26.7 },
       surface: { gas: 1, c: [[0.86, 0.77, 0.56], [0.68, 0.56, 0.36], 0, [0.92, 0.86, 0.68], 0], bands: { amt: 0.6, freq: 24, turb: 1.3, speed: 0.008 } },
       atmosphere: { height: 0.012, rayleigh: [0.04, 0.05, 0.07], mie: 0.03, g: 0.7 },
       rings: { inner: 1.24, outer: 2.27, opacity: 0.95, color: [0.86, 0.79, 0.66] } },
-    { id: 'titan', name: 'Titan', type: 'moon', parent: 'saturn', radius: 0.404, orbit: { pr: 9.5, period: 900, inc: 0.3, phase: 2.2 }, spin: { period: 900 },
+    { id: 'titan', name: 'Titan', fact: 'Rains liquid methane onto hydrocarbon seas.', type: 'moon', parent: 'saturn', radius: 0.404, orbit: { pr: 9.5, period: 900, inc: 0.3, phase: 2.2 }, spin: { period: 900 },
       surface: { c: [[0.5, 0.36, 0.16], [0.36, 0.26, 0.12], 0, 0, 0], scale: 1.5, height: 0.002, mix: 1, seed: 4 },
       atmosphere: { height: 0.12, rayleigh: [0.3, 0.17, 0.06], mie: 0.6, g: 0.72 } },
-    { id: 'cassini', name: 'Cassini Hub', type: 'station', parent: 'saturn', size: 2000, orbit: { pr: 2.9, period: 1200, inc: 26.7, phase: 1.5 } },
-    { id: 'uranus', name: 'Uranus', type: 'planet', radius: 4.0, orbit: { au: 19.2, period: 8000, inc: 0.8, phase: 3.7 }, spin: { period: -340, tilt: 97.8 },
+    { id: 'cassini', name: 'Cassini Hub', fact: 'Named for the probe that dove into Saturn.', type: 'station', parent: 'saturn', size: 2000, orbit: { pr: 2.9, period: 1200, inc: 26.7, phase: 1.5 } },
+    { id: 'uranus', name: 'Uranus', fact: 'Rolls around the Sun tipped on its side.', type: 'planet', radius: 4.0, orbit: { au: 19.2, period: 8000, inc: 0.8, phase: 3.7 }, spin: { period: -340, tilt: 97.8 },
       surface: { gas: 1, c: [[0.6, 0.84, 0.88], [0.52, 0.77, 0.83], 0, [0.7, 0.9, 0.92], 0], bands: { amt: 0.12, freq: 14, turb: 0.8, speed: 0.006 } },
       atmosphere: { height: 0.03, rayleigh: [0.02, 0.05, 0.06], mie: 0.01, g: 0.7 },
       rings: { inner: 1.65, outer: 2.0, opacity: 0.22, color: [0.6, 0.6, 0.62] } },
-    { id: 'neptune', name: 'Neptune', type: 'planet', radius: 3.88, orbit: { au: 30, period: 10000, inc: 1.8, phase: 5.9 }, spin: { period: 320, tilt: 28 },
+    { id: 'neptune', name: 'Neptune', fact: 'Winds here top 2,000 km/h.', type: 'planet', radius: 3.88, orbit: { au: 30, period: 10000, inc: 1.8, phase: 5.9 }, spin: { period: 320, tilt: 28 },
       surface: { gas: 1, c: [[0.26, 0.44, 0.88], [0.18, 0.32, 0.76], 0, [0.6, 0.75, 0.95], [0.08, 0.13, 0.38]], bands: { amt: 0.35, freq: 12, turb: 1.5, speed: 0.012 }, spot: { lat: -20, lon: 120, size: 0.09, amt: 0.9 } },
       atmosphere: { height: 0.03, rayleigh: [0.02, 0.05, 0.1], mie: 0.01, g: 0.7 } },
-    { id: 'triton', name: 'Triton', type: 'moon', parent: 'neptune', radius: 0.212, orbit: { pr: 8, period: 600, inc: 157, phase: 1 }, spin: { period: 600 },
+    { id: 'triton', name: 'Triton', fact: 'Orbits backwards - a captured dwarf planet.', type: 'moon', parent: 'neptune', radius: 0.212, orbit: { pr: 8, period: 600, inc: 157, phase: 1 }, spin: { period: 600 },
       surface: { c: [[0.76, 0.72, 0.69], [0.62, 0.5, 0.45], 0, [0.85, 0.8, 0.78], 0], scale: 1.8, height: 0.0015, craters: 0.15, craterScale: 7, caps: 0.6, mix: 1, seed: 21 } },
-    { id: 'vesper', name: 'Comet Vesper', type: 'comet', size: 4000, orbit: { au: 9, ecc: 0.86, period: 1400, inc: 18, node: 40, phase: 5.8 } },
+    { id: 'vesper', name: 'Comet Vesper', fact: 'A dirty snowball older than the planets.', type: 'comet', size: 4000, orbit: { au: 9, ecc: 0.86, period: 1400, inc: 18, node: 40, phase: 5.8 } },
   ],
 });
 
@@ -67,16 +67,16 @@ registerStarSystem({
 registerStarSystem({
   id: 'kestrel', name: 'Kestrel (V2 demo)',
   scale: { radius: 1.2e6, radiusExp: 0.75, au: 4e9, auExp: 0.55, lightRef: 2.5e9, lightExp: 0.5 },
-  star: { id: 'kestrel-a', name: 'Kestrel A', radius: 60, color: [1, 0.55, 0.32], intensity: 30, corona: 1.4 },
+  star: { id: 'kestrel-a', name: 'Kestrel A', fact: 'A small, stubborn red dwarf.', radius: 60, color: [1, 0.55, 0.32], intensity: 30, corona: 1.4 },
   spawn: { near: 'kestrel-c', dist: 3.5 },
   bodies: [
-    { id: 'kestrel-b', name: 'Kestrel b', type: 'planet', radius: 0.7, orbit: { au: 0.3, period: 500, phase: 1 }, spin: { period: 500, tilt: 2 },
+    { id: 'kestrel-b', name: 'Kestrel b', fact: 'Tidally locked; its day side never cools.', type: 'planet', radius: 0.7, orbit: { au: 0.3, period: 500, phase: 1 }, spin: { period: 500, tilt: 2 },
       surface: { c: [[0.12, 0.1, 0.09], [0.05, 0.04, 0.04], 0, 0, [0.6, 0.12, 0.02]], scale: 2.4, height: 0.004, accent: -1.5, craters: 0.3, craterScale: 6, mix: 1, seed: 31 } },
-    { id: 'kestrel-c', name: 'Kestrel c', type: 'planet', radius: 1.3, orbit: { au: 0.8, period: 1200, phase: 2 }, spin: { period: 500, tilt: 12 },
+    { id: 'kestrel-c', name: 'Kestrel c', fact: 'An ocean world under a red sun.', type: 'planet', radius: 1.3, orbit: { au: 0.8, period: 1200, phase: 2 }, spin: { period: 500, tilt: 12 },
       surface: { c: [[0.12, 0.2, 0.08], [0.5, 0.45, 0.4], [0.01, 0.05, 0.07], [0.9, 0.92, 0.95], 0], ocean: 0.25, scale: 2.5, height: 0.005, mix: 0.6, caps: 0.8, specular: 1, seed: 17 },
       atmosphere: { height: 0.03, rayleigh: [0.1, 0.12, 0.2], mie: 0.04, g: 0.8, clouds: 0.7, cloudHeight: 0.004, cloudSpeed: 0.03 } },
-    { id: 'kestrel-port', name: 'Kestrel Port', type: 'station', parent: 'kestrel-c', size: 1600, orbit: { pr: 1.5, period: 900 } },
-    { id: 'kestrel-d', name: 'Kestrel d', type: 'planet', radius: 8, orbit: { au: 3, period: 3000, phase: 4 }, spin: { period: 300, tilt: 15 },
+    { id: 'kestrel-port', name: 'Kestrel Port', fact: 'The first human outpost beyond Sol.', type: 'station', parent: 'kestrel-c', size: 1600, orbit: { pr: 1.5, period: 900 } },
+    { id: 'kestrel-d', name: 'Kestrel d', fact: 'Its rings glitter in the dim red light.', type: 'planet', radius: 8, orbit: { au: 3, period: 3000, phase: 4 }, spin: { period: 300, tilt: 15 },
       surface: { gas: 1, c: [[0.75, 0.55, 0.62], [0.42, 0.3, 0.45], 0, [0.9, 0.8, 0.85], [0.95, 0.85, 0.5]], bands: { amt: 0.9, freq: 15, turb: 3, speed: 0.01 }, spot: { lat: 30, lon: 0, size: 0.1, amt: 0.8 } },
       atmosphere: { height: 0.015, rayleigh: [0.05, 0.04, 0.08], mie: 0.02, g: 0.7 },
       rings: { inner: 1.4, outer: 2.6, opacity: 0.7, color: [0.7, 0.75, 0.85] } },
@@ -239,7 +239,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=b[3].w;let hr=T.h/max(b[4].w,1e-6);
    if(ol>-5.&&T.f<ol){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;
     let wv=vn(n*6000.+vec3f(g.mi.x*.5)).yzw*.004;N=normalize(n+wv-dot(wv,n)*n);rough=clamp(.07+fpS*3e3,.07,.5);}
-   else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.35-.05))*(1.+T.c*1.5);
+   else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
     if(ol>-5.){col=mix(col,b[6].xyz,smoothstep(.55,.75,hr)*.8);col=mix(b[4].xyz*1.1,col,smoothstep(0.,.03,T.f-ol));}}
    let cl=b[6].w;if(cl<1.5){let k=smoothstep(cl,cl+.03,abs(n.y)+m*.06);col=mix(col,b[6].xyz,k);spec*=1.-k;}
    let aa=b[7].w;
@@ -384,6 +384,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
   c+=g.sc.rgb*k*(.6*exp(-r*18.)+.05/(1.+r*r*400.)+.12*exp(-abs(d.y)*500.)*exp(-abs(d.x)*3.)+.18*pow(abs(cos(an*3.)),60.)*exp(-r*7.));}
  if(g.wp.x>0.){let u=(f.xy-g.res.xy*.5)/g.res.y;let r=length(u);let a=atan2(u.y,u.x);
   let s=pow(vn(vec3f(a*24.,r*3.-g.mi.x*14.,0.)).x*.5+.5,10.)*smoothstep(.05,.6,r)*g.wp.x;c+=vec3f(.55,.75,1.)*s*.8;}
+ c+=vec3f(.75,.85,1.)*g.wp.y*3.;
  c*=g.mi.z;c=clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),vec3f(0.),vec3f(1.));
  let uv=f.xy*g.res.zw-.5;c*=1.-dot(uv,uv)*.35;
  c=pow(c,vec3f(1./2.2))+(hf(vec3i(ip,7))-.5)/255.;return vec4f(c,1.);}
@@ -440,7 +441,7 @@ const D2R = Math.PI / 180;
 const MAXB = 64, MAXI = 4096, MAXH = 12000, BSTR = 64, ISTR = 12, HSTR = 12;
 function compileSystem(def) {
   const S = def.scale, rad = (re) => S.radius * Math.pow(re, S.radiusExp), au = (a) => S.au * Math.pow(a, S.auExp);
-  const st = def.star, list = [{ id: st.id, name: st.name, type: 'star', R: rad(st.radius), parent: -1, star: st, tilt: 0, spinP: 1e9, a: 0, ecc: 0, inc: 0, node: 0 }];
+  const st = def.star, list = [{ id: st.id, name: st.name, type: 'star', R: rad(st.radius), parent: -1, star: st, def: { fact: st.fact }, tilt: 0, spinP: 1e9, a: 0, ecc: 0, inc: 0, node: 0 }];
   const belts = [];
   for (const b of def.bodies) {
     if (b.type === 'belt') { belts.push({ inner: au(b.inner), outer: au(b.outer), count: b.count, thick: au(b.outer) * b.thickness }); continue; }
@@ -568,6 +569,50 @@ async function createEngine(canvas, systemId, opts = {}) {
   const astr = new Float64Array(MAXI * 8);
   let sys = null, nAst = 0, simT = 0, target = 1, cruise = false, cruiseV = 0, warpVis = 0, thirdPerson = false, showHelp = true, lastDist = 0, closing = 0;
   let capReq = null, capBusy = false;
+  // ---- fun layer: exploration log, supercruise charge, flash, FOV kick, dust, procedural audio ----
+  const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
+  for (let i = 0; i < 480; i++) dust[i] = hash(i, 77, 3);
+  let nDisc = 0, toastI = -1, toastT = 0, toastAll = false, charge = -1, flash = 0;
+  const LOGKEY = 'spaceroam.log.';
+  const saveLog = () => { try { const ids = []; for (let i = 0; i < sys.n; i++) if (disc[i]) ids.push(sys.list[i].id); localStorage.setItem(LOGKEY + sys.def.id, ids.join(',')); } catch (e) { /* storage unavailable */ } };
+  const loadLog = () => { disc.fill(0); nDisc = 0; let ids = ''; try { ids = localStorage.getItem(LOGKEY + sys.def.id) || ''; } catch (e) { /* ignore */ }
+    for (const id of ids.split(',')) { const i = sys.idx[id]; if (i !== undefined && !disc[i]) { disc[i] = 1; nDisc++; } } };
+  const au = { ctx: null, on: true };
+  function audioInit() { // procedural WebAudio graph, built once on the first user gesture
+    if (au.ctx) { if (au.ctx.state === 'suspended') au.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const c = au.ctx = new AC(), G = (v, to) => { const g = c.createGain(); g.gain.value = v; g.connect(to); return g; };
+    const F = (type, f, to) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.connect(to); return b; };
+    const O = (type, f, to) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; o.connect(to); o.start(); return o; };
+    au.m = G(au.on ? 0.55 : 0, c.destination);
+    const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const nz = c.createBufferSource(); nz.buffer = nb; nz.loop = true; nz.start();
+    au.eg = G(0, au.m); au.ef = F('lowpass', 200, au.eg); au.eo = O('sawtooth', 40, au.ef); au.eo2 = O('square', 20, au.ef);          // engine rumble
+    au.hg = G(0, au.m); au.hf = F('bandpass', 700, au.hg); au.hf.Q.value = 0.8; nz.connect(au.hf);                                  // thrust hiss
+    au.wg = G(0, au.m); au.wf = F('lowpass', 300, au.wg); nz.connect(au.wf);                                                         // warp roar
+    au.sg = G(0, au.m); au.so = O('sine', 200, au.sg);                                                                              // charge whine
+    const dg = G(0.025, au.m), df = F('lowpass', 400, dg); O('sine', 55, df); O('sine', 82.7, df); O('triangle', 110.3, G(0.3, df)); // ambient drone
+    au.nb = nb;
+  }
+  function blip(f0, f1, dur, type, vol, delay) { // one-shot event sound (allocates only on events)
+    const c = au.ctx; if (!c || !au.on) return; const t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(au.m); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function whoosh(dur, f0, f1, vol) { const c = au.ctx; if (!c || !au.on) return; const t = c.currentTime, n = c.createBufferSource(), b = c.createBiquadFilter(), g = c.createGain();
+    n.buffer = au.nb; b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(f0, t); b.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(b); b.connect(g); g.connect(au.m); n.start(t); n.stop(t + dur); }
+  const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.18); blip(990, 990, 0.5, 'sine', 0.16, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.14, 0.26); blip(1760, 1760, 1.2, 'triangle', 0.1, 0.42); } };
+  function audioFrame(thr, boost, chg) {
+    const c = au.ctx; if (!c) return; const t = c.currentTime, w = warpVis;
+    au.eg.gain.setTargetAtTime((0.04 + thr * 0.16) * (1 - w * 0.7), t, 0.12); au.eo.frequency.setTargetAtTime(38 + thr * 26 + boost * 30, t, 0.25); au.eo2.frequency.setTargetAtTime(19 + thr * 13 + boost * 15, t, 0.25);
+    au.ef.frequency.setTargetAtTime(140 + thr * 500 + boost * 1100, t, 0.15);
+    au.hg.gain.setTargetAtTime(thr * 0.1 * (1 + boost * 1.5), t, 0.1); au.hf.frequency.setTargetAtTime(500 + boost * 1800, t, 0.2);
+    au.wg.gain.setTargetAtTime(w * 0.22 + chg * 0.12, t, 0.15); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800, t, 0.2);
+    au.sg.gain.setTargetAtTime(chg * 0.07 + w * 0.015, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
+  }
+  function dropCruise(v) { cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.35); blip(180, 45, 0.7, 'sine', 0.35); }
   let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
@@ -584,6 +629,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       astr[o + 4] = 4000 + 22000 * Math.pow(hash(k, 5, 7), 4); astr[o + 5] = hash(k, 6, 7); astr[o + 6] = (hash(k, 8, 7) - 0.5) * 0.6; astr[o + 7] = hash(k, 9, 7) * 6.283;
     }
     sys.beltIn = sys.belts.length ? sys.belts[0].inner : 0; sys.beltOut = sys.belts.length ? sys.belts[0].outer : 0; sys.beltTh = sys.belts.length ? sys.belts[0].thick : 0;
+    loadLog(); toastI = -1; charge = -1;
     const sp = def.spawn || {}; target = sys.idx[sp.near] || 1; simT = 0; updateOrbits(0);
     placeNear(target, sp.dist || 4); cruise = false;
     return true;
@@ -615,7 +661,11 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'Tab': target = (target + (back ? sys.n - 1 : 1)) % sys.n; break;
       case 'TabBack': target = (target + sys.n - 1) % sys.n; break;
       case 'Full': if (document.fullscreenElement) document.exitFullscreen(); else if (canvas.requestFullscreen) canvas.requestFullscreen().catch(() => {}); break;
-      case 'KeyF': cruise = !cruise && dist(target) > sys.list[target].arrive * 1.2; cruiseV = 0; break;
+      case 'KeyF':
+        if (cruise) dropCruise(Math.min(cruiseV, 5000)); else if (charge >= 0) { charge = -1; blip(500, 120, 0.3, 'sine', 0.12); }
+        else if (dist(target) > sys.list[target].arrive * 1.2 && !bench.on) { charge = 1.2; cruiseV = 0; } else blip(220, 180, 0.15, 'square', 0.06); // too close: denied beep
+        break;
+      case 'KeyM': au.on = !au.on; if (au.m) au.m.gain.setTargetAtTime(au.on ? 0.55 : 0, au.ctx.currentTime, 0.05); break;
       case 'KeyB': bench.on ? stopBench(false) : startBench(); break;
       case 'KeyV': thirdPerson = !thirdPerson; break;
       case 'KeyH': showHelp = !showHelp; break;
@@ -623,22 +673,22 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
   };
-  const onKey = (e, d) => { keys[e.code] = d; if (e.code === 'Tab') e.preventDefault(); if (d && !e.repeat) act(e.code, e.shiftKey); };
+  const onKey = (e, d) => { if (d) audioInit(); keys[e.code] = d; if (e.code === 'Tab') e.preventDefault(); if (d && !e.repeat) act(e.code, e.shiftKey); };
   const kd = (e) => onKey(e, 1), ku = (e) => onKey(e, 0);
   const mm = (e) => { if (document.pointerLockElement === canvas) { mdx += e.movementX; mdy += e.movementY; } };
   // ---- touch: floating thumbstick (left 40%), drag-to-look (right), HUD buttons. All state preallocated. ----
   const BTN = [['KeyF', 'CRUISE', 0], ['ShiftLeft', 'BOOST', 1], ['Space', 'UP', 1], ['KeyX', 'DOWN', 1], ['KeyQ', 'ROLL<', 1], ['KeyE', 'ROLL>', 1],
-    ['TabBack', '<TGT', 0], ['Tab', 'TGT>', 0], ['KeyV', 'CAM', 0], ['Full', 'FULL', 0]];
+    ['TabBack', '<TGT', 0], ['Tab', 'TGT>', 0], ['KeyV', 'CAM', 0], ['Full', 'FULL', 0], ['KeyM', 'SND', 0]];
   const bxy = new Float32Array(BTN.length * 3), bptr = new Int32Array(BTN.length).fill(-1);
   const tc = { on: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches), jid: -1, jox: 0, joy: 0, jx: 0, jy: 0, lid: -1, lx: 0, ly: 0 };
   const layoutBtns = (s) => { // canvas-pixel layout, recomputed per frame (no allocation)
     const P = [W - 80 * s, H - 90 * s, 44, W - 190 * s, H - 62 * s, 34, W - 62 * s, H - 205 * s, 30, W - 62 * s, H - 285 * s, 30, 255 * s, H - 52 * s, 28, 330 * s, H - 52 * s, 28,
-      W - 300 * s, 46 * s, 26, W - 230 * s, 46 * s, 26, W - 160 * s, 46 * s, 26, W - 90 * s, 46 * s, 26];
+      W - 300 * s, 46 * s, 26, W - 230 * s, 46 * s, 26, W - 160 * s, 46 * s, 26, W - 90 * s, 46 * s, 26, W - 370 * s, 46 * s, 26];
     for (let i = 0; i < BTN.length; i++) { bxy[i * 3] = P[i * 3]; bxy[i * 3 + 1] = P[i * 3 + 1]; bxy[i * 3 + 2] = P[i * 3 + 2] * s; }
   };
   const pc = (e) => { scr[0] = (e.offsetX * W) / (canvas.clientWidth || 1); scr[1] = (e.offsetY * H) / (canvas.clientHeight || 1); };
   const pd = (e) => {
-    canvas.focus();
+    canvas.focus(); audioInit();
     if (e.pointerType === 'mouse') { if (document.pointerLockElement !== canvas && canvas.requestPointerLock) canvas.requestPointerLock(); return; }
     e.preventDefault(); tc.on = true; pc(e); const x = scr[0], y = scr[1], id = e.pointerId;
     if (canvas.setPointerCapture) canvas.setPointerCapture(id);
@@ -748,7 +798,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (i === target || prad > 60 || scr[0] < 0 || scr[1] < 0 || scr[0] > W || scr[1] > H) continue;
       if (b.type === 'station' && dist(i) > 2e8) continue;
       if (b.type === 'moon' && b.parent !== loc && b.parent !== ship.ref) continue;
-      const x = scr[0], y = scr[1], m = 4 * s;
+      const x = scr[0], y = scr[1], m = 4 * s, C = disc[i] ? 0.45 : 1, Cg = disc[i] ? 0.9 : 0.7, Cb = disc[i] ? 1 : 0.25; // amber = uncharted
       seg(x - m, y, x, y - m, C, Cg, Cb, 0.5, 1.2 * s); seg(x, y - m, x + m, y, C, Cg, Cb, 0.5, 1.2 * s); seg(x + m, y, x, y + m, C, Cg, Cb, 0.5, 1.2 * s); seg(x, y + m, x - m, y, C, Cg, Cb, 0.5, 1.2 * s);
       ts(b.name); tout(x + 9 * s, y - 8 * s, 15 * s, C, Cg, Cb, 0.55, 0);
     }
@@ -763,24 +813,49 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(tbdy.name); tout(x + r + 8 * s, y - r, 20 * s, 0.6, 1, 0.85, 1, 0);
       tdist(td - tbdy.R); tout(x + r + 8 * s, y - r + 24 * s, 17 * s, 0.6, 1, 0.85, 0.85, 0);
       tdist(closing); ts('/s'); tout(x + r + 8 * s, y - r + 45 * s, 17 * s, 0.6, 1, 0.85, 0.7, 0);
+      if (!disc[target]) { ts('UNCHARTED - fly close to log'); tout(x + r + 8 * s, y - r + 66 * s, 14 * s, 1, 0.7, 0.25, 0.85, 0); }
     } else {
       let ax = tx * rt[0] + ty * rt[1] + tz * rt[2], ay = -(tx * up[0] + ty * up[1] + tz * up[2]); const l = Math.hypot(ax, ay) || 1; ax /= l; ay /= l;
       const R = Math.min(W, H) * 0.42, x = cx + ax * R, y = cy + ay * R, k = 16 * s;
       seg(x, y, x - ax * k - ay * k * 0.6, y - ay * k + ax * k * 0.6, 0.5, 1, 0.8, 0.9, 2.5 * s); seg(x, y, x - ax * k + ay * k * 0.6, y - ay * k - ax * k * 0.6, 0.5, 1, 0.8, 0.9, 2.5 * s);
       ts(tbdy.name); tout(x - ax * 40 * s, y - ay * 40 * s, 16 * s, 0.6, 1, 0.85, 0.9, 0.5);
     }
+    // space dust: world-anchored motes in a wrapped box around the camera (reference-body frame) → speed streaks
+    if (!bench.on && !cruise && spd > 3) {
+      const D = Math.max(256, Math.pow(4, Math.ceil(Math.log(spd * 2.5) / Math.log(4)))), h = D / 2, kv = Math.min(0.12, (0.3 * D) / spd), fa = Math.min(1, (spd - 3) / 30);
+      const ox = cam[0] - pos[ship.ref * 3], oy = cam[1] - pos[ship.ref * 3 + 1], oz = cam[2] - pos[ship.ref * 3 + 2];
+      for (let i = 0; i < 160; i++) {
+        let x = dust[i * 3] * D - ox, y = dust[i * 3 + 1] * D - oy, z = dust[i * 3 + 2] * D - oz;
+        x -= D * Math.floor(x / D) + h; y -= D * Math.floor(y / D) + h; z -= D * Math.floor(z / D) + h; // wrap into [-h, h)
+        const r = Math.hypot(x, y, z) / h; if (r > 1 || !project(x, y, z)) continue; const ax = scr[0], ay = scr[1];
+        if (!project(x + ship.vel[0] * kv, y + ship.vel[1] * kv, z + ship.vel[2] * kv)) continue;
+        const a = fa * 0.85 * (1 - r) * (1 - r); seg(ax, ay, scr[0], scr[1], 0.75, 0.85, 1, a, 1.4 * s);
+      }
+    }
+    // supercruise charge ring
+    if (charge >= 0) { const k = 1 - charge / 1.2, R = 46 * s, N = Math.max(1, Math.floor(40 * k));
+      for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.9, 3 * s); }
+      ts('CHARGING SUPERCRUISE'); tout(cx, cy + 62 * s, 16 * s, 1, 0.8, 0.3, 0.9, 0.5); }
+    // discovery toast
+    if (toastT > 0 && toastI >= 0) { const tb2 = sys.list[toastI], a = Math.min(1, toastT, (5 - toastT) * 4), ty0 = H * 0.2;
+      seg(cx - 330 * s, ty0 + 50 * s, cx + 330 * s, ty0 + 50 * s, 0, 0.02, 0.05, 0.55 * a, 128 * s); // dark backing band
+      ts(toastAll ? 'SYSTEM SURVEYED - EVERY BODY LOGGED' : 'NEW DISCOVERY'); tout(cx, ty0, 16 * s, 1, 0.75, 0.3, a, 0.5);
+      ts(tb2.name); tout(cx, ty0 + 24 * s, 34 * s, 1, 1, 1, a, 0.5);
+      if (tb2.def && tb2.def.fact) { ts(tb2.def.fact); tout(cx, ty0 + 66 * s, 16 * s, 0.7, 0.9, 1, a * 0.9, 0.5); }
+      ts('LOG '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); tout(cx, ty0 + 92 * s, 15 * s, 1, 0.75, 0.3, a * 0.8, 0.5); }
     // reticle + velocity vector
     const rr = 10 * s; seg(cx - 2.2 * rr, cy, cx - rr, cy, 0.7, 0.9, 1, 0.6, 1.5 * s); seg(cx + rr, cy, cx + 2.2 * rr, cy, 0.7, 0.9, 1, 0.6, 1.5 * s); seg(cx, cy + rr, cx, cy + 1.8 * rr, 0.7, 0.9, 1, 0.6, 1.5 * s);
     if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 7 * s; seg(x - k, y, x + k, y, 1, 0.8, 0.3, 0.8, 1.5 * s); seg(x, y - k, x, y + k, 1, 0.8, 0.3, 0.8, 1.5 * s); }
     // left telemetry panel
     const L = 28 * s; let Y = 40 * s; const F = 18 * s, LH = 25 * s;
     ts('SYSTEM '); ts(sys.def.name); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
-    ts(bench.on ? 'MODE   BENCHMARK' : cruise ? 'MODE   SUPERCRUISE' : 'MODE   FLIGHT'); tout(L, Y, F, cruise || bench.on ? 1 : 0.6, cruise || bench.on ? 0.8 : 0.9, cruise || bench.on ? 0.3 : 1, 0.9, 0); Y += LH;
+    ts(bench.on ? 'MODE   BENCHMARK' : cruise ? 'MODE   SUPERCRUISE' : charge >= 0 ? 'MODE   CHARGING' : 'MODE   FLIGHT'); tout(L, Y, F, cruise || bench.on ? 1 : 0.6, cruise || bench.on ? 0.8 : 0.9, cruise || bench.on ? 0.3 : 1, 0.9, 0); Y += LH;
     ts('SPEED  '); tdist(spd); ts('/s'); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
     ts('FRAME  '); ts(sys.list[ship.ref].name); tout(L, Y, F, 0.6, 0.9, 1, 0.9, 0); Y += LH;
     ts('CPU    '); tn(avgDt * 1000, 2); ts(' ms'); tout(L, Y, F, 0.6, 0.9, 1, 0.7, 0); Y += LH;
     if (hasTS) { ts('GPU    '); tn(gpuMs, 2); ts(' ms'); tout(L, Y, F, gpuMs > 11 ? 1 : 0.6, gpuMs > 11 ? 0.5 : 0.9, gpuMs > 11 ? 0.4 : 1, 0.7, 0); Y += LH; }
     ts('TARGET '); ts(tbdy.name); tout(L, Y, F, 0.6, 1, 0.85, 0.9, 0); Y += LH;
+    ts('LOG    '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); ts(' discovered'); tout(L, Y, F, 1, 0.75, 0.3, 0.9, 0); Y += LH;
     if (cruise) { ts('ETA    '); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
     if (bench.on) { ts('BENCH  '); tn(60 - bench.t, 1); ts(' s left'); tout(L, Y, F, 1, 0.8, 0.3, 0.9, 0); Y += LH; }
     if (bench.res) {
@@ -793,7 +868,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       layoutBtns(s);
       const ring = (x, y, r, a, cr, cg, cb) => { for (let k = 0; k < 20; k++) { const a0 = (k / 20) * 6.2832, a1 = ((k + 1) / 20) * 6.2832; seg(x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r, cr, cg, cb, a, 2 * s); } };
       for (let i = 0; i < BTN.length; i++) {
-        const x = bxy[i * 3], y = bxy[i * 3 + 1], r = bxy[i * 3 + 2], on = bptr[i] >= 0 || (i === 0 && cruise) || (i === 8 && thirdPerson);
+        const x = bxy[i * 3], y = bxy[i * 3 + 1], r = bxy[i * 3 + 2], on = bptr[i] >= 0 || (i === 0 && (cruise || charge >= 0)) || (i === 8 && thirdPerson) || (i === 10 && au.on);
         ring(x, y, r, on ? 0.95 : 0.45, on ? 1 : 0.55, on ? 0.8 : 0.85, on ? 0.3 : 1); ts(BTN[i][1]); tout(x, y - 7 * s, (r > 40 * s ? 15 : 13) * s, on ? 1 : 0.7, on ? 0.85 : 0.9, on ? 0.4 : 1, 0.9, 0.5);
       }
       const R = 70 * s, jx = tc.jid >= 0 ? tc.jox : 140 * s, jy = tc.jid >= 0 ? tc.joy : H - 140 * s;
@@ -802,7 +877,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     } else if (showHelp) {
       const by = H - 70 * s;
       ts('W/S thrust  A/D strafe  SPACE/X up/down  Q/E roll  MOUSE pitch/yaw (click to lock)  SHIFT boost'); tout(cx, by, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
-      ts('TAB target  F supercruise  V 3rd person  B benchmark  J switch system  [ ] exposure  H hide help'); tout(cx, by + 24 * s, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
+      ts('TAB target  F supercruise  V 3rd person  M sound  B benchmark  J switch system  [ ] exposure  H hide help'); tout(cx, by + 24 * s, 16 * s, 0.7, 0.85, 1, 0.65, 0.5);
     }
   }
 
@@ -830,6 +905,10 @@ async function createEngine(canvas, systemId, opts = {}) {
     const wl = Math.hypot(ship.w[0], ship.w[1], ship.w[2]);
     if (!cruise && !bench.on && wl > 1e-9) { qaxis(dq, 0, ship.w[0] / wl, ship.w[1] / wl, ship.w[2] / wl, wl * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); qnorm(ship.q, 0); }
     qrot(fw, 0, ship.q, 0, 0, 0, -1);
+    if (charge >= 0 && !bench.on) { // supercruise charge-up: align to target, then jump
+      const to = target * 3; qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, pos[to] - abs[0], pos[to + 1] - abs[1], pos[to + 2] - abs[2], up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 3));
+      charge -= dt; if (charge <= 0) { charge = -1; cruise = true; cruiseV = 2000; flash = 1; whoosh(1.6, 150, 4000, 0.4); blip(90, 600, 0.9, 'sawtooth', 0.12); }
+    }
     if (cruise && !bench.on) { // supercruise with auto-alignment + exponential auto-deceleration
       const tbd = sys.list[target], to = target * 3, dx = pos[to] - abs[0], dy = pos[to + 1] - abs[1], dz = pos[to + 2] - abs[2], d = Math.hypot(dx, dy, dz);
       qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, dx, dy, dz, up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
@@ -837,7 +916,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       const vdes = surf * 1.4 * Math.pow(Math.max(0, (al - 0.85) / 0.15), 2);
       cruiseV = Math.min(vdes, Math.max(cruiseV, 2000) * Math.exp(dt * 2.2));
       for (let j = 0; j < 3; j++) { ship.off[j] += fw[j] * cruiseV * dt; ship.vel[j] = fw[j] * Math.min(cruiseV, 5e4); }
-      if (d < tbd.arrive * 1.03 || (K.KeyS && !K.KeyW)) { cruise = false; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * Math.min(cruiseV, Math.max(alt * 0.2, 200)); }
+      if (d < tbd.arrive * 1.03 || (K.KeyS && !K.KeyW)) dropCruise(Math.min(cruiseV, Math.max(alt * 0.2, 200)));
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
@@ -860,6 +939,16 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     qrot(rt, 0, camQ, 0, 1, 0, 0); qrot(up, 0, camQ, 0, 0, 1, 0); qrot(fw, 0, camQ, 0, 0, 0, -1);
     const spd = bench.on ? Math.hypot(bench.v[0], bench.v[1], bench.v[2]) : cruise ? cruiseV : Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]);
+    if (!bench.on) for (let i = 0; i < sys.n; i++) { // exploration log: get close to discover
+      if (disc[i]) continue; const b = sys.list[i];
+      if (dist(i) < (b.sphere ? Math.max(b.arrive * 1.3, 4 * b.R) : 15 * b.R)) {
+        disc[i] = 1; nDisc++; toastI = i; toastT = 5; toastAll = nDisc === sys.n; chime(toastAll); saveLog();
+      }
+    }
+    toastT -= dt; flash *= Math.exp(-dt * 3.5);
+    const boosting = (K.ShiftLeft || K.ShiftRight) && spd > 50 && !cruise ? 1 : 0, thr = Math.min(1, Math.hypot(inX, inY, inZ));
+    const fovT = (65 + boosting * 9 + warpVis * 16 - (charge >= 0 ? (1.2 - charge) * 4 : 0)) * D2R; fov += (fovT - fov) * Math.min(1, dt * 4);
+    audioFrame(thr, boosting, charge >= 0 ? 1 - charge / 1.2 : 0);
 
     // ---- globals ----
     const ty = Math.tan(fov / 2), tx = (ty * W) / H, near = 0.25, f = 1 / ty;
@@ -875,7 +964,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
-    gF[48] = warpVis;
+    gF[48] = warpVis; gF[49] = flash;
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----
     let nb = 0; const L = sys.def.scale;
@@ -984,6 +1073,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('mousemove', mm);
       canvas.removeEventListener('pointerdown', pd); canvas.removeEventListener('pointermove', pmv); canvas.removeEventListener('pointerup', pu); canvas.removeEventListener('pointercancel', pu); canvas.removeEventListener('contextmenu', noCtx);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
+      if (au.ctx) au.ctx.close();
       device.destroy();
     },
   };
