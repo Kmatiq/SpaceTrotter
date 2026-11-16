@@ -691,7 +691,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const c = au.ctx = new AC(), G = (v, to) => { const g = c.createGain(); g.gain.value = v; g.connect(to); return g; };
     const F = (type, f, to) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.connect(to); return b; };
     const O = (type, f, to) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; o.connect(to); o.start(); return o; };
-    au.m = G(au.on ? 0.35 : 0, c.destination);
+    au.m = G(au.on ? 0.5 : 0, c.destination); au.an = c.createAnalyser(); au.an.fftSize = 1024; au.m.connect(au.an); au.ab = new Float32Array(1024); // level meter (debug/tests)
     const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const nz = c.createBufferSource(); nz.buffer = nb; nz.loop = true; nz.start();
     const bb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), bd = bb.getChannelData(0); let lb = 0; for (let i = 0; i < bd.length; i++) { lb = (lb + 0.02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = lb * 3.5; } // brown noise: deep, soft
@@ -715,8 +715,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.1); blip(990, 990, 0.5, 'sine', 0.09, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.08, 0.26); blip(1760, 1760, 1.2, 'sine', 0.06, 0.42); } };
   function audioFrame(thr, boost, chg, ht) {
     const c = au.ctx; if (!c) return; const t = c.currentTime, w = warpVis;
-    au.eg.gain.setTargetAtTime((0.012 + thr * 0.07 + boost * 0.05) * (1 - w * 0.6), t, 0.25); au.ef.frequency.setTargetAtTime(220 + thr * 380 + boost * 700, t, 0.3); // soft rocket wash
-    au.hg.gain.setTargetAtTime(thr * 0.012 * (1 + boost * 1.5), t, 0.2); au.hf.frequency.setTargetAtTime(900 + boost * 1500, t, 0.3);
+    au.eg.gain.setTargetAtTime((0.05 + thr * 0.22 + boost * 0.18) * (1 - w * 0.6), t, 0.25); au.ef.frequency.setTargetAtTime(600 + thr * 900 + boost * 1400, t, 0.3); // soft rocket wash, kept above ~500 Hz so phone speakers can play it
+    au.hg.gain.setTargetAtTime(thr * 0.03 * (1 + boost * 1.5), t, 0.2); au.hf.frequency.setTargetAtTime(1200 + boost * 1500, t, 0.3);
     au.wg.gain.setTargetAtTime(w * 0.12 + chg * 0.06 + ht * 0.22, t, 0.2); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
     au.sg.gain.setTargetAtTime(chg * 0.03 + w * 0.006, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
@@ -786,7 +786,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         if (cruise) dropCruise(Math.min(cruiseV, 5000)); else if (charge >= 0) { charge = -1; blip(500, 120, 0.3, 'sine', 0.07); }
         else if (dist(target) > sys.list[target].arrive * 1.2 && !bench.on) { charge = 1.2; cruiseV = 0; } else blip(330, 260, 0.15, 'sine', 0.06); // too close: denied beep
         break;
-      case 'KeyM': au.on = !au.on; if (au.m) au.m.gain.setTargetAtTime(au.on ? 0.35 : 0, au.ctx.currentTime, 0.05); break;
+      case 'KeyM': au.on = !au.on; if (au.m) au.m.gain.setTargetAtTime(au.on ? 0.5 : 0, au.ctx.currentTime, 0.05); break;
       case 'KeyB': bench.on ? stopBench(false) : startBench(); break;
       case 'KeyV': thirdPerson = !thirdPerson; break;
       case 'KeyH': showHelp = !showHelp; break;
@@ -1383,6 +1383,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     mapFocus: (id) => { const i = sys.idx[id]; if (i === undefined || i === mp.focus) return; mpS.set(cam); mpSQ.set(camQ); mp.b = 0; mp.focus = i; mp.zoom = 1; mp.sel = -1; },
     mapSelect: (id) => { mp.sel = id == null ? -1 : sys.idx[id]; },
     screenPos: (id) => { const i = sys.idx[id], o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) return null; const k = canvas.clientWidth / W; return [scr[0] * k, scr[1] * k]; },
+    get audioLevel() { if (!au.an) return -1; au.an.getFloatTimeDomainData(au.ab); let e = 0; for (let i = 0; i < 1024; i++) e += au.ab[i] * au.ab[i]; return Math.sqrt(e / 1024); },
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
