@@ -1349,8 +1349,8 @@ const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 
 const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
 const TYPE_LBL = { star: 'Star', planet: 'Planet', moon: 'Moon', station: 'Station', comet: 'Comet' };
 const rgbCss = (c, k = 1) => (c ? 'rgb(' + c.map((v) => Math.round(Math.min(1, Math.pow(v, 0.6) * k) * 255)).join(',') + ')' : '#cde');
-function SysMap({ eng, onClose }) { // live top-down system map: log-compressed distances, pinch/scroll zoom, drag pan, tap to select
-  const cv = useRef(null), st = useRef({ focus: 0, zoom: 1, px: 0, py: 0, pts: [], ptr: new Map(), moved: 0, pinch: 0 }), [sel, setSel] = useState(-1), [focus, setFocus] = useState(0), [snap, setSnap] = useState(null);
+function SysMap({ eng, onClose, closing, onDone }) { // live top-down system map: log-compressed distances, pinch/scroll zoom, drag pan, tap to select
+  const cv = useRef(null), st = useRef({ focus: 0, zoom: 1, px: 0, py: 0, pts: [], ptr: new Map(), moved: 0, pinch: 0, anim: { t0: performance.now(), dur: 420, dir: 1 } }), [vis, setVis] = useState(false), [sel, setSel] = useState(-1), [focus, setFocus] = useState(0), [snap, setSnap] = useState(null);
   useEffect(() => {
     let raf = 0, dead = false, n = 0; const c = cv.current, g = c.getContext('2d');
     const draw = () => {
@@ -1358,13 +1358,19 @@ function SysMap({ eng, onClose }) { // live top-down system map: log-compressed 
       const dpr = Math.min(window.devicePixelRatio || 1, 2), w = c.clientWidth, h = c.clientHeight;
       if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
       const d = eng.mapData(), S = st.current, B = d.bodies, f = S.focus; if (++n % 10 === 1) setSnap(d);
-      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = 'rgba(2,6,14,0.94)'; g.fillRect(0, 0, w, h);
       const kids = []; for (let i = 0; i < B.length; i++) if (B[i].parent === f) kids.push(i);
       let rmax = B[f].R * 6, rmin = Infinity; for (const i of kids) { rmax = Math.max(rmax, B[i].a * (1 + B[i].ecc)); if (B[i].type !== 'comet' && B[i].type !== 'station') rmin = Math.min(rmin, B[i].a); }
       const r0 = f === 0 ? (isFinite(rmin) ? rmin : rmax) * 0.35 : B[f].R * 1.5, sc = ((Math.min(w, h) * 0.45) / Math.log(1 + rmax / r0)) * S.zoom, cx = w / 2 + S.px, cy = h / 2 + S.py;
       const M = (x, z, o) => { const r = Math.hypot(x, z); const k = r > 1e-9 ? (Math.log(1 + r / r0) * sc) / r : 0; o[0] = cx + x * k; o[1] = cy + z * k; return o; }, q = [0, 0];
       const orbitPt = (b, m, o) => { let x, z; if (b.ecc > 0) { x = b.a * (Math.cos(m) - b.ecc); z = b.a * Math.sqrt(1 - b.ecc * b.ecc) * Math.sin(m); } else { x = b.a * Math.cos(m); z = b.a * Math.sin(m); }
         const zi = z * Math.cos(b.inc), cn = Math.cos(b.node), sn = Math.sin(b.node); return M(x * cn - zi * sn, x * sn + zi * cn, o); };
+      { // open/close animation: geometric zoom about the ship (x40 -> x1) while the map fades in over the 3D view
+        let ssx = d.sx, ssz = d.sz; if (f !== 0) { ssx -= B[f].x; ssz -= B[f].z; } const sp = M(ssx, ssz, [0, 0]), A = S.anim, now = performance.now();
+        let a = A ? Math.min(1, (now - A.t0) / A.dur) : 1; const fin = a >= 1; a = a * a * (3 - 2 * a); if (A && A.dir < 0) a = 1 - a;
+        if (A && fin) { if (A.dir < 0) { if (!A.done) { A.done = true; A.cb(); } } else S.anim = null; }
+        const k = Math.exp(Math.log(40) * (1 - a)), ox = (w / 2) * (1 - a) + sp[0] * a - sp[0] * k, oy = (h / 2) * (1 - a) + sp[1] * a - sp[1] * k;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(2,6,14,' + (0.94 * a).toFixed(3) + ')'; g.fillRect(0, 0, w, h);
+        g.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy); g.globalAlpha = Math.min(1, a * 1.3); }
       g.lineWidth = 1; // belts + orbits
       if (f === 0) for (const [bi, bo] of d.belts) { const r1 = M(bi, 0, q)[0] - cx, r2 = M(bo, 0, q)[0] - cx; g.strokeStyle = 'rgba(180,160,130,0.13)'; g.lineWidth = Math.max(1, r2 - r1); g.beginPath(); g.arc(cx, cy, (r1 + r2) / 2, 0, 6.2832); g.stroke(); }
       for (const i of kids) { const b = B[i], hi = i === d.target; g.strokeStyle = hi ? 'rgba(125,255,200,0.7)' : b.type === 'comet' ? 'rgba(160,200,255,0.25)' : 'rgba(110,170,230,0.28)'; g.lineWidth = hi ? 1.6 : 1; g.beginPath();
@@ -1389,8 +1395,9 @@ function SysMap({ eng, onClose }) { // live top-down system map: log-compressed 
       if (x > -50 && y > -50 && x < w + 50 && y < h + 50) { g.fillStyle = '#ffc35a'; g.beginPath(); g.moveTo(x + ax * 11, y + az * 11); g.lineTo(x - ax * 7 - az * 6, y - az * 7 + ax * 6); g.lineTo(x - ax * 3, y - az * 3); g.lineTo(x - ax * 7 + az * 6, y - az * 7 - ax * 6); g.fill();
         g.fillStyle = '#ffc35a'; g.fillText('YOU', x + 12, y + 12); }
     };
-    raf = requestAnimationFrame(draw); return () => { dead = true; cancelAnimationFrame(raf); };
+    raf = requestAnimationFrame(draw); const vt = setTimeout(() => setVis(true), 200); return () => { dead = true; cancelAnimationFrame(raf); clearTimeout(vt); };
   }, [eng]);
+  useEffect(() => { if (closing) { setVis(false); st.current.anim = { t0: performance.now(), dur: 320, dir: -1, cb: onDone }; } }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
   const S = st.current;
   const zoomAt = (k, x, y) => { const c = cv.current, w = c.clientWidth, h = c.clientHeight, nz = Math.max(0.4, Math.min(60, S.zoom * k)); k = nz / S.zoom; const cx = w / 2 + S.px, cy = h / 2 + S.py;
     S.px = x - (x - cx) * k - w / 2; S.py = y - (y - cy) * k - h / 2; S.zoom = nz; };
@@ -1406,16 +1413,17 @@ function SysMap({ eng, onClose }) { // live top-down system map: log-compressed 
   const B = snap && snap.bodies, b = B && sel >= 0 ? B[sel] : null, hasKids = b && B.some((x) => x.parent === sel) && sel !== focus;
   const bt = (extra) => ({ ...panel, cursor: 'pointer', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, font: '600 13px ui-monospace,Consolas,monospace', letterSpacing: 1, ...extra });
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'auto' }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: closing ? 'none' : 'auto' }}>
       <canvas ref={cv} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={(e) => { const p = xy(e); zoomAt(Math.exp(-e.deltaY * 0.0015), p[0], p[1]); }}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: 'grab' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: vis ? 1 : 0, transition: 'opacity .2s' }}>
       <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
         {focus !== 0 && <div onClick={() => goFocus(0)} style={bt({ pointerEvents: 'auto' })}><Ico n="back" s={18} />SYSTEM</div>}
         <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{B ? (focus === 0 ? 'SYSTEM MAP' : B[focus].name.toUpperCase() + ' SYSTEM') : ''}<span style={{ color: C.dim, fontSize: 11, marginLeft: 10 }}>live · distances compressed</span></div>
         <span style={{ flex: 1 }} />
         <div onClick={onClose} style={bt({ pointerEvents: 'auto' })} title="Close map (N)"><Ico n="close" s={18} />CLOSE</div>
       </div>
-      {b && <div style={{ ...panel, position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '14px 16px' }}>
+      {b && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 20, color: C.acc }}>{b.name}</span><span style={{ color: C.dim, fontSize: 12 }}>{TYPE_LBL[b.type]}</span>
           {!b.found && <span style={{ color: C.warn, fontSize: 11 }}>UNCHARTED</span>}<span style={{ flex: 1 }} /><span style={{ color: C.dim, fontSize: 13 }}>{fmtD(b.dist)}</span></div>
         {b.fact && <div style={{ color: C.fg, fontSize: 13, margin: '8px 0 12px', opacity: 0.85 }}>{b.fact}</div>}
@@ -1425,12 +1433,12 @@ function SysMap({ eng, onClose }) { // live top-down system map: log-compressed 
           {hasKids && <div onClick={ok(() => goFocus(sel))} style={bt()}><Ico n="map" s={18} />MOONS</div>}
         </div></div>}
       {!b && <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', color: C.dim, fontSize: 12, pointerEvents: 'none' }}>Tap a planet · pinch / scroll to zoom · drag to pan</div>}
-    </div>);
+    </div></div>);
 }
 function Overlay({ eng }) {
   const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [map, setMap] = useState(false);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 200); return () => clearInterval(id); }, [eng, list]);
-  useEffect(() => { const k = (e) => { if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); setMap((m) => !m); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setMap(false); } };
+  useEffect(() => { const k = (e) => { if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); setMap((m) => (m === true ? 'closing' : m ? m : true)); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setMap((m) => (m ? 'closing' : m)); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
   if (!ui) return null;
   function openList() { eng.unlockMouse(); setMenu(false); setList((l) => (l ? null : eng.bodies())); }
@@ -1492,7 +1500,7 @@ function Overlay({ eng }) {
         {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Target button (top right): list of all targets<br />MAP: live system map, tap a planet to cruise there<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
           : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />N map · F supercruise · V camera · M sound · G stats · B benchmark · J system · H hint bar</div>}
         <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
-      {map && <SysMap eng={eng} onClose={() => setMap(false)} />}
+      {map && <SysMap eng={eng} closing={map === 'closing'} onClose={() => setMap('closing')} onDone={() => setMap(false)} />}
       {/* touch action cluster */}
       {ui.touch && <>
         <div {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
