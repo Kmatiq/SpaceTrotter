@@ -228,6 +228,41 @@ const JPL = { mercury: [0.38709927, 3.7e-7, 0.20563593, 1.906e-5, 7.00497902, -0
   saturn: [9.53667594, -0.0012506, 0.05386179, -0.00050991, 2.48599187, 0.00193609, 49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794],
   uranus: [19.18916464, -0.00196176, 0.04725744, -4.397e-5, 0.77263783, -0.00242939, 313.23810451, 428.48202785, 170.9542763, 0.40805281, 74.01692503, 0.04240589],
   neptune: [30.06992276, 0.00026291, 0.00859048, 5.105e-5, 1.77004347, 0.00035372, -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664] };
+/* Guided tours (tourist mode). Each stop is a landmark name from PLACES (p) or a body id (b), with a short story. */
+export const TOURS = [
+  { name: 'Capitals of Europe', desc: 'Six great cities seen from the air.', stops: [
+    { p: 'Stockholm', t: 'Built on 14 islands where Lake Malaren meets the Baltic Sea.' },
+    { p: 'London', t: 'Follow the River Thames: two thousand years of history along its banks.' },
+    { p: 'Paris', t: 'The Seine curves through the city. The big green patch to the west is the Bois de Boulogne.' },
+    { p: 'Rome', t: 'The Eternal City, on the River Tiber. The Vatican is the smallest country on Earth.' },
+    { p: 'Athens', t: 'Birthplace of democracy, between the mountains and the Aegean Sea.' },
+    { p: 'Istanbul', t: 'One city on two continents, split by the Bosphorus strait.' }] },
+  { name: 'Roof of the World', desc: 'Famous mountains, from the Alps to the Himalaya.', stops: [
+    { p: 'Mont Blanc', t: 'The highest peak of the Alps: 4,806 m of rock and ice on the French-Italian border.' },
+    { p: 'Matterhorn', t: 'The most photographed mountain on Earth, first climbed in 1865.' },
+    { p: 'Etna', t: 'Europe\'s most active volcano. It has been erupting on and off for half a million years.' },
+    { p: 'Kilimanjaro', t: 'Africa\'s highest mountain stands alone, with snow almost on the equator.' },
+    { p: 'Mount Everest', t: '8,849 m. The summit is marine limestone: this rock once lay on a sea floor.' },
+    { p: 'Mount Fuji', t: 'Japan\'s sacred volcano, an almost perfect cone. It last erupted in 1707.' }] },
+  { name: 'Footsteps on the Moon', desc: 'Apollo landing sites and great craters.', stops: [
+    { b: 'luna', t: 'Our Moon: 384,000 km away, always showing us the same face. Its real phase today is shown.' },
+    { p: 'Apollo 11', t: 'Tranquility Base. On 20 July 1969, Neil Armstrong and Buzz Aldrin walked here.' },
+    { p: 'Apollo 17', t: 'The last crewed landing, December 1972. Nobody has been back since.' },
+    { p: 'Copernicus', t: 'A 93 km wide crater with terraced walls and central peaks, about 800 million years old.' },
+    { p: 'Tycho', t: 'A young, bright crater. Its rays of ejected rock stretch across the whole near side.' }] },
+  { name: 'The Red Planet', desc: 'Giant volcanoes, a giant canyon and the rovers.', stops: [
+    { b: 'mars', t: 'Mars: half the width of Earth, with a thin carbon-dioxide sky.' },
+    { p: 'Olympus Mons', t: 'The tallest volcano in the Solar System: 22 km high and as wide as France.' },
+    { p: 'Valles Marineris', t: 'A canyon system 4,000 km long and up to 7 km deep. It would span the United States.' },
+    { p: 'Gale Crater (Curiosity)', t: 'The Curiosity rover has been exploring this old lake bed since 2012.' },
+    { p: 'Jezero (Perseverance)', t: 'An ancient river delta, where Perseverance collects rock samples in search of past life.' }] },
+  { name: 'Grand Tour', desc: 'From the Sun to Neptune in one trip.', stops: [
+    { b: 'sun', t: 'The Sun holds 99.8% of the Solar System\'s mass. Its light takes 8 minutes to reach Earth.' },
+    { b: 'earth', t: 'Home. The only world known to have life.' },
+    { b: 'jupiter', t: 'The giant: 11 Earths wide. The Great Red Spot is a storm older than the telescope.' },
+    { b: 'saturn', t: 'The rings are mostly water ice, 280,000 km wide but often only tens of metres thick.' },
+    { b: 'neptune', t: 'The outermost planet, with the fastest winds in the Solar System: over 2,000 km/h.' }] },
+];
 const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
@@ -1414,6 +1449,25 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   function goPlace(k) { const m = sys.lm[k]; if (!m || bench.on) return; audioInit(); ap.k = k; ap.on = false; setTgt(m.bi);
     if (dist(m.bi) < sys.list[m.bi].arrive * 1.25) apStart(); else { ap.pend = true; if (!cruise && charge < 0) { charge = 1.2; cruiseV = 0; } } }
+  // ---- guided tours ----
+  const tr = { k: -1, i: 0 };
+  function sunOver(lon) {
+    // fast mode only: spin Earth so that it is midday at this longitude (radians)
+    const e = sys.idx.earth; if (e === undefined || TS !== TSF) return;
+    const ss = () => { updateOrbits(simT); const o = e * 3, q = e * 4, l = Math.hypot(pos[o], pos[o + 1], pos[o + 2]); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+      qrot(t3, 0, tq, 0, -pos[o] / l, -pos[o + 1] / l, -pos[o + 2] / l); return Math.atan2(-t3[2], t3[0]); };
+    const keep = eSpin0, a0 = ss(); eSpin0 = keep + 0.5; const a1 = ss(), k = Math.sign(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0))) || 1;
+    eSpin0 = keep + Math.atan2(Math.sin(lon - a0), Math.cos(lon - a0)) / k; updateOrbits(simT);
+  }
+  function tourGo() {
+    const st = TOURS[tr.k].stops[tr.i]; audioInit();
+    if (st.p) { const k = sys.lm.findIndex((m) => m.name === st.p); if (k < 0) return; const m = sys.lm[k], o = m.bi * 3;
+      if (sys.list[m.bi].id === 'earth') { qrot(t3, 0, bq, m.bi * 4, m.dir[0], m.dir[1], m.dir[2]); const l = Math.hypot(pos[o], pos[o + 1], pos[o + 2]);
+        if (-(t3[0] * pos[o] + t3[1] * pos[o + 1] + t3[2] * pos[o + 2]) / l < 0.35) { sunOver(m.lon * D2R); rqRef = -1; flash = 0.4; } }
+      goPlace(k); }
+    else { const i = sys.idx[st.b]; if (i === undefined) return; ap.on = ap.pend = false; setTgt(i); if (dist(i) > sys.list[i].arrive * 1.2 && !cruise && charge < 0) { charge = 1.2; cruiseV = 0; } }
+  }
+  const tourArrived = () => { const st = TOURS[tr.k].stops[tr.i]; if (cruise || charge >= 0 || ap.on || ap.pend) return false; if (st.p) return true; const i = sys.idx[st.b]; return i !== undefined && dist(i) < sys.list[i].arrive * 1.3; };
   // ---- interstellar warp: spool (turn + aberration builds) -> fold (near-c, starbow, ly pulses, system swap at mid) -> bloom (arrival flash) ----
   let here = 0, wsel = -1; const wp = { on: false, t: 0, dest: -1, ly: 0, beta: 0, fold: 0, pulse: 0, flash: 0, swapped: false, np: 0, dir: new Float64Array(3), end: new Float64Array(3), endQ: new Float64Array(4), sp: -1, st: new Float64Array(3) };
   const WT1 = 2.6, WT3 = 1.8; let WT2 = 9;
@@ -1785,6 +1839,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
+      tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
       date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
@@ -1798,6 +1853,10 @@ async function createEngine(canvas, systemId, opts = {}) {
     mapSelect: (id) => { mp.sel = id == null ? -1 : sys.idx[id]; },
     screenPos: (id) => { const i = sys.idx[id], o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) return null; const k = canvas.clientWidth / W; return [scr[0] * k, scr[1] * k]; },
     get audioLevel() { if (!au.an) return -1; au.an.getFloatTimeDomainData(au.ab); let e = 0; for (let i = 0; i < 1024; i++) e += au.ab[i] * au.ab[i]; return Math.sqrt(e / 1024); },
+    tours: () => TOURS.map((T, k) => ({ k, name: T.name, desc: T.desc, n: T.stops.length })),
+    tourStart: (k) => { if (sys.def.id !== 'sol' || bench.on || wp.on || !TOURS[k]) return false; mp.on = false; gx.on = false; tr.k = k; tr.i = 0; tourGo(); return true; },
+    tourStep: (d) => { if (tr.k < 0) return; const n = TOURS[tr.k].stops.length, i = tr.i + d; if (i >= n) { tr.k = -1; ap.on = ap.pend = false; chime(true); return; } tr.i = Math.max(0, i); tourGo(); },
+    tourStop: () => { tr.k = -1; ap.on = ap.pend = false; },
     places: () => sys.lm.map((m, k) => ({ k, name: m.name, kind: LMK[m.kind], body: sys.list[m.bi].name })), goPlace,
     stars: () => STARS.map((st, k) => ({ sk: k, name: st.name, kind: st.gal ? 'Galaxy' : 'Star', body: k === here ? 'you are here' : starDir(k, sd3).toFixed(1) + ' ly', here: k === here })),
     warpTo: (k) => warpTo(k),
@@ -1843,7 +1902,7 @@ const ICON = { // 24x24 stroke icons
   rl: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4', rr: 'M20 12a8 8 0 1 1-3-6.2M20 4v4h-4', menu: 'M4 7h16M4 12h16M4 17h16', close: 'M6 6l12 12M18 6L6 18',
   snd: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6', mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6', cam: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 .1',
   full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', help: 'M9 9a3 3 0 1 1 4 2.8c-1 .4-1 1.2-1 2.2M12 17v.5', stats: 'M5 19V11M10 19V5M15 19v-6M20 19V9',
-  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', save: 'M12 4v11M7 11l5 5 5-5M5 20h14', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
+  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', tour: 'M5 21V4M5 4h11l-2 4 2 4H5', save: 'M12 4v11M7 11l5 5 5-5M5 20h14', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
 const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>;
 const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
 const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
@@ -1901,7 +1960,7 @@ function MapUI({ eng, m, sysName, date }) { // DOM chrome for the 3D map: header
     </div>);
 }
 function Overlay({ eng }) {
-  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [find, setFind] = useState(null);
+  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
   useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); eng.galaxyClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
@@ -1944,6 +2003,7 @@ function Overlay({ eng }) {
             <span style={{ fontSize: 11, color: C.dim, letterSpacing: 0 }}>{fmtD(ui.dist)}</span>
           </span>
         </div>
+        <div {...tap(() => { eng.unlockMouse(); setMenu(false); setList(null); setFind(null); setTours(!tours); })} style={btn({ width: 56, minHeight: 48, fontSize: 10, ...(ui.tour ? { borderColor: C.warn, color: C.warn } : {}) })} title="Guided tours"><Ico n="tour" s={22} />TOURS</div>
         <div {...tap(openFind)} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="Search places (/)"><Ico n="find" s={22} />FIND</div>
         <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(false); setFind(null); eng.mapOpen(); })} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="System map (N)"><Ico n="map" s={22} />MAP</div>
         <div {...tap(() => { eng.unlockMouse(); setList(null); setFind(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
@@ -1993,6 +2053,25 @@ function Overlay({ eng }) {
           </div>
           <div style={{ padding: '8px 14px', fontSize: 11, color: C.dim, borderTop: '1px solid ' + C.line }}>GO flies you there: cruise to the planet, then an automatic descent</div>
         </div>); })()}
+      {tours && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))', maxHeight: 'calc(100% - 82px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><span style={{ flex: 1, letterSpacing: 1 }}>GUIDED TOURS</span><span {...tap(() => setTours(false))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
+        <div style={{ overflowY: 'auto', padding: 6 }}>
+          {!ui.inSol && <div style={{ padding: 12, color: C.warn, fontSize: 13 }}>Tours start in the Solar System. Warp to Sol first (FIND, then type Sol).</div>}
+          {ui.inSol && eng.tours().map((T) => <div key={T.k} {...tap(() => { eng.tourStart(T.k); setTours(false); })} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, cursor: 'pointer' }}>
+            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}><span style={{ fontSize: 15 }}>{T.name}</span><span style={{ color: C.dim, fontSize: 12 }}>{T.desc} {T.n} stops.</span></span>
+            <span style={{ color: C.warn, fontSize: 11, letterSpacing: 1 }}>START</span></div>)}
+        </div>
+        <div style={{ padding: '8px 14px', fontSize: 11, color: C.dim, borderTop: '1px solid ' + C.line }}>The ship flies itself between stops. Touch thrust any time to look around on your own.</div>
+      </div>}
+      {ui.tour && !mapOut && !ui.photo && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 4, left: '50%', bottom: ui.touch ? 104 : 16, transform: 'translateX(-50%)', width: 'min(500px, calc(100% - 24px))', padding: '12px 14px', borderColor: 'rgba(255,195,90,.6)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><span style={{ fontSize: 11, color: C.warn, letterSpacing: 1 }}>{ui.tour.name.toUpperCase()}</span><span style={{ flex: 1 }} /><span style={{ fontSize: 11, color: C.dim }}>{ui.tour.i + 1} / {ui.tour.n}</span></div>
+        <div style={{ fontSize: 19, color: C.acc, margin: '2px 0 4px' }}>{ui.tour.title}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.4, opacity: 0.9, minHeight: 36 }}>{ui.tour.arrived ? ui.tour.text : 'On the way...'}</div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          {ui.tour.i > 0 && <div {...tap(() => eng.tourStep(-1))} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1 }}>BACK</div>}
+          <div {...tap(() => eng.tourStep(1))} style={{ ...panel, cursor: 'pointer', padding: '8px 14px', fontSize: 12, letterSpacing: 1, borderColor: C.warn, color: C.warn }}>{ui.tour.i + 1 < ui.tour.n ? 'NEXT STOP' : 'FINISH'}</div>
+          <span style={{ flex: 1 }} /><div {...tap(() => eng.tourStop())} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1 }}>EXIT TOUR</div>
+        </div></div>}
       {ui.auto && !mapOut && <div style={{ ...panel, position: 'absolute', left: '50%', top: 72, transform: 'translateX(-50%)', padding: '8px 14px', fontSize: 12, color: C.warn, borderColor: C.warn, whiteSpace: 'nowrap' }}>AUTOPILOT › {ui.auto}<span style={{ color: C.dim }}> · thrust to take over</span></div>}
       {ui.wsel && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 4, left: '50%', bottom: ui.touch ? 130 : 16, transform: 'translateX(-50%)', width: 'min(440px, calc(100% - 24px))', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 20, color: C.warn }}>{ui.wsel.name}</span><span style={{ color: C.dim, fontSize: 12 }}>Star</span><span style={{ flex: 1 }} /><span style={{ color: C.dim, fontSize: 13 }}>{ui.wsel.ly.toFixed(1)} light-years</span></div>
