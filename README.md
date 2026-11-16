@@ -247,6 +247,8 @@ The asteroid belt has two layers:
 - 2,000 orbiting asteroids whose elements are kept in f64 and positioned on the CPU each frame.
 - A procedural cell-grid field of up to about 1,800 rocks that appears around you inside the belt.
 
+**Sharp HUD.** The WebGPU HUD (text, brackets, ladder) renders to its own transparent canvas at full device resolution, while the 3D view keeps its lower, adaptive resolution, so text stays crisp on phones.
+
 **UI overlay.** The buttons, the target chip and list, the ☰ menu and the controls help are a small React/DOM
 layer over the canvas. It polls the engine about 5 times a second, so it never touches the render loop. The 3D
 HUD stays in WebGPU.

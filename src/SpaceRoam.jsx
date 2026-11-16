@@ -725,6 +725,10 @@ async function createEngine(canvas, systemId, opts = {}) {
   const device = await adapter.requestDevice({ requiredFeatures: hasTS ? ['timestamp-query'] : [] });
   const ctx = canvas.getContext('webgpu'), fmt = navigator.gpu.getPreferredCanvasFormat();
   if (!opts.offscreen) ctx.configure({ device, format: fmt, alphaMode: 'opaque', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+  let hcv = null, hctx = null; // HUD layer: its own transparent canvas at full device resolution, so text and lines stay sharp while the 3D view renders at a lower / adaptive resolution
+  if (!opts.offscreen && canvas.parentElement) { hcv = document.createElement('canvas'); hcv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+    canvas.after(hcv); hctx = hcv.getContext('webgpu'); hctx.configure({ device, format: fmt, alphaMode: 'premultiplied' }); }
+  const hudAtt = { view: null, clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }, hudDesc = { colorAttachments: [hudAtt] };
   device.addEventListener('uncapturederror', (e) => console.error('[SpaceRoam] GPU error:', e.error.message));
   const mod = device.createShaderModule({ code: WGSL });
   const U = GPUBufferUsage, T = GPUTextureUsage, VF = GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT;
@@ -781,6 +785,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const resize = () => {
     const dpr = opts.renderScale || (tc.on ? 1 : Math.min(window.devicePixelRatio || 1, 2)) * dyn; // phones: 1 canvas px per CSS px; dyn = adaptive resolution
     const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (hcv) { const k = Math.min(window.devicePixelRatio || 1, 3), hw = Math.max(1, Math.round(canvas.clientWidth * k)), hh = Math.max(1, Math.round(canvas.clientHeight * k)); if (hcv.width !== hw || hcv.height !== hh) { hcv.width = hw; hcv.height = hh; } }
     if (w === W && h === H) return;
     W = canvas.width = w; H = canvas.height = h;
     if (hdrT) { hdrT.destroy(); depT.destroy(); outT && outT.destroy(); }
@@ -1738,8 +1743,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     const sc = outT || ctx.getCurrentTexture(); finalAtt.view = sc.createView();
     p = enc.beginRenderPass(finalDesc);
     p.setBindGroup(0, bg0); p.setBindGroup(1, bg1); p.setPipeline(postP); p.draw(3);
-    if (hn) { p.setPipeline(hudP); p.draw(6, hn, 0, 0); }
+    if (hn && !hctx) { p.setPipeline(hudP); p.draw(6, hn, 0, 0); }
     p.end();
+    if (hctx) { hudAtt.view = hctx.getCurrentTexture().createView(); p = enc.beginRenderPass(hudDesc); if (hn) { p.setBindGroup(0, bg0); p.setPipeline(hudP); p.draw(6, hn, 0, 0); } p.end(); } // HUD in NDC from W×H coords: same layout, sharper raster
     let cap = null; if (capReq && !capBusy) { cap = capReq; capReq = null; capBusy = true; const bpr = Math.ceil(W * 4 / 256) * 256; cap.bpr = bpr; cap.w = W; cap.h = H;
       cap.buf = buf(bpr * H, U.MAP_READ | U.COPY_DST); enc.copyTextureToBuffer({ texture: sc }, { buffer: cap.buf, bytesPerRow: bpr }, [W, H]); }
     const slot = bench.on ? Math.min(bench.n, NSLOT - 1) : 0;
@@ -1815,7 +1821,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('mousemove', mm);
       canvas.removeEventListener('pointerdown', pd); canvas.removeEventListener('pointermove', pmv); canvas.removeEventListener('pointerup', pu); canvas.removeEventListener('pointercancel', pu); canvas.removeEventListener('contextmenu', noCtx); canvas.removeEventListener('wheel', whl);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
-      if (au.ctx) au.ctx.close();
+      if (au.ctx) au.ctx.close(); if (hcv) hcv.remove();
       device.destroy();
     },
   };
