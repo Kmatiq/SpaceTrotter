@@ -57,6 +57,8 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 
 ### Fly to the surface (real satellite data for Earth and the Moon)
 
+- **Flight near surfaces:** top speed shrinks with altitude: about 80 m/s at 1 km and 800 m/s at 10 km.
+  Boost is ×6 and capped near the ground. Thrust and turning have more inertia.
 - **Landing:** fly down into the atmosphere and land anywhere on a rocky world. A compute shader probes the
   exact terrain height under the ship every frame. The view always stays a clearance above the ground: 25 m,
   plus more when you're fast. A soft cushion limits your descent rate as you get close, so you settle gently
@@ -79,6 +81,10 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
     glint.
   - Moon imagery: [NASA Moon Trek](https://trek.nasa.gov/moon/) LRO WAC global mosaic (up to zoom 8).
   - Procedural micro-detail is blended in where the imagery runs out of resolution.
+  - Real mountains use 3.5× relative relief.
+  - Procedural city blocks: wherever the photo looks urban (grey, low saturation, low-lying land), the
+    heightfield grows street-separated blocks and towers when you fly low. They're generated, not real
+    buildings, and appear at the right places.
   - Credits are shown in the HUD whenever the imagery is visible.
 - **Offline:** everything else stays procedural, and if the tile servers can't be reached (offline, or the
   single-file build without network) the generated surface is used instead.
