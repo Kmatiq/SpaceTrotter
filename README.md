@@ -296,6 +296,10 @@ build was run end to end, including the full benchmark.
 
 ## Roadmap / reminders
 
+- **Date & time control.** A settable clock (date + time picker, plus speed: pause / real time / fast /
+  reverse) that drives the JPL planet positions, the Moon's phase and Earth's rotation, so you can see the
+  sky on any date, e.g. a past eclipse or a planetary alignment. The engine already derives everything from
+  one Julian date (`jd0` + `simT` × `TS`), so this is mostly UI.
 - **Add more star systems.** The galaxy view feels empty with only ~30 catalogue stars. Add many more real stars
   (e.g. a few hundred of the brightest/nearest from the HYG catalogue) and a seeded field of procedural stars
   across the Milky Way's arms, so you can pick and warp to points anywhere in the galaxy.
