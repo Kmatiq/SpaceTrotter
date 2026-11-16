@@ -12,7 +12,7 @@ export const registerStarSystem = (def) => (STAR_SYSTEMS[def.id] = def);
 
 registerStarSystem({
   id: 'sol', name: 'Sol',
-  scale: { radius: 1.2e6, radiusExp: 0.75, au: 4e9, auExp: 0.55, lightRef: 4e9, lightExp: 0.5 },
+  scale: { radius: 1.2e6, radiusExp: 1, au: 4e9, auExp: 0.55, lightRef: 4e9, lightExp: 0.5 }, // real size ratios, compressed distances
   star: { id: 'sun', name: 'Sun', fact: 'Holds 99.8% of the Solar System\'s mass.', radius: 109, color: [1, 0.85, 0.66], intensity: 40, corona: 1 },
   spawn: { near: 'earth', dist: 3.2 },
   bodies: [
@@ -184,7 +184,7 @@ const GAS = [[[0.82, 0.72, 0.57], [0.52, 0.33, 0.2], 0, [0.93, 0.88, 0.78], [0.7
   [[0.55, 0.8, 0.78], [0.3, 0.5, 0.52], 0, [0.85, 0.95, 0.93], 0], [[0.75, 0.55, 0.62], [0.42, 0.3, 0.45], 0, [0.9, 0.8, 0.85], [0.95, 0.85, 0.5]]];
 function starDef(st) { // a full star-system definition: real planets where known, otherwise generated (seeded by the star's name, so it never changes)
   let h = 2166136261; for (const ch of st.id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
-  const sr = 109 * st.rad, rm = 1.2e6 * Math.pow(sr, 0.75), amin = Math.pow((5 * rm) / 4e9, 1 / 0.55), bodies = [], N = (s) => (st.sn || st.name) + ' ' + s;
+  const sr = 109 * st.rad, rm = 1.2e6 * sr, amin = Math.pow((5 * rm) / 4e9, 1 / 0.55), bodies = [], N = (s) => (st.sn || st.name) + ' ' + s;
   const addPlanet = (id, name, au, r, gas, fact) => { const k = bodies.length, per = Math.max(240, 1500 * Math.pow(au / Math.max(amin, 0.01), 0.4) * (0.6 + rnd()));
     const b = { id, name, fact, type: 'planet', radius: r, orbit: { au, period: per, phase: rnd() * 6.28, inc: (rnd() - 0.5) * 6 }, spin: { period: 300 + rnd() * 600, tilt: rnd() * 30 } };
     if (gas) { b.surface = { gas: 1, c: GAS[Math.floor(rnd() * GAS.length)], bands: { amt: 0.6 + rnd() * 0.4, freq: 10 + rnd() * 12, turb: 2 + rnd() * 2, speed: 0.01 } };
@@ -201,7 +201,7 @@ function starDef(st) { // a full star-system definition: real planets where know
         orbit: { pr: 3 + m * 2.5 + rnd(), period: 300 + rnd() * 300, phase: rnd() * 6.28 }, spin: { period: 400 }, surface: { ...ROCKY[[1, 4, 2][m % 3]], scale: 1.8, seed: Math.floor(rnd() * 90) } });
       a *= 1.6 + rnd() * 0.7; } }
   const sp = bodies.find((b) => b.type === 'planet' && b.radius < 2) || bodies[0];
-  return { id: st.id, name: st.name, scale: { radius: 1.2e6, radiusExp: 0.75, au: 4e9, auExp: 0.55, lightRef: 4e9 * Math.max(1, Math.sqrt(st.rad)), lightExp: 0.5 },
+  return { id: st.id, name: st.name, scale: { radius: 1.2e6, radiusExp: 1, au: 4e9, auExp: 0.55, lightRef: 4e9 * Math.max(1, Math.sqrt(st.rad)), lightExp: 0.5 },
     star: { id: st.id + '-star', name: st.sn || st.name, fact: st.gal ? 'A star in the ' + st.name + '.' : st.fact, radius: sr, color: SCOL[st.cls], intensity: st.cls === 'M' && st.rad < 1 ? 26 : st.rad > 5 ? 55 : 40, corona: 1 },
     spawn: { near: sp.id, dist: 3.4 }, bodies };
 }
@@ -304,21 +304,34 @@ struct TR{h:f32,n:vec3f,f:f32,c:f32,m:f32};
 fn tfind(k:u32)->i32{var h=(k*2654435761u)>>20u;for(var i=0;i<16;i++){let e=TH[h&4095u];if(e.x==k){return i32(e.y);}if(e.x==0xffffffffu){return -1;}h+=1u;}return -1;}
 fn tuv(n:vec3f,eq:bool)->vec2f{let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
  if(eq){return vec2f((lo+PI)/PI,(PI*.5-la)/PI);}let m=clamp(la,-1.4844,1.4844);return vec2f((lo+PI)/(2.*PI),(1.-log(tan(m)+1./cos(m))/PI)*.5);}
-fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool)->vec4f{var z=min(i32(max(zd,0.)),zm);
+fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool,yo:u32)->vec4f{var z=min(i32(max(zd,0.)),zm);
  loop{if(z<0){break;}let s=f32(1u<<u32(z));let t=uv*s;let w=select(s,s*2.,eq);
   let ix=u32(clamp(floor(t.x),0.,w-1.));let iy=u32(clamp(floor(t.y),0.,s-1.));
-  let L=tfind((kind<<30u)|(u32(z)<<26u)|(iy<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
+  let L=tfind((kind<<30u)|(u32(z)<<26u)|((iy+yo)<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
  return vec4f(-1.);}
 fn dec(c:vec4f)->f32{return c.r*65280.+c.g*255.+c.b*.99609375-32768.;}// Terrarium RGB -> metres
-fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),12,false);if(r.x<0.){return vec2f(0.);}
+fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),12,false,0u);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
-fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq);
+fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq,0u);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
+// colour-shaded altimetry (LOLA / MOLA): hue runs blue (low) -> cyan -> green -> yellow -> red / white (high); hillshading only changes brightness
+fn hue01(c:vec3f)->f32{let mx=max(c.r,max(c.g,c.b));let d=mx-min(c.r,min(c.g,c.b));if(d<.12*mx||mx<.06){return select(-1.,1.,mx>.8&&d<.12*mx);}// grey: white peak, or shadow (unknown)
+ var h:f32;if(mx==c.r){h=(c.g-c.b)/d;}else if(mx==c.g){h=2.+(c.b-c.r)/d;}else{h=4.+(c.r-c.g)/d;}h=fract(h/6.+1.);if(h>.85){h=0.;}return clamp((.7-h)/.7,0.,1.);}
+fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true),log2(3.1416/(256.*fp)),select(5,6,ms),true,4096u);if(r.x<0.){return vec2f(0.);}
+ let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
+ let v=vec4f(hue01(textureLoad(TA,c0,L,0).rgb),hue01(textureLoad(TA,vec2i(c1.x,c0.y),L,0).rgb),hue01(textureLoad(TA,vec2i(c0.x,c1.y),L,0).rgb),hue01(textureLoad(TA,c1,L,0).rgb));
+ let w=vec4f((1.-f.x)*(1.-f.y),f.x*(1.-f.y),(1.-f.x)*f.y,f.x*f.y)*step(vec4f(0.),v);let ws=dot(w,vec4f(1.));if(ws<1e-3){return vec2f(0.);}// skip shadowed / unknown samples
+ return vec2f(dot(w,v)/ws,1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
- if(b[12].w>1.5){if(tsel(select(2u,3u,b[12].w>2.5),tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
+ if(b[12].w>1.5){let ms=b[12].w>2.5;if(tsel(select(2u,3u,ms),tuv(n,true),0.,0,true,0u).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}
+  let e=relief(n,fp,ms);if(e.y<.5){return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon / Mars: photo + real altimetry relief (+ fine procedural detail)
+  let lo=select(-9100.,-8200.,ms);let hi=select(10700.,21200.,ms);let K=select(8.6e-7,4.4e-7,ms);// metres -> R (x1.5 relief)
+  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,6e-5);
+  let h0=(lo+e.x*(hi-lo))*K;let hx=(lo+relief(normalize(n+t1*ep),fp,ms).x*(hi-lo))*K;let hy=(lo+relief(normalize(n+t2*ep),fp,ms).x*(hi-lo))*K;
+  return TR(h0+dt.x*da,(t1*(hx-h0)+t2*(hy-h0))/ep+dt.yzw*s*da,e.x,0.,1.);}
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
  let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=5.5e-7;// metres -> R (x3.5 relief)
@@ -401,7 +414,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(ds>=0.&&bb<0.){tS=c0/(-bb+sqrt(ds));}
  cov=clamp(.5-(bm-1.)/fpc,0.,1.);if(tS<0.&&cov>0.){tS=tc;}
  // terrain heightfield raymarch (real silhouettes close-up)
- let hm=select(b[4].w+b[8].x*.3/max(b[8].y,1.),0.,gas);
+ let hm=select(max(b[4].w+b[8].x*.3/max(b[8].y,1.),select(0.,select(.013,.017,b[12].w>2.5),b[12].w>1.5)),0.,gas);// map relief bound (Moon / Mars altimetry)
  if(hm>0.){let ct=(an-hm)*(dn+1.+hm);let d2=bb*bb-ct;
   if(d2>0.){let sq=sqrt(d2);let te=select(ct/(-bb+sq),0.,ct<0.);let tx=-bb+sq;
    if(tx>0.&&hm/(max(te,1e-7)*pa)>.6){var t=te;var hit=true;let fm=max(te*pa,hm*.02);
@@ -456,7 +469,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
  return FO(acc,zdep(max(tD,1e-9)*R,rdw));}
 // exact ground height under the ship for collision (same terrain function as the raymarch)
-@compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),max(b[4].w,1e-4)*.08);PRB.o=vec4f(r.h,r.f,r.m,1.);}
+@compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),select(max(b[4].w,1e-4)*.08,1e-5,b[12].w>.5));PRB.o=vec4f(r.h,r.f,r.m,1.);}
 // ================= SDF UBER-SHADER (stations, asteroids, comets, ship) =================
 // Inst: a=center(cam-rel m),halfSize | q=orientation | b=type(0 rock,1 station,2 comet,3 ship,4 tail),seed,light,param
 struct VS{@builtin(position) p:vec4f,@location(0) @interpolate(flat) id:u32,@location(1) @interpolate(flat) im:f32};
@@ -795,8 +808,10 @@ async function createEngine(canvas, systemId, opts = {}) {
   const TSRC = [(z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/${z}/${y}/${x}.jpg`, // Sentinel-2 cloudless (EOX), ~10 m/px
     (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
-    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
-  const TZM = [13, 12, 8, 7], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
+    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_LOLA_ClrShade_Global_128ppd_v04/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // LOLA colour-shaded altimetry
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`]; // MOLA colour-shaded altimetry
+  const TZM = [13, 12, 8, 7, 5, 6], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -809,14 +824,14 @@ async function createEngine(canvas, systemId, opts = {}) {
         device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
-  const want = (kind, z, x, y) => { const k = ((kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
     let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }
     for (let pass = 0; pass < 2; pass++) for (let i = 0; i < sys.n; i++) { // nearest mapped body first
       if ((pass === 0) !== (i === near)) continue;
       const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
       const eq = mp !== 'earth', ek = mp === 'mars' ? 3 : 2, o = i * 3, d = dist(i);
-      for (let kind = eq ? ek : 0; kind <= (eq ? ek : 1); kind++) {
+      for (let kk = 0; kk < 2; kk++) { const kind = eq ? (kk ? ek + 2 : ek) : kk;
         const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
         if (d > 8 * b.R) continue;
         const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;

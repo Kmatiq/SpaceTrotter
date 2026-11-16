@@ -136,6 +136,17 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   directions, and Andromeda, Triangulum and the Magellanic Clouds have their real position angles and
   inclinations.
 
+### Moon and Mars relief, real size ratios
+
+- **Moon and Mars relief:** heights come from NASA Trek's colour-shaded laser altimetry: LRO LOLA for the Moon
+  (to zoom 5) and MGS MOLA for Mars (to zoom 6). The colour ramp (blue low, then cyan, green and yellow, up to
+  red or white high) is decoded back into height in the shader, and shadowed or grey pixels are skipped. Relief
+  is shown at 1.5× on top of the photo mosaics, so Tycho, Theophilus, Olympus Mons and Valles Marineris are real
+  3D terrain for landing, collision and the horizon march.
+- **Collision:** the ground probe now samples the finest available map tiles, the same terrain that is drawn.
+- **Size ratios:** planet, moon and star radii now use real ratios (Jupiter 11× Earth, Sun 109×), while orbit
+  distances stay compressed. Generated star systems follow the same rule.
+
 ### Galaxy view and intergalactic jumps
 
 - **GALAXY** (in the system map) flies the camera out from your star to the whole Milky
@@ -303,6 +314,5 @@ build was run end to end, including the full benchmark.
 - **Add more star systems.** The galaxy view feels empty with only ~30 catalogue stars. Add many more real stars
   (e.g. a few hundred of the brightest/nearest from the HYG catalogue) and a seeded field of procedural stars
   across the Milky Way's arms, so you can pick and warp to points anywhere in the galaxy.
-- Moon (and Mars) elevation data for real 3D relief.
 - Proper 3D cities (buildings as their own geometry with roofs and window facades).
 
