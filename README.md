@@ -121,6 +121,21 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   Gliese 581, Epsilon Eridani b, 51 Pegasi b, Kepler-452 b). Other systems are generated from the star's name, so
   they're the same on every visit. Warp to **Sol** to go home.
 
+### Real sky (accuracy)
+
+- **Planets:** positions come from NASA/JPL's "Approximate Positions of the Planets" orbital elements, for
+  today's date: the real ellipse shape, tilt and position along each orbit. The direction from the Sun is exact,
+  and only the distance is compressed (by the system's `au()` law, as before). Orbit lines show the real
+  ellipses.
+- **Clock:** time starts at the real current date. ☰ → **Orbits** switches between *fast* (1 game second =
+  6 hours) and *real time*. In real time, Earth's real axis tilt and sidereal rotation make the day/night line
+  match reality, and the Moon shows its real phase. Checked: Earth at heliocentric longitude 54° and the
+  subsolar point at -18.8°, -72° on 16 Nov 2026 16:31 UTC.
+- **Galaxies:** the galaxy frame is tied to the solar system with the standard galactic-to-equatorial
+  rotation. The Milky Way band in the sky follows the real galactic plane, galaxies appear in their true sky
+  directions, and Andromeda, Triangulum and the Magellanic Clouds have their real position angles and
+  inclinations.
+
 ### Galaxy view and intergalactic jumps
 
 - **GALAXY** (in the system map) flies the camera out from your star to the whole Milky

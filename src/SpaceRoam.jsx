@@ -139,26 +139,39 @@ export const STARS = ('sol|Sol|0|0|0|G|1|Home.|;' +
   'deneb|Deneb|310.36|45.28|2600|A|200|One of the most luminous stars known.|').split(';').map((e) => { const f = e.split('|'), K = Math.PI / 180, ra = +f[2] * K, de = +f[3] * K, ob = 23.44 * K;
     const x = Math.cos(de) * Math.cos(ra), y = Math.cos(de) * Math.sin(ra), z = Math.sin(de), ye = y * Math.cos(ob) + z * Math.sin(ob), ze = -y * Math.sin(ob) + z * Math.cos(ob);
     return { id: f[0], name: f[1], ly: +f[4], cls: f[5], rad: +f[6], fact: f[7], planets: f[8], p: [x * +f[4], ze * +f[4], -ye * +f[4]] }; }); // ecliptic frame, game y = ecliptic north
+// ---- reference frames. Game frame = ecliptic J2000 with y = ecliptic north (game x = equinox, game z = -ecliptic y).
+const OBL = 23.4393 * Math.PI / 180;
+const eq2game = (v) => [v[0], -v[1] * Math.sin(OBL) + v[2] * Math.cos(OBL), -(v[1] * Math.cos(OBL) + v[2] * Math.sin(OBL))];
+const GXB = [[-0.0548755604, -0.8734370902, -0.4838350155], [0.4941094279, -0.44482963, 0.7469822445], [-0.867666149, -0.1980763734, 0.4559837762]]; // galactic l=0, l=90, NGP in equatorial J2000
+const gal2game = (v) => eq2game([0, 1, 2].map((k) => v[0] * GXB[0][k] - v[2] * GXB[1][k] + v[1] * GXB[2][k])); // galaxy frame (x to GC, y = NGP, -z = l90) -> game
+const GM = [gal2game([1, 0, 0]), gal2game([0, 1, 0]), gal2game([0, 0, 1])]; // columns of galaxy->game
+const toGame = (v) => [0, 1, 2].map((k) => v[0] * GM[0][k] + v[1] * GM[1][k] + v[2] * GM[2][k]);
+const toGal = (v) => GM.map((c) => c[0] * v[0] + c[1] * v[1] + c[2] * v[2]);
+const eqv = (ra, de) => { const K = Math.PI / 180; return [Math.cos(de * K) * Math.cos(ra * K), Math.cos(de * K) * Math.sin(ra * K), Math.sin(de * K)]; };
+const diskN = (ra, de, pa, inc) => { const K = Math.PI / 180, d = eqv(ra, de), N = [-Math.sin(de * K) * Math.cos(ra * K), -Math.sin(de * K) * Math.sin(ra * K), Math.cos(de * K)], E = [-Math.sin(ra * K), Math.cos(ra * K), 0];
+  const m = [0, 1, 2].map((k) => Math.cos(pa * K) * N[k] + Math.sin(pa * K) * E[k]), c = [m[1] * d[2] - m[2] * d[1], m[2] * d[0] - m[0] * d[2], m[0] * d[1] - m[1] * d[0]];
+  return toGal(eq2game([0, 1, 2].map((k) => Math.cos(inc * K) * d[k] + Math.sin(inc * K) * c[k]))); }; // real disk orientation from position angle + inclination
 // ---- Local Group: galactic l/b + distance from the Sun -> galaxy-frame positions (ly). Sun sits 26,000 ly from the Milky Way's centre.
 const SUN_G = [-26000, 65, 0];
 const gdir = (l, b) => { const K = Math.PI / 180; return [Math.cos(b * K) * Math.cos(l * K), Math.sin(b * K), -Math.cos(b * K) * Math.sin(l * K)]; };
 const gnorm = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return v.map((x) => x / l); };
 export const GALAXIES = [ // id, name, l, b, distance ly, radius ly, arm pitch (0 = irregular), inclination to our line of sight, fact, arrival star name
   ['milkyway', 'Milky Way', 0, 0, 0, 52000, 0.22, 0, 'Our home: a barred spiral of some 200 billion stars.', 'Sol'],
-  ['lmc', 'Large Magellanic Cloud', 280.5, -32.9, 163000, 7000, 0, 35, 'A satellite galaxy, visible to the naked eye from the south.', 'Tarantula Reach'],
-  ['smc', 'Small Magellanic Cloud', 302.8, -44.3, 203000, 3500, 0, 60, 'A small irregular galaxy torn by the Milky Way and the LMC.', 'Hydri Drift'],
-  ['m31', 'Andromeda Galaxy', 121.2, -21.6, 2540000, 110000, 0.2, 77, 'The nearest large galaxy; it will merge with ours in about 4.5 billion years.', 'Andromeda Prime'],
-  ['m33', 'Triangulum Galaxy', 133.6, -31.3, 2730000, 30000, 0.32, 55, 'A loose spiral and the third-largest member of the Local Group.', 'Triangulum Vane'],
-].map(([id, name, l, b, d, R, pitch, inc, fact, sn]) => {
+  ['lmc', 'Large Magellanic Cloud', 280.5, -32.9, 163000, 7000, 0, [80.89, -69.76, 170, 35], 'A satellite galaxy, visible to the naked eye from the south.', 'Tarantula Reach'],
+  ['smc', 'Small Magellanic Cloud', 302.8, -44.3, 203000, 3500, 0, [13.19, -72.83, 45, 60], 'A small irregular galaxy torn by the Milky Way and the LMC.', 'Hydri Drift'],
+  ['m31', 'Andromeda Galaxy', 121.2, -21.6, 2540000, 110000, 0.2, [10.685, 41.269, 38, 77], 'The nearest large galaxy; it will merge with ours in about 4.5 billion years.', 'Andromeda Prime'],
+  ['m33', 'Triangulum Galaxy', 133.6, -31.3, 2730000, 30000, 0.32, [23.462, 30.66, 23, 55], 'A loose spiral and the third-largest member of the Local Group.', 'Triangulum Vane'],
+].map(([id, name, l, b, d, R, pitch, ori, fact, sn]) => {
   const dir = gdir(l, b), p = id === 'milkyway' ? [0, 0, 0] : [SUN_G[0] + dir[0] * d, SUN_G[1] + dir[1] * d, SUN_G[2] + dir[2] * d];
-  let n = [0, 1, 0]; if (id !== 'milkyway') { const k = Math.PI / 180, side = gnorm([dir[2], 0.3, -dir[0]]); n = gnorm([dir[0] * Math.cos(inc * k) + side[0] * Math.sin(inc * k), dir[1] * Math.cos(inc * k) + side[1] * Math.sin(inc * k), dir[2] * Math.cos(inc * k) + side[2] * Math.sin(inc * k)]); }
+  const n = ori ? gnorm(diskN(...ori)) : [0, 1, 0];
   return { id, name, p, n, R, pitch, fact, sn, ly: d };
 });
 const f3 = (v) => v.map((x) => (+x).toFixed(3)).join(',');
 const GX_WGSL = `fn gxAll(ro:vec3f,rd:vec3f,sky:f32)->vec3f{var e=vec3f(0.);
 ${GALAXIES.map((G) => `{let c=vec3f(${f3(G.p)});let v=c-ro;let dl=length(v);if(sky<.5||(dl>${(G.R * 1.6).toFixed(1)}&&dot(rd,v/dl)>cos(atan(${(G.R * 1.3).toFixed(1)}/dl)))){e+=gxDisk(ro,rd,c,vec3f(${f3(G.n)}),${G.R.toFixed(1)},${G.pitch.toFixed(3)});}}`).join('')}
 return e;}`;
-GALAXIES.slice(1).forEach((G) => STARS.push({ id: G.id, name: G.name, ly: G.ly, cls: 'G', rad: 1, fact: G.fact, planets: '', sn: G.sn, gal: 1, p: [G.p[0] - SUN_G[0], G.p[1] - SUN_G[1], G.p[2] - SUN_G[2]] }));
+GALAXIES.slice(1).forEach((G) => STARS.push({ id: G.id, name: G.name, ly: G.ly, cls: 'G', rad: 1, fact: G.fact, planets: '', sn: G.sn, gal: 1, p: toGame([G.p[0] - SUN_G[0], G.p[1] - SUN_G[1], G.p[2] - SUN_G[2]]) }));
+const GXM_W = `const GXM=mat3x3f(${GM.map((c, i) => f3([GM[0][i], GM[1][i], GM[2][i]])).join(',')});const GNP=vec3f(${f3(GM[1])});const GCD=vec3f(${f3(GM[0])});`; // game->galaxy rotation, real galactic pole + centre for the sky band
 const SCOL = { O: [0.62, 0.72, 1], B: [0.7, 0.8, 1], A: [0.86, 0.9, 1], F: [1, 0.96, 0.88], G: [1, 0.85, 0.66], K: [1, 0.7, 0.45], M: [1, 0.5, 0.3] };
 const ROCKY = [ // generated-world palettes
   { c: [[0.55, 0.4, 0.25], [0.35, 0.24, 0.15], 0, 0, 0], craters: 0.3, craterScale: 7, mix: 1.1, height: 0.005 },
@@ -192,6 +205,15 @@ function starDef(st) { // a full star-system definition: real planets where know
     star: { id: st.id + '-star', name: st.sn || st.name, fact: st.gal ? 'A star in the ' + st.name + '.' : st.fact, radius: sr, color: SCOL[st.cls], intensity: st.cls === 'M' && st.rad < 1 ? 26 : st.rad > 5 ? 55 : 40, corona: 1 },
     spawn: { near: sp.id, dist: 3.4 }, bodies };
 }
+// JPL "Approximate Positions of the Planets" (Standish), J2000 elements + rates per century: a, e, I, L, long. perihelion, long. node
+const JPL = { mercury: [0.38709927, 3.7e-7, 0.20563593, 1.906e-5, 7.00497902, -0.00594749, 252.2503235, 149472.67411175, 77.45779628, 0.16047689, 48.33076593, -0.12534081],
+  venus: [0.72333566, 3.9e-6, 0.00677672, -4.107e-5, 3.39467605, -0.0007889, 181.9790995, 58517.81538729, 131.60246718, 0.00268329, 76.67984255, -0.27769418],
+  earth: [1.00000261, 5.62e-6, 0.01671123, -4.392e-5, -1.531e-5, -0.01294668, 100.46457166, 35999.37244981, 102.93768193, 0.32327364, 0, 0],
+  mars: [1.52371034, 1.847e-5, 0.0933941, 7.882e-5, 1.84969142, -0.00813131, -4.55343205, 19140.30268499, -23.94362959, 0.44441088, 49.55953891, -0.29257343],
+  jupiter: [5.202887, -0.00011607, 0.04838624, -0.00013253, 1.30439695, -0.00183714, 34.39644051, 3034.74612775, 14.72847983, 0.21252668, 100.47390909, 0.20469106],
+  saturn: [9.53667594, -0.0012506, 0.05386179, -0.00050991, 2.48599187, 0.00193609, 49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794],
+  uranus: [19.18916464, -0.00196176, 0.04725744, -4.397e-5, 0.77263783, -0.00242939, 313.23810451, 428.48202785, 170.9542763, 0.40805281, 74.01692503, 0.04240589],
+  neptune: [30.06992276, 0.00026291, 0.00859048, 5.105e-5, 1.77004347, 0.00035372, -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664] };
 const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
@@ -229,6 +251,7 @@ fn gxDisk(ro:vec3f,rd:vec3f,c:vec3f,n:vec3f,R:f32,sp:f32)->vec3f{
     else{dens*=.3+1.6*cl*cl;}
     e+=mix(vec3f(1.,.84,.6),vec3f(.6,.73,1.),smoothstep(.04,.45,r))*dens*smoothstep(1.3,.85,r)*.22;}}}}
  return e;}
+${GXM_W}
 ${GX_WGSL}
 fn ray(f:vec2f)->vec3f{let n=vec2f(f.x*g.res.z*2.-1.,1.-f.y*g.res.w*2.);return normalize(g.fw.xyz+n.x*g.rt.w*g.rt.xyz+n.y*g.up.w*g.up.xyz);}
 fn zdep(t:f32,rd:vec3f)->f32{return clamp(g.fw.w/max(t*dot(rd,g.fw.xyz),1e-30),0.,1.);}// reversed-Z, infinite far
@@ -518,7 +541,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
  var rd=ray(f.xy);var dop=1.;let be=g.wv.x;
  if(be>0.){let cp=dot(rd,g.fw.xyz);let cs=(cp-be)/(1.-be*cp);let pp=rd-g.fw.xyz*cp;let pl=length(pp);// relativistic aberration: the sky crowds forward
   if(pl>1e-5){rd=g.fw.xyz*cs+pp/pl*sqrt(max(1.-cs*cs,0.));}dop=1./(inverseSqrt(1.-be*be)*(1.-be*cp));}
- let gn=normalize(vec3f(.25,.88,.4));let gl=dot(rd,gn);let gc=normalize(vec3f(.9,-.2,-.38));
+ let gn=GNP;let gl=dot(rd,gn);let gc=GCD;// Milky Way band along the real galactic plane
  let band=exp(-gl*gl*30.);let core=pow(max(dot(rd,gc),0.),6.);
  let ns=fbm(rd*3.,7.,.55);let du=fbm(rd*7.+vec3f(2.),6.,.55).x;
  var c=(vec3f(.42,.45,.6)*band*(.6+ns.x*.8)+vec3f(.9,.7,.45)*core*band*1.5)*.012*(1.-smoothstep(-.05,.25,du)*band*.85);
@@ -533,7 +556,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
    c+=tc*br*(exp(-d*d*1.4)+.03*br*exp(-d*.6))*mix(1.,.1,g.wp.x);}}
  if(be>0.){let ld=log2(dop);let sh=clamp(ld*.35,-1.,1.);// Doppler: blue ahead, red behind, brightness ~ D^1.5
   let tint=select(mix(vec3f(1.),vec3f(1.,.35,.12),-sh),mix(vec3f(1.),vec3f(.45,.6,1.4),sh),sh>0.);c*=tint*min(pow(dop,1.5),8.);}
- if(g.gx.w<.5){c+=gxAll(g.gx.xyz,rd,1.)*.05;}// other galaxies as faint smudges in the sky
+ if(g.gx.w<.5){c+=gxAll(g.gx.xyz,GXM*rd,1.)*.05;}// other galaxies as faint smudges in the sky
  return vec4f(c,1.);}
 // ================= POST: bloom-lite, sun glare, warp streaks, ACES =================
 @fragment fn fsPost(@builtin(position) f:vec4f)->@location(0) vec4f{
@@ -634,7 +657,8 @@ function compileSystem(def) {
     const R = b.type === 'station' || b.type === 'comet' ? b.size : rad(b.radius);
     list.push({ id: b.id, name: b.name, type: b.type, R, parent: p, def: b,
       a: o.au ? au(o.au) : (o.pr || 0) * list[p].R, period: o.period || 1e9, inc: (o.inc || 0) * D2R, node: (o.node || 0) * D2R, phase: o.phase || 0, ecc: o.ecc || 0,
-      spinP: (b.spin && b.spin.period) || 1e9, tilt: ((b.spin && b.spin.tilt) || 0) * D2R });
+      spinP: (b.spin && b.spin.period) || 1e9, tilt: ((b.spin && b.spin.tilt) || 0) * D2R, jpl: def.id === 'sol' ? JPL[b.id] : undefined });
+    const L = list[list.length - 1]; if (L.jpl) { L.a = au(L.jpl[0]); L.ecc = L.jpl[2]; }
   }
   for (const b of list) {
     b.sphere = b.type === 'star' || b.type === 'planet' || b.type === 'moon';
@@ -646,7 +670,7 @@ function compileSystem(def) {
   const lm = []; list.forEach((b, bi) => { const src = PLACES[b.id]; if (!src) return; for (const e of src.split(';')) { const f = e.split('|'), la = +f[1] * D2R, lo = +f[2] * D2R;
     lm.push({ name: f[0], bi, lat: +f[1], lon: +f[2], kind: f[3], rank: +f[4], elev: +f[5] || 0, dir: [Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)] }); } });
   lm.sort((a, b) => a.rank - b.rank);
-  return { def, list, belts, lm, n: list.length, idx: Object.fromEntries(list.map((b, i) => [b.id, i])) };
+  return { def, list, belts, lm, au, n: list.length, idx: Object.fromEntries(list.map((b, i) => [b.id, i])) };
 }
 function packStatic(F, slot, b, sys) { // writes static uber-shader parameters for one sphere body
   const o = slot * BSTR, d = b.def || {}, s = d.surface || {}, at = d.atmosphere || {}, ri = d.rings || {}, c = s.c || [];
@@ -884,7 +908,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     sys.beltIn = sys.belts.length ? sys.belts[0].inner : 0; sys.beltOut = sys.belts.length ? sys.belts[0].outer : 0; sys.beltTh = sys.belts.length ? sys.belts[0].thick : 0;
     loadLog(); toastI = -1; charge = -1; { const k = STARS.findIndex((x) => x.id === id); here = k >= 0 ? k : 0; } wsel = -1;
-    const sp = def.spawn || {}; target = sys.idx[sp.near] || 1; simT = 0; updateOrbits(0);
+    const sp = def.spawn || {}; target = sys.idx[sp.near] || 1; jd0 += simT * TS; simT = 0; updateOrbits(0);
     placeNear(target, sp.dist || 4); cruise = false;
     return true;
   }
@@ -896,10 +920,30 @@ async function createEngine(canvas, systemId, opts = {}) {
     qlook(ship.q, 0, -ship.off[0], -ship.off[1], -ship.off[2], 0, 1, 0);
     if (pitch) { qaxis(dq, 0, 1, 0, 0, pitch); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
   }
+  const TSF = 0.25, TSR = 1 / 86400; let TS = TSF, jd0 = Date.now() / 86400000 + 2440587.5; // game seconds -> real days (fast: 6 h per second; real time: 1:1)
+  const el6 = new Float64Array(6), kp = new Float64Array(3);
+  const jdNow = () => jd0 + simT * TS;
+  function jplSet(b, T) { const j = b.jpl; for (let k = 0; k < 6; k++) el6[k] = j[k * 2] + j[k * 2 + 1] * T; }
+  function jplPos(E, o) { // point on the real orbit at eccentric anomaly E -> game frame, distance compressed with the system's au() law
+    const a = el6[0], e = el6[1], I = el6[2] * D2R, w = (el6[4] - el6[5]) * D2R, Om = el6[5] * D2R, xp = a * (Math.cos(E) - e), yp = a * Math.sqrt(1 - e * e) * Math.sin(E);
+    const cw = Math.cos(w), sw = Math.sin(w), cO = Math.cos(Om), sO = Math.sin(Om), cI = Math.cos(I), sI = Math.sin(I);
+    const x = (cw * cO - sw * sO * cI) * xp + (-sw * cO - cw * sO * cI) * yp, y = (cw * sO + sw * cO * cI) * xp + (-sw * sO + cw * cO * cI) * yp, z = sw * sI * xp + cw * sI * yp, r = Math.hypot(x, y, z), k = sys.au(r) / r;
+    o[0] = x * k; o[1] = z * k; o[2] = -y * k;
+  }
   function updateOrbits(t) {
+    const jd = jd0 + t * TS, T = (jd - 2451545) / 36525, dd = jd - 2451545;
     for (let i = 0; i < sys.n; i++) {
       const b = sys.list[i], o = i * 3;
       if (b.parent < 0) { pos[o] = pos[o + 1] = pos[o + 2] = 0; qaxis(bq, i * 4, 0, 1, 0, t * 0.01); continue; }
+      if (b.jpl) { jplSet(b, T); const M = ((el6[3] - el6[4]) * D2R) % 6.283185307179586, e = el6[1]; let E = M; for (let k = 0; k < 8; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+        jplPos(E, kp); pos[o] = kp[0]; pos[o + 1] = kp[1]; pos[o + 2] = kp[2];
+        if (b.id === 'earth') { qaxis(tq, 0, 1, 0, 0, -OBL); qaxis(sq, 0, 0, 1, 0, TS === TSR ? (280.46061837 + 360.98564736629 * dd) * D2R : (6.283185307179586 * t) / b.spinP); } // real axis; real sidereal rotation in real-time mode
+        else { qaxis(tq, 0, 0, 0, 1, b.tilt); qaxis(sq, 0, 0, 1, 0, (6.283185307179586 * t) / b.spinP); }
+        qmul(bq, i * 4, tq, 0, sq, 0); continue; }
+      if (b.id === 'luna') { // real lunar phase/position (low-precision mean elements), compressed distance kept
+        const Lm = (218.316 + 13.176396 * dd) * D2R, Mm = (134.963 + 13.064993 * dd) * D2R, Fm = (93.272 + 13.22935 * dd) * D2R, lon = Lm + 6.289 * D2R * Math.sin(Mm), lat = 5.128 * D2R * Math.sin(Fm), p = b.parent * 3;
+        pos[o] = pos[p] + b.a * Math.cos(lat) * Math.cos(lon); pos[o + 1] = pos[p + 1] + b.a * Math.sin(lat); pos[o + 2] = pos[p + 2] - b.a * Math.cos(lat) * Math.sin(lon);
+        qaxis(tq, 0, 0, 0, 1, b.tilt); qaxis(sq, 0, 0, 1, 0, lon + Math.PI); qmul(bq, i * 4, tq, 0, sq, 0); continue; } // tidally locked: same face to Earth
       let M = b.phase + (6.283185307179586 * t) / b.period, x, z;
       if (b.ecc > 0) { let E = M; for (let k = 0; k < 6; k++) E -= (E - b.ecc * Math.sin(E) - M) / (1 - b.ecc * Math.cos(E)); x = b.a * (Math.cos(E) - b.ecc); z = b.a * Math.sqrt(1 - b.ecc * b.ecc) * Math.sin(E); }
       else { x = b.a * Math.cos(M); z = b.a * Math.sin(M); }
@@ -940,6 +984,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'KeyH': showHelp = !showHelp; break;
       case 'KeyG': showStats = !showStats; break;
       case 'KeyP': photo = !photo; break;
+      case 'Time': { const nt = TS === TSF ? TSR : TSF; jd0 += simT * (TS - nt); TS = nt; break; } // keeps the current date
       case 'KeyJ': switchStarSystem(sys.def.id === 'sol' ? 'kestrel' : 'sol'); break;
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
@@ -1055,6 +1100,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   };
   function orbitPath(i, cr, cg, cb, a, w) { // projected orbit ellipse of body i around its parent
     const b = sys.list[i], p = b.parent * 3, N = b.ecc > 0 ? 160 : 128; let px = 0, py = 0, ok = false;
+    if (b.jpl) { jplSet(b, (jdNow() - 2451545) / 36525); for (let k = 0; k <= 160; k++) { jplPos((k / 160) * 6.283185307179586, kp); const v = project(kp[0] - cam[0], kp[1] - cam[1], kp[2] - cam[2]);
+      if (v && ok && Math.abs(scr[0] - px) + Math.abs(scr[1] - py) < 4 * W) seg(px, py, scr[0], scr[1], cr, cg, cb, a, w); ok = v; px = scr[0]; py = scr[1]; } return; }
     for (let k = 0; k <= N; k++) {
       const M = (k / N) * 6.283185307179586; let x, z;
       if (b.ecc > 0) { x = b.a * (Math.cos(M) - b.ecc); z = b.a * Math.sqrt(1 - b.ecc * b.ecc) * Math.sin(M); } else { x = b.a * Math.cos(M); z = b.a * Math.sin(M); }
@@ -1335,7 +1382,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   // ---- galaxy view: an orbiting camera in galaxy space (light-years); zooms from the Sun out to the Local Group ----
   const gx = { on: false, a: 0, t: 0, focus: 0, yaw: 0.6, pitch: 0.9, dist: 150000, sel: -1, cam: new Float64Array(3), tg: new Float64Array(3), obs: new Float64Array(3) };
-  const gxObs = () => { const st = STARS[here]; if (st.gal) { const G = GALAXIES.find((x) => x.id === st.id); gx.obs[0] = G.p[0] + G.R * 0.45; gx.obs[1] = G.p[1]; gx.obs[2] = G.p[2]; } else { gx.obs[0] = SUN_G[0] + st.p[0]; gx.obs[1] = SUN_G[1] + st.p[1]; gx.obs[2] = SUN_G[2] + st.p[2]; } };
+  const gxObs = () => { const st = STARS[here]; if (st.gal) { const G = GALAXIES.find((x) => x.id === st.id); gx.obs[0] = G.p[0] + G.R * 0.45; gx.obs[1] = G.p[1]; gx.obs[2] = G.p[2]; } else { const q = toGal(st.p); gx.obs[0] = SUN_G[0] + q[0]; gx.obs[1] = SUN_G[1] + q[1]; gx.obs[2] = SUN_G[2] + q[2]; } };
   function gxCam(dt) {
     gx.a = Math.max(0, Math.min(1, gx.a + (gx.on ? dt / 0.35 : -dt / 0.3))); if (gx.a <= 0) return; gx.t += dt; gxObs();
     const intro = gx.on ? smooth(0, 1.6, gx.t) : 1, D = gx.on ? Math.exp(Math.log(40) + (Math.log(gx.dist) - Math.log(40)) * intro) : gx.dist; // fly out from the ship's star
@@ -1357,13 +1404,13 @@ async function createEngine(canvas, systemId, opts = {}) {
       const lx = x + Math.max(pr * 0.25, 10 * s); if (i !== gx.sel && !put(lx, y, G.name.length * 17 * s * 0.6)) continue;
       ts(G.name); tout(lx, y - 9 * s, 17 * s, 0.85, 0.92, 1, fa, 0); }
     if (D < 3000 && !STARS[here].gal) for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; // nearby stars, when zoomed in on the Sun
-      sd3[0] = SUN_G[0] + st.p[0]; sd3[1] = SUN_G[1] + st.p[1]; sd3[2] = SUN_G[2] + st.p[2]; if (!gxProj(sd3)) continue; const c = SCOL[st.cls], x = scr[0], y = scr[1];
+      { const q = st.gp || (st.gp = toGal(st.p)); sd3[0] = SUN_G[0] + q[0]; sd3[1] = SUN_G[1] + q[1]; sd3[2] = SUN_G[2] + q[2]; } if (!gxProj(sd3)) continue; const c = SCOL[st.cls], x = scr[0], y = scr[1];
       circ(x, y, 2.5 * s, 0, c[0], c[1], c[2], fa); if (k === wsel) circ(x, y, 9 * s, 2 * s, 1, 0.8, 0.3, fa); if (D < 900 || k === wsel) { ts(st.name); tout(x + 7 * s, y - 7 * s, 12 * s, c[0], c[1], c[2], fa * 0.8, 0); } }
   }
   function gxPick(x, y) { let bi = -1, bd = (44 * hs) ** 2; const D = Math.hypot(gx.cam[0] - gx.tg[0], gx.cam[1] - gx.tg[1], gx.cam[2] - gx.tg[2]);
     for (let i = 0; i < GALAXIES.length; i++) { if (!gxProj(GALAXIES[i].p)) continue; const pr = (GALAXIES[i].R / scr[2]) / tanY() * H * 0.5, d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2;
       if (d2 < Math.max(bd, i === 0 && D < 600000 ? 0 : (pr * 0.5) ** 2)) { bd = d2; bi = i; } } // a galaxy's disk counts as a hit (not the Milky Way while orbiting inside it)
-    if (bi < 0 && D < 3000) { for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; sd3[0] = SUN_G[0] + st.p[0]; sd3[1] = SUN_G[1] + st.p[1]; sd3[2] = SUN_G[2] + st.p[2];
+    if (bi < 0 && D < 3000) { for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; { const q = st.gp || (st.gp = toGal(st.p)); sd3[0] = SUN_G[0] + q[0]; sd3[1] = SUN_G[1] + q[1]; sd3[2] = SUN_G[2] + q[2]; }
       if (!gxProj(sd3)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < bd) { bd = d2; bi = -2 - k; } } }
     if (bi <= -2) { gx.sel = -1; wsel = -2 - bi; } else { gx.sel = bi; wsel = -1; } }
   // ---- 3D system map: the real camera flies out of the ship to an orbiting overview and back ----
@@ -1669,7 +1716,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
-      photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1688,6 +1735,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     galaxyOpen: () => { if (bench.on || wp.on) return; mp.on = false; gx.on = true; gx.t = 0; gx.focus = 0; gx.dist = 150000; gx.sel = -1; mp.ptrs.clear(); tc.jid = tc.lid = -1; tc.jx = tc.jy = 0; },
     galaxyClose: () => { gx.on = false; mp.ptrs.clear(); }, galaxyFocus: (i) => { gx.focus = i; gx.dist = i ? GALAXIES[i].R * 4 : 150000; gx.sel = -1; },
     galaxyZoom: (k) => { gx.dist = Math.max(60, Math.min(9e6, gx.dist * k)); }, galaxyJump: (i) => warpTo(i === 0 ? 0 : STARS.findIndex((x) => x.id === GALAXIES[i].id)), clearWarpSel: () => { wsel = -1; },
+    debugSky: () => { const e = sys.idx.earth, m = sys.idx.luna; if (e === undefined) return null; const o = e * 3, ex = pos[o], ey = pos[o + 1], ez = pos[o + 2], q = e * 4;
+      tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; const l = Math.hypot(ex, ey, ez); qrot(t3, 0, tq, 0, -ex / l, -ey / l, -ez / l); // sun direction in Earth's body frame
+      const mo = m * 3, mx = pos[mo] - ex, my = pos[mo + 1] - ey, mz = pos[mo + 2] - ez, ml = Math.hypot(mx, my, mz), el = Math.acos((-ex * mx - ey * my - ez * mz) / (l * ml)) / D2R;
+      return { date: new Date((jdNow() - 2440587.5) * 86400000).toISOString(), earthHelioLon: ((Math.atan2(-ez, ex) / D2R) + 360) % 360, subsolarLat: Math.asin(t3[1]) / D2R, subsolarLon: Math.atan2(-t3[2], t3[0]) / D2R, moonElongation: el,
+        marsHelioLon: ((Math.atan2(-pos[sys.idx.mars * 3 + 2], pos[sys.idx.mars * 3]) / D2R) + 360) % 360, jupiterHelioLon: ((Math.atan2(-pos[sys.idx.jupiter * 3 + 2], pos[sys.idx.jupiter * 3]) / D2R) + 360) % 360 }; },
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
@@ -1752,7 +1804,7 @@ function GalaxyUI({ eng, gv, wsel }) { // DOM chrome for the galaxy view
       {!gv.sel && !wsel && <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', color: C.dim, fontSize: 12, textShadow: '0 1px 3px #000' }}>Drag to rotate · pinch / scroll / − + to zoom · tap a galaxy (or a star near the Sun)</div>}
     </div>);
 }
-function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, close, selected-body card (the map itself is the real 3D scene)
+function MapUI({ eng, m, sysName, date }) { // DOM chrome for the 3D map: header, close, selected-body card (the map itself is the real 3D scene)
   const selT = useRef(0), last = useRef(null), sel = m.sel;
   if ((sel && sel.id) !== last.current) { last.current = sel && sel.id; selT.current = performance.now(); }
   const ok = (fn) => () => { if (performance.now() - selT.current > 400) fn(); }; // swallow the ghost click of the tap that selected
@@ -1761,7 +1813,7 @@ function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, clos
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
       <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         {m.focus !== eng.systemStar && <div onClick={() => eng.mapFocus(eng.systemStar)} style={bt()}><Ico n="back" s={18} />SYSTEM</div>}
-        <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{m.focus === eng.systemStar ? sysName.toUpperCase() + ' SYSTEM' : m.focusName.toUpperCase() + ' SYSTEM'}<span style={{ color: C.dim, fontSize: 11, marginLeft: 10 }}>live</span></div>
+        <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{m.focus === eng.systemStar ? sysName.toUpperCase() + ' SYSTEM' : m.focusName.toUpperCase() + ' SYSTEM'}<span style={{ color: C.dim, fontSize: 11, marginLeft: 10 }}>{date}</span></div>
         <span style={{ flex: 1 }} />
         <div onClick={() => eng.galaxyOpen()} style={bt()} title="Galaxy view"><Ico n="sys" s={18} />GALAXY</div>
         <div onClick={() => eng.mapClose()} style={bt()} title="Close map (N)"><Ico n="close" s={18} />CLOSE</div>
@@ -1832,6 +1884,7 @@ function Overlay({ eng }) {
         {item(ui.sound ? 'snd' : 'mute', ui.sound ? 'Sound: on' : 'Sound: off', ui.sound, () => eng.act('KeyM'))}
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
+        {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
@@ -1883,7 +1936,7 @@ function Overlay({ eng }) {
         {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Tap a star in the sky: warp there<br />Target button (top right): list of all targets<br />FIND: search a city, mountain or planet and fly there<br />MAP: live system map, tap a planet to cruise there<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
           : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />/ search · N map · F supercruise · V camera · M sound · P photo mode · G stats · B benchmark · J system · H hint bar</div>}
         <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
-      {ui.map.on && <MapUI eng={eng} m={ui.map} sysName={ui.system} />}
+      {ui.map.on && <MapUI eng={eng} m={ui.map} sysName={ui.system} date={ui.date} />}
       {ui.galaxy && <GalaxyUI eng={eng} gv={ui.galaxy} wsel={ui.wsel} />}
       {/* touch action cluster */}
       {ui.touch && !mapOut && <>
