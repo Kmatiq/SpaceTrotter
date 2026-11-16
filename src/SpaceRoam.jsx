@@ -691,14 +691,16 @@ async function createEngine(canvas, systemId, opts = {}) {
     const c = au.ctx = new AC(), G = (v, to) => { const g = c.createGain(); g.gain.value = v; g.connect(to); return g; };
     const F = (type, f, to) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.connect(to); return b; };
     const O = (type, f, to) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; o.connect(to); o.start(); return o; };
-    au.m = G(au.on ? 0.55 : 0, c.destination);
+    au.m = G(au.on ? 0.35 : 0, c.destination);
     const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const nz = c.createBufferSource(); nz.buffer = nb; nz.loop = true; nz.start();
-    au.eg = G(0, au.m); au.ef = F('lowpass', 200, au.eg); au.eo = O('sawtooth', 40, au.ef); au.eo2 = O('square', 20, au.ef);          // engine rumble
+    const bb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), bd = bb.getChannelData(0); let lb = 0; for (let i = 0; i < bd.length; i++) { lb = (lb + 0.02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = lb * 3.5; } // brown noise: deep, soft
+    const bz = c.createBufferSource(); bz.buffer = bb; bz.loop = true; bz.start();
+    au.eg = G(0, au.m); au.ef = F('lowpass', 300, au.eg); bz.connect(au.ef);                                                           // rocket: faint filtered brown noise
     au.hg = G(0, au.m); au.hf = F('bandpass', 700, au.hg); au.hf.Q.value = 0.8; nz.connect(au.hf);                                  // thrust hiss
-    au.wg = G(0, au.m); au.wf = F('lowpass', 300, au.wg); nz.connect(au.wf);                                                         // warp roar
+    au.wg = G(0, au.m); au.wf = F('lowpass', 300, au.wg); bz.connect(au.wf);                                                         // warp roar
     au.sg = G(0, au.m); au.so = O('sine', 200, au.sg);                                                                              // charge whine
-    const dg = G(0.025, au.m), df = F('lowpass', 400, dg); O('sine', 55, df); O('sine', 82.7, df); O('triangle', 110.3, G(0.3, df)); // ambient drone
+    const dg = G(0.01, au.m), df = F('lowpass', 400, dg); O('sine', 55, df); O('sine', 82.7, df); O('triangle', 110.3, G(0.3, df)); // ambient drone
     au.nb = nb;
   }
   function blip(f0, f1, dur, type, vol, delay) { // one-shot event sound (allocates only on events)
@@ -710,16 +712,15 @@ async function createEngine(canvas, systemId, opts = {}) {
   function whoosh(dur, f0, f1, vol) { const c = au.ctx; if (!c || !au.on) return; const t = c.currentTime, n = c.createBufferSource(), b = c.createBiquadFilter(), g = c.createGain();
     n.buffer = au.nb; b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(f0, t); b.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(b); b.connect(g); g.connect(au.m); n.start(t); n.stop(t + dur); }
-  const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.18); blip(990, 990, 0.5, 'sine', 0.16, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.14, 0.26); blip(1760, 1760, 1.2, 'triangle', 0.1, 0.42); } };
+  const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.1); blip(990, 990, 0.5, 'sine', 0.09, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.08, 0.26); blip(1760, 1760, 1.2, 'sine', 0.06, 0.42); } };
   function audioFrame(thr, boost, chg, ht) {
     const c = au.ctx; if (!c) return; const t = c.currentTime, w = warpVis;
-    au.eg.gain.setTargetAtTime((0.04 + thr * 0.16) * (1 - w * 0.7), t, 0.12); au.eo.frequency.setTargetAtTime(38 + thr * 26 + boost * 30, t, 0.25); au.eo2.frequency.setTargetAtTime(19 + thr * 13 + boost * 15, t, 0.25);
-    au.ef.frequency.setTargetAtTime(140 + thr * 500 + boost * 1100, t, 0.15);
-    au.hg.gain.setTargetAtTime(thr * 0.1 * (1 + boost * 1.5), t, 0.1); au.hf.frequency.setTargetAtTime(500 + boost * 1800, t, 0.2);
-    au.wg.gain.setTargetAtTime(w * 0.22 + chg * 0.12 + ht * 0.4, t, 0.15); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
-    au.sg.gain.setTargetAtTime(chg * 0.07 + w * 0.015, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
+    au.eg.gain.setTargetAtTime((0.012 + thr * 0.07 + boost * 0.05) * (1 - w * 0.6), t, 0.25); au.ef.frequency.setTargetAtTime(220 + thr * 380 + boost * 700, t, 0.3); // soft rocket wash
+    au.hg.gain.setTargetAtTime(thr * 0.012 * (1 + boost * 1.5), t, 0.2); au.hf.frequency.setTargetAtTime(900 + boost * 1500, t, 0.3);
+    au.wg.gain.setTargetAtTime(w * 0.12 + chg * 0.06 + ht * 0.22, t, 0.2); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
+    au.sg.gain.setTargetAtTime(chg * 0.03 + w * 0.006, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
-  function dropCruise(v) { cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.35); blip(180, 45, 0.7, 'sine', 0.35); }
+  function dropCruise(v) { cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
   let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
@@ -763,7 +764,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
 
   // ---- input ----
-  function setTgt(i) { if (i === target || i < 0) return; target = i; tgtT = 0; blip(880, 1320, 0.12, 'sine', 0.1); blip(1320, 1320, 0.15, 'sine', 0.08, 0.09); }
+  function setTgt(i) { if (i === target || i < 0) return; target = i; tgtT = 0; blip(880, 1320, 0.12, 'sine', 0.06); blip(1320, 1320, 0.15, 'sine', 0.05, 0.09); }
   function pick(x, y, rad) { // select the body whose marker/disc is closest to a screen point
     let bi = -1, bd = rad * rad;
     for (let i = 0; i < sys.n; i++) {
@@ -782,10 +783,10 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'TabBack': setTgt((target + sys.n - 1) % sys.n); break;
       case 'Full': if (document.fullscreenElement) document.exitFullscreen(); else { const el = canvas.parentElement || canvas; if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); } break; // wrapper, so the UI overlay stays visible
       case 'KeyF':
-        if (cruise) dropCruise(Math.min(cruiseV, 5000)); else if (charge >= 0) { charge = -1; blip(500, 120, 0.3, 'sine', 0.12); }
-        else if (dist(target) > sys.list[target].arrive * 1.2 && !bench.on) { charge = 1.2; cruiseV = 0; } else blip(220, 180, 0.15, 'square', 0.06); // too close: denied beep
+        if (cruise) dropCruise(Math.min(cruiseV, 5000)); else if (charge >= 0) { charge = -1; blip(500, 120, 0.3, 'sine', 0.07); }
+        else if (dist(target) > sys.list[target].arrive * 1.2 && !bench.on) { charge = 1.2; cruiseV = 0; } else blip(330, 260, 0.15, 'sine', 0.06); // too close: denied beep
         break;
-      case 'KeyM': au.on = !au.on; if (au.m) au.m.gain.setTargetAtTime(au.on ? 0.55 : 0, au.ctx.currentTime, 0.05); break;
+      case 'KeyM': au.on = !au.on; if (au.m) au.m.gain.setTargetAtTime(au.on ? 0.35 : 0, au.ctx.currentTime, 0.05); break;
       case 'KeyB': bench.on ? stopBench(false) : startBench(); break;
       case 'KeyV': thirdPerson = !thirdPerson; break;
       case 'KeyH': showHelp = !showHelp; break;
@@ -1154,15 +1155,23 @@ async function createEngine(canvas, systemId, opts = {}) {
     qrot(fw, 0, ship.q, 0, 0, 0, -1);
     if (charge >= 0 && !bench.on) { // supercruise charge-up: align to target, then jump
       const to = target * 3; qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, pos[to] - abs[0], pos[to + 1] - abs[1], pos[to + 2] - abs[2], up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 3));
-      charge -= dt; if (charge <= 0) { charge = -1; cruise = true; cruiseV = 2000; flash = 1; whoosh(1.6, 150, 4000, 0.4); blip(90, 600, 0.9, 'sawtooth', 0.12); }
+      charge -= dt; if (charge <= 0) { charge = -1; cruise = true; cruiseV = 2000; flash = 1; whoosh(1.6, 150, 4000, 0.2); blip(90, 500, 0.9, 'sine', 0.08); }
     }
     if (cruise && !bench.on) { // supercruise with auto-alignment + exponential auto-deceleration
       const tbd = sys.list[target], to = target * 3, dx = pos[to] - abs[0], dy = pos[to + 1] - abs[1], dz = pos[to + 2] - abs[2], d = Math.hypot(dx, dy, dz);
-      qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, dx, dy, dz, up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
-      qrot(fw, 0, ship.q, 0, 0, 0, -1); const al = (fw[0] * dx + fw[1] * dy + fw[2] * dz) / d, surf = Math.max(d - tbd.arrive, 0);
+      let wx = dx, wy = dy, wz = dz, ob = -1, oba = d; // aim: the target, or a waypoint around the nearest body blocking the straight line
+      for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (i === target || !b.sphere) continue;
+        const o = i * 3, cx = pos[o] - abs[0], cy = pos[o + 1] - abs[1], cz = pos[o + 2] - abs[2], along = (cx * dx + cy * dy + cz * dz) / d; if (along <= 0 || along >= oba) continue;
+        const rr = Math.min(b.R * Math.max(b.box, 1.05) * 1.2, Math.hypot(pos[to] - pos[o], pos[to + 1] - pos[o + 1], pos[to + 2] - pos[o + 2]) * 0.9); // rings/atmosphere included; never past a target orbiting it
+        const px = cx - (dx / d) * along, py = cy - (dy / d) * along, pz = cz - (dz / d) * along, pd = Math.hypot(px, py, pz); if (pd >= rr) continue;
+        let nx = -px, ny = -py, nz = -pz, nl = pd; if (nl < rr * 0.01) { nx = dz; ny = 0; nz = -dx; nl = Math.hypot(nx, nz) || 1; } // dead centre: go round sideways
+        ob = i; oba = along; wx = cx + (nx / nl) * rr * 1.45; wy = cy + (ny / nl) * rr * 1.45; wz = cz + (nz / nl) * rr * 1.45; }
+      const wd = Math.hypot(wx, wy, wz);
+      qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, wx, wy, wz, up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
+      qrot(fw, 0, ship.q, 0, 0, 0, -1); const al = (fw[0] * wx + fw[1] * wy + fw[2] * wz) / wd, surf = Math.max(d - tbd.arrive, 0);
       const home = d < 200 * tbd.arrive, vdes = surf * 1.4 * Math.max(Math.pow(Math.max(0, (al - 0.85) / 0.15), 2), home ? 0.35 : 0); // final approach: guaranteed closing speed
-      cruiseV = Math.min(vdes, Math.max(cruiseV, 2000) * Math.exp(dt * 2.2));
-      const ux = home ? dx / d : fw[0], uy = home ? dy / d : fw[1], uz = home ? dz / d : fw[2]; // home straight at the target when close
+      cruiseV = Math.min(vdes, Math.max(cruiseV, 2000) * Math.exp(dt * 2.2), Math.max(alt, 200) * 3); // never faster than 3x the nearest surface distance per second → can't skip through a planet in one frame
+      const st = home || ob >= 0, ux = st ? wx / wd : fw[0], uy = st ? wy / wd : fw[1], uz = st ? wz / wd : fw[2]; // home on the aim point when close or detouring
       for (let j = 0; j < 3; j++) { ship.off[j] += ((j === 0 ? ux : j === 1 ? uy : uz) * cruiseV + tv[j]) * dt; ship.vel[j] = fw[j] * Math.min(cruiseV, 5e4); } // cruise in the target's frame: fast movers can't outrun us; inside its SOI we co-move
       if (d < tbd.arrive * 1.03 || (K.KeyS && !K.KeyW)) dropCruise(Math.min(cruiseV, Math.max(alt * 0.2, 200)));
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
@@ -1187,13 +1196,13 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     if (prValid) altT = dist(prBody) - sys.list[prBody].R * (1 + prH);
     const wasLanded = landed; landed = prValid && !cruise && !bench.on && altT < clr + (landed ? 8 : 3); // hysteresis
-    if (landed && !wasLanded && v0 < 400) { thump = 1; blip(80, 32, 0.6, 'sine', 0.45); whoosh(0.7, 500, 90, 0.22); banner('TOUCHDOWN - ' + sys.list[prBody].name, false); }
+    if (landed && !wasLanded && v0 < 400) { thump = 1; blip(80, 32, 0.6, 'sine', 0.22); whoosh(0.7, 500, 90, 0.12); banner('TOUCHDOWN - ' + sys.list[prBody].name, false); }
     if (landed && inY <= 0 && inZ >= 0 && Math.abs(inX) < 0.1) { ship.vel.fill(0); } // resting on the ground
     // atmosphere entry / exit + low-orbit banners and re-entry heat
     let ia = -1, ial = 0;
     for (let i = 1; i < sys.n; i++) { const b = sys.list[i], at = b.def && b.def.atmosphere; if (!at || !b.sphere) continue;
       const al = dist(i) - b.R * (i === prBody && prValid ? 1 + prH : 1); if (al < b.R * at.height) { ia = i; ial = al; } }
-    if (!bench.on && ia !== inAtm) { if (ia >= 0) { banner('ENTERING ' + sys.list[ia].name.toUpperCase() + ' ATMOSPHERE', true); whoosh(2.4, 180, 1400, 0.3); eflash = 0.35; }
+    if (!bench.on && ia !== inAtm) { if (ia >= 0) { banner('ENTERING ' + sys.list[ia].name.toUpperCase() + ' ATMOSPHERE', true); whoosh(2.4, 180, 1400, 0.16); eflash = 0.35; }
       else banner('LEAVING ' + sys.list[inAtm].name.toUpperCase() + ' ATMOSPHERE', false); }
     inAtm = ia;
     const lb = prValid && !(sys.list[prBody].def.atmosphere) ? prBody : -1; if (!bench.on && lb >= 0 && lb !== lowB) banner('SURFACE APPROACH - ' + sys.list[lb].name.toUpperCase(), false); lowB = lb;
