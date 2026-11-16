@@ -304,21 +304,21 @@ struct TR{h:f32,n:vec3f,f:f32,c:f32,m:f32};
 fn tfind(k:u32)->i32{var h=(k*2654435761u)>>20u;for(var i=0;i<16;i++){let e=TH[h&4095u];if(e.x==k){return i32(e.y);}if(e.x==0xffffffffu){return -1;}h+=1u;}return -1;}
 fn tuv(n:vec3f,eq:bool)->vec2f{let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
  if(eq){return vec2f((lo+PI)/PI,(PI*.5-la)/PI);}let m=clamp(la,-1.4844,1.4844);return vec2f((lo+PI)/(2.*PI),(1.-log(tan(m)+1./cos(m))/PI)*.5);}
-fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool)->vec4f{var z=min(i32(max(zd,0.)),zm);
+fn tsel(kind:u32,uv:vec2f,zd:f32,zm:i32,eq:bool,yo:u32)->vec4f{var z=min(i32(max(zd,0.)),zm);
  loop{if(z<0){break;}let s=f32(1u<<u32(z));let t=uv*s;let w=select(s,s*2.,eq);
   let ix=u32(clamp(floor(t.x),0.,w-1.));let iy=u32(clamp(floor(t.y),0.,s-1.));
-  let L=tfind((kind<<30u)|(u32(z)<<26u)|(iy<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
+  let L=tfind((kind<<30u)|(u32(z)<<26u)|((iy+yo)<<13u)|ix);if(L>=0){return vec4f(f32(L),(t-floor(t))*256.,f32(z));}z-=1;}
  return vec4f(-1.);}
 fn dec(c:vec4f)->f32{return c.r*65280.+c.g*255.+c.b*.99609375-32768.;}// Terrarium RGB -> metres
-fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),12,false);if(r.x<0.){return vec2f(0.);}
+fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp)),12,false,0u);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
-fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq);
+fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq,0u);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
- if(b[12].w>1.5){if(tsel(select(2u,3u,b[12].w>2.5),tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
+ if(b[12].w>1.5){if(tsel(select(2u,3u,b[12].w>2.5),tuv(n,true),0.,0,true,0u).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
  let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=5.5e-7;// metres -> R (x3.5 relief)
@@ -332,7 +332,13 @@ fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  h*=b[4].w;gr*=b[4].w;var cr=0.;
  if(b[8].x>0.){let cs=b[8].y;let c=crats(n*cs+sd*1.3,clamp(log2(.5/(fp*cs))/1.26,0.,5.));h+=b[8].x*c.x/cs;gr+=b[8].x*c.yzw;cr=c.x;}
  return TR(h,gr,f.x,cr,0.);}
+// real clouds (Earth): yesterday's NOAA-20 VIIRS true colour vs the cloud-free Sentinel-2 mosaic -> cloud where much brighter and grey; -1 where no data
+fn cloudReal(n:vec3f,fp:f32)->f32{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*max(fp,2e-4))),6,false,4096u);if(r.x<0.){return -1.;}
+ let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;let lt=dot(c,vec3f(.3,.5,.2));if(lt<.03){return -1.;}// polar night / swath gap
+ let bs=pow(albedo(1.,n,max(fp,2e-4)).rgb,vec3f(.4545));let lb=dot(bs,vec3f(.3,.5,.2));let mx=max(c.r,max(c.g,c.b));let sat=(mx-min(c.r,min(c.g,c.b)))/max(mx,1e-3);
+ return smoothstep(.16,.38,lt-lb)*smoothstep(.22,.08,sat)*smoothstep(.42,.62,lt);}
 fn cloud(b:array<vec4f,16>,n:vec3f,fp:f32)->f32{
+ if(b[12].w>.5&&b[12].w<1.5){let cr=cloudReal(n,fp);if(cr>=0.){let dt=fbm(n*900.,min(lod(fp,900.),6.),.55).x;return clamp(cr*(.85+.4*dt),0.,1.);}}
  let p=ry(n,g.mi.x*b[15].x);let w=fbm(p*3.,4.,.5);
  let f=fbm(p*7.+w.yzw*.04+vec3f(w.x*.6),min(lod(fp,7.),mix(8.,11.,g.fx.z)),.56).x;let th=.3-b[11].w*.55;return smoothstep(th,th+.35,f)*smoothstep(th-.15,th+.6,f);}
 fn ringD(b:array<vec4f,16>,r:f32,fp:f32)->f32{
@@ -795,8 +801,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   const TSRC = [(z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/${z}/${y}/${x}.jpg`, // Sentinel-2 cloudless (EOX), ~10 m/px
     (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
-    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
-  const TZM = [13, 12, 8, 7], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
+    (z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${CLOUD_DAY}/GoogleMapsCompatible_Level9/${z}/${y}/${x}.jpg`]; // yesterday's real clouds
+  const CLOUD_DAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10), TZM = [13, 12, 8, 7, 6], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -809,14 +816,14 @@ async function createEngine(canvas, systemId, opts = {}) {
         device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
-  const want = (kind, z, x, y) => { const k = ((kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  const want = (kind, z, x, y) => { const k = (kind === 4 ? (1 << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
     let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }
     for (let pass = 0; pass < 2; pass++) for (let i = 0; i < sys.n; i++) { // nearest mapped body first
       if ((pass === 0) !== (i === near)) continue;
       const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
       const eq = mp !== 'earth', ek = mp === 'mars' ? 3 : 2, o = i * 3, d = dist(i);
-      for (let kind = eq ? ek : 0; kind <= (eq ? ek : 1); kind++) {
+      for (let kind = eq ? ek : 0; kind <= (eq ? ek : 4); kind++) { if (kind === 2 || kind === 3) { if (!eq) continue; }
         const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
         if (d > 8 * b.R) continue;
         const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;
@@ -1122,8 +1129,15 @@ async function createEngine(canvas, systemId, opts = {}) {
       const r = mapR(i, (sys.list[i].R / scr[2]) / tanY() * H * 0.5, hs), d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < Math.max(bd, r * r)) { bd = d2; bi = i; } }
     return bi; }
   const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25] }, LMIN = { s: 0.015, o: 0.1 };
+  // live weather for Earth landmarks near the crosshair (Open-Meteo, no key; cached per place, rate-limited)
+  const wx = new Map(); let wxLast = 0;
+  const WMO = (c) => (c === 0 ? 'clear' : c <= 2 ? 'partly cloudy' : c === 3 ? 'overcast' : c <= 48 ? 'fog' : c <= 57 ? 'drizzle' : c <= 67 ? 'rain' : c <= 77 ? 'snow' : c <= 82 ? 'showers' : c <= 86 ? 'snow showers' : 'thunderstorm');
+  function wxWant(m) { const k = m.name; if (wx.has(k) || performance.now() - wxLast < 1200) return; wxLast = performance.now(); wx.set(k, null);
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + m.lat + '&longitude=' + m.lon + '&current=temperature_2m,weather_code,wind_speed_10m').then((r) => r.json())
+      .then((j) => { const c = j.current; wx.set(k, Math.round(c.temperature_2m) + ' C  ' + WMO(c.weather_code) + '  wind ' + Math.round(c.wind_speed_10m) + ' km/h'); wxSeen = true; }).catch(() => wx.set(k, '')); }
+  let wxSeen = false;
   function lmHud(s) { // landmark labels on the body you are near: rank-gated by altitude, horizon-culled, decluttered
-    let nl = 0; const lh = 15 * s;
+    let nl = 0, wb = -1, wbd = 1e9, wbx = 0, wby = 0, wba = 0; const lh = 15 * s;
     for (let k = 0; k < sys.lm.length; k++) {
       const m = sys.lm[k], b = sys.list[m.bi], o = m.bi * 3, cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], d = Math.hypot(cx, cy, cz), al = (d - b.R) / b.R;
       const mx = LMAX[m.kind][m.rank], mn = LMIN[m.kind] || 0; if (al > mx || al < mn * 0.7) continue;
@@ -1136,7 +1150,10 @@ async function createEngine(canvas, systemId, opts = {}) {
       const w = m.kind === 's' || m.kind === 'o', cr = m.kind === 'm' ? 1 : w ? 0.6 : m.kind === 'l' ? 0.6 : 1, cg = m.kind === 'm' ? 0.75 : w ? 0.85 : 1, cb = m.kind === 'm' ? 0.45 : w ? 1 : m.kind === 'l' ? 0.7 : 1, tgt = ap.k === k && (ap.on || ap.pend);
       if (!w) circ(x, y, (tgt ? 6 : 3.5) * s, 1.6 * s, cr, cg, cb, a); if (tgt) circ(x, y, 12 * s, 2 * s, 1, 0.8, 0.3, a);
       ts(m.name); tout(w ? x - wl / 2 : x + 9 * s, y - 8 * s, lh, cr, cg, cb, a, 0);
+      if (!w && b.id === 'earth' && (m.kind === 'c' || m.kind === 'm')) { const dd = Math.hypot(x - W / 2, y - H / 2); if (dd < wbd) { wbd = dd; wb = k; wbx = x; wby = y; wba = a; } }
     }
+    if (wb >= 0 && wbd < Math.min(W, H) * 0.35) { const m = sys.lm[wb]; wxWant(m); const t = wx.get(m.name); // weather for the place nearest the crosshair
+      if (t) { const tw = t.length * 13 * s * 0.6; seg(wbx + 7 * s, wby + 15 * s, wbx + 11 * s + tw, wby + 15 * s, 0.01, 0.03, 0.06, 0.5 * wba, 18 * s); ts(t); tout(wbx + 9 * s, wby + 9 * s, 13 * s, 0.8, 0.92, 1, wba, 0); } }
   }
   const sd3 = new Float64Array(3);
   function starHud(s) { // catalogue stars as soft glows; named near the crosshair or when selected for warp
@@ -1320,7 +1337,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
       creditY = H - 10 * s;
     }
-    if (tilesSeen && altT < 3e6) { const mk = sys.list[prBody].def.surface.maps; ts(mk === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : mk === 'mars' ? 'Imagery: NASA/USGS Viking MDIM 2.1 (Mars Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
+    if (tilesSeen && altT < 3e6) { const mk = sys.list[prBody].def.surface.maps; ts(mk === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : mk === 'mars' ? 'Imagery: NASA/USGS Viking MDIM 2.1 (Mars Trek)' : wxSeen ? 'Sentinel-2 cloudless by EOX - Elevation: AWS Terrain Tiles - Clouds: NASA GIBS VIIRS - Weather: Open-Meteo' : 'Sentinel-2 cloudless by EOX - Elevation: AWS Terrain Tiles - Clouds: NASA GIBS VIIRS (yesterday)');
       tout(L, T + PH + 10 * s, 12 * s, 0.75, 0.85, 0.95, 0.7, 0); }
   }
 

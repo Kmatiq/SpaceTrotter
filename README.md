@@ -136,6 +136,18 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   directions, and Andromeda, Triangulum and the Magellanic Clouds have their real position angles and
   inclinations.
 
+### Live weather (Earth)
+
+- **Real clouds:** Earth's cloud layer comes from yesterday's NASA GIBS VIIRS (NOAA-20) true-colour mosaic, up
+  to zoom 6. Cloud is detected where that picture is much brighter, whiter and greyer than the cloud-free
+  Sentinel-2 ground. Polar night and gaps between satellite passes fall back to the procedural clouds, as does
+  offline play.
+- **Weather at places:** the city or mountain label nearest the crosshair shows the current temperature,
+  conditions and wind from [Open-Meteo](https://open-meteo.com) (free, no key, CC BY 4.0). Results are cached
+  per place.
+- **Mars:** NASA's public Curiosity (REMS) weather feed currently returns a server error, so there's no live
+  Mars weather yet.
+
 ### Galaxy view and intergalactic jumps
 
 - **GALAXY** (in the system map) flies the camera out from your star to the whole Milky
