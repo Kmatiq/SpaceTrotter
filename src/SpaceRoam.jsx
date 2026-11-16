@@ -337,7 +337,7 @@ fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true)
  let a=d16(textureLoad(TA,c0,L,0));let bb=d16(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=d16(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=d16(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
- let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*select(.04,.006,b[12].w<1.5);// Earth: real elevation does the work, only light procedural detail
+ let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
  if(b[12].w>1.5){let ms=b[12].w>2.5;if(tsel(select(2u,3u,ms),tuv(n,true),0.,0,true,0u).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}
   let e=relief(n,fp,ms);if(e.y<.5){return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon / Mars: photo + real altimetry relief (+ fine procedural detail)
   let lo=select(-9100.,-8200.,ms);let hi=select(10700.,21200.,ms);let K=select(8.6e-7,4.4e-7,ms);// metres -> R (x1.5 relief)
@@ -476,7 +476,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  let H=b[11].x;var tA=vec2f(1e30,-1e30);if(H>0.){tA=isph(ro,rd,1.+H);}
  let atm=tA.y>0.&&tA.x<tA.y;let t0=max(tA.x,0.);let t1=select(tA.y,min(tA.y,tS),tS>0.);
  if(rC.a>0.&&atm&&tR>(t0+t1)*.5){acc=rC+(1.-rC.a)*acc;rC=vec4f(0.);tD=min(tD,tR);}
- if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));if(t0>1e-6){tD=min(tD,t0);}}// inside the air: depth stays at the ground / sky, so buildings and stations in front are not hidden// daylit sky drowns out the stars
+ if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));tD=min(tD,t0);}// daylit sky drowns out the stars
  if(rC.a>0.){acc=rC+(1.-rC.a)*acc;tD=min(tD,tR);}
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
  return FO(acc,zdep(max(tD,1e-9)*R,rdw));}
@@ -528,19 +528,6 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
   return FO(vec4f(vec3f(.4,.36,.32)*E*max(v.im*v.im,.012)*.6*(1.-px*px)*(.4+.6*max(dot(Lw,-normalize(s.a.xyz)),0.)),1.),zdep(length(s.a.xyz),rdw));}
  let qi=qc(s.q);let sc=s.a.w;let ro=qr(qi,-s.a.xyz)/sc;let rd=qr(qi,rdw);let L=qr(qi,Lw);
  let tb=slab(ro,rd);if(tb.y<max(tb.x,0.)){discard;}
- if(ty>4.5){// building: exact box hit, facade with window grid, flat roof, lit windows at night
-  let bx=vec3f(s.b.w,s.b.y,s.b.w*(.7+.3*fract(sd*13.)));let bt=slab(ro/bx,rd/bx);if(bt.y<max(bt.x,0.)){discard;}let t=max(bt.x,0.);let p=ro+rd*t;
-  let q=p/bx;let aq=abs(q);var n=vec3f(0.,sign(q.y),0.);if(aq.x>aq.y&&aq.x>=aq.z){n=vec3f(sign(q.x),0.,0.);}else if(aq.z>aq.y&&aq.z>aq.x){n=vec3f(0.,0.,sign(q.z));}
-  let pm=p*sc;let up=n.y>.5;let hu=select(pm.x,pm.z,abs(n.x)>.5);let hv=pm.y+bx.y*sc;
-  let hue=fract(sd*7.31);var al=mix(mix(vec3f(.48,.43,.36),vec3f(.4,.39,.38),hue),vec3f(.34,.27,.22),step(.72,hue))*(.8+.35*fract(sd*53.));// warm stone / grey concrete / brick
-  var em=vec3f(0.);var sp=.05;
-  if(up){al=mix(vec3f(.27,.27,.29),vec3f(.36,.24,.19),step(.6,fract(sd*91.)))*(.8+.3*fract(sd*17.));}// zinc / tile roofs
-  else if(n.y>-.5){let cu=floor(hu/2.4);let cv=floor(hv/3.);let w=step(.22,fract(hu/2.4))*step(.3,fract(hv/3.))*step(1.,hv);
-   al=mix(al,vec3f(.1,.12,.15),w*.55)*mix(.55,1.,smoothstep(0.,6.,hv));sp=mix(.05,.6,w);// softer windows, darker at street level
-   let night=1.-smoothstep(-.05,.1,dot(L,qr(qi,qr(s.q,vec3f(0.,1.,0.)))));let on=step(.55,hf(vec3i(i32(cu),i32(cv),i32(sd*9999.))));em=vec3f(1.,.78,.45)*w*on*night*1.4;}
-  let nl=max(dot(n,L),0.);let V=-rd;let hh=normalize(L+V);
-  let c=al*E*nl+al*E*.11*(.55+.45*n.y)+E*sp*pow(max(dot(n,hh),0.),40.)*nl*.4+em;
-  return FO(vec4f(c,1.),zdep(t*sc,rdw));}
  let pa=g.mi.w;var t=max(tb.x,0.);var hit=false;var m=0.;LO=clamp(log2(.5/(max(t,1e-4)*pa*1.7))+1.,3.,7.);
  let sf=select(.9,1.,ty>.5&&ty<1.5);
  for(var k=0;k<128;k++){let r=mp(ro+rd*t,ty,sd);if(r.x<max(t*pa*.4,2e-5)){hit=true;m=r.y;break;}t+=r.x*sf;if(t>tb.y){break;}}
@@ -847,7 +834,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         if (sl < 0 || (tKey[sl] !== 0xffffffff && frame - tUse[sl] < 4)) { bm.close(); tmap.delete(k); return; } // cache full of visible tiles: drop this one, ask again later
         if (tKey[sl] !== 0xffffffff) { tmap.delete(tKey[sl]); tKey[sl] = 0xffffffff; hashRebuild(); } // unlink the old tile BEFORE its slot is overwritten
         tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); tilesSeen = true;
-        if (kind === 0 && z >= 11) urbanKeep(k, bm); if (kind === 1 && z >= 9) elevKeep(k, bm); if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
+        if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
   // relief tiles (LOLA / MOLA colour-shaded altimetry): decode hue -> height once on the CPU, fill shadowed pixels, smooth JPEG blocks, upload as 16-bit (R,G)
@@ -868,20 +855,6 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < 65536; i++) { const v = Math.round(Math.min(1, Math.max(0, rh[i])) * 65535); rbuf[i * 4] = v >> 8; rbuf[i * 4 + 1] = v & 255; rbuf[i * 4 + 2] = 0; rbuf[i * 4 + 3] = 255; }
     device.queue.writeTexture({ texture: tileTex, origin: [0, 0, sl] }, rbuf, { bytesPerRow: 1024, rowsPerImage: 256 }, [256, 256, 1]);
   }
-  const ucv = new OffscreenCanvas(64, 64), ucx = ucv.getContext('2d', { willReadFrequently: true }), umap = new Map(); // urban sampler: small copies of sharp Earth imagery tiles
-  function urbanKeep(k, bm) { ucx.drawImage(bm, 0, 0, 64, 64); umap.set(k, ucx.getImageData(0, 0, 64, 64).data); if (umap.size > 160) umap.delete(umap.keys().next().value); }
-  const emap = new Map(); // small decoded copies of Earth elevation tiles (metres), for placing buildings on the real ground
-  function elevKeep(k, bm) { ucx.imageSmoothingEnabled = false; ucx.drawImage(bm, 0, 0, 64, 64); ucx.imageSmoothingEnabled = true; const d = ucx.getImageData(0, 0, 64, 64).data, e = new Float32Array(4096); for (let i = 0; i < 4096; i++) e[i] = d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768; emap.set(k, e); if (emap.size > 120) emap.delete(emap.keys().next().value); }
-  function groundAt(lat, lon) { const la = Math.max(-1.48, Math.min(1.48, lat)), u = (lon + Math.PI) / (2 * Math.PI), v = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2;
-    for (let z = 12; z >= 9; z--) { const n = 1 << z, x = Math.floor(u * n), y = Math.floor(v * n), e = emap.get(((1 << 30) | (z << 26) | (y << 13) | x) >>> 0); if (e) return e[Math.min(63, Math.floor((v * n - y) * 64)) * 64 + Math.min(63, Math.floor((u * n - x) * 64))]; }
-    return NaN; }
-  function urbanAt(lat, lon) { // 0..1: how built-up the photo looks (grey/beige, not water, not vegetation)
-    const la = Math.max(-1.48, Math.min(1.48, lat)), u = (lon + Math.PI) / (2 * Math.PI), v = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2;
-    for (const z of [12, 13, 11]) { const n = 1 << z, x = Math.floor(u * n), y = Math.floor(v * n), d = umap.get(((z << 26) | (y << 13) | x) >>> 0); if (!d) continue;
-      const px = Math.min(62, Math.max(1, Math.floor((u * n - x) * 64))), py = Math.min(62, Math.max(1, Math.floor((v * n - y) * 64))); let r = 0, g = 0, b = 0;
-      for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) { const i = ((py + a) * 64 + px + c) * 4; r += d[i]; g += d[i + 1]; b += d[i + 2]; } r /= 2295; g /= 2295; b /= 2295; const mx = Math.max(r, g, b), sat = (mx - Math.min(r, g, b)) / Math.max(mx, 1e-3), l = 0.3 * r + 0.5 * g + 0.2 * b;
-      return Math.max(0, Math.min(1, (0.32 - sat) / 0.18)) * Math.max(0, Math.min(1, (l - 0.2) / 0.12)) * Math.max(0, Math.min(1, (0.75 - l) / 0.15)) * (b > r * 1.15 && l < 0.35 ? 0 : 1) * (g > r * 1.08 && g > b ? 0.2 : 1); }
-    return 0; }
   const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
     let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }
@@ -889,7 +862,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if ((pass === 0) !== (i === near)) continue;
       const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
       const eq = mp !== 'earth', ek = mp === 'mars' ? 3 : 2, o = i * 3, d = dist(i);
-      for (let kk = 0; kk < 2; kk++) { const kind = eq ? (kk ? ek : ek + 2) : (kk ? 0 : 1); // elevation / relief first: fewer tiles, and collision + 3D terrain depend on it
+      for (let kk = 0; kk < 2; kk++) { const kind = eq ? (kk ? ek : ek + 2) : (kk ? 0 : 1); // elevation / relief first
         const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
         if (d > 8 * b.R) continue;
         const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;
@@ -964,7 +937,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (wf > 0) { au.wg.gain.setTargetAtTime(wf * 0.26, t, 0.2); au.wf.frequency.setTargetAtTime(500 + wf * 1500 + Math.sin(t * 3) * 200, t, 0.2); } // tunnel roar au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
   function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
-  let nBld = 0, mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
+  let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
   function switchStarSystem(id) {
@@ -1728,21 +1701,6 @@ async function createEngine(canvas, systemId, opts = {}) {
           }
         }
     }
-    const eb = sys.idx.earth; nBld = 0;
-    if (eb !== undefined && prValid && prBody === eb && altT < 4000 && !bench.on && gx.a < 0.5 && mp.a < 0.5) { // 3D cities: buildings on a street grid where the photo is urban
-      const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, Rg = R0 * (1 + prH), S = 26, dth = S / Rg;
-      tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; const dc = dist(eb); qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
-      const lat0 = Math.asin(Math.max(-1, Math.min(1, t3[1]))), lon0 = Math.atan2(-t3[2], t3[0]), cl = Math.cos(Math.round(lat0 * 100) / 100), rc = Math.min(30, Math.max(10, Math.round((900 + altT * 0.5) / S)));
-      const j0 = Math.floor(lat0 / dth), i0 = Math.floor((lon0 * cl) / dth), li = lightAt(pos[o], pos[o + 1], pos[o + 2], 0);
-      for (let dj = -rc; dj <= rc; dj++) for (let di = -rc; di <= rc; di++) {
-        if (di * di + dj * dj > rc * rc || ni >= MAXI - 8 || nBld > 1600) continue; const i = i0 + di, j = j0 + dj, hs = hash(i, j, 41); if (hs > 0.88) continue; // streets / gaps
-        const la = (j + 0.5) * dth, lo = ((i + 0.5) * dth) / cl, ub = urbanAt(la, lo); if (ub < 0.3 || hash(j, i, 43) > ub) continue;
-        const eg = groundAt(la, lo), gr = isNaN(eg) ? Rg : R0 + Math.max(eg, 0) * 5.5e-7 * R0, h = (5 + 9 * hash(j, i, 61) + 38 * Math.pow(hash(i, j, 47), 8)) * (0.55 + 0.6 * ub) + 30, w = S * (0.6 + 0.3 * hash(i, j, 53)), sc = Math.max(w * 0.5, h * 0.5);
-        const cla = Math.cos(la), dx = cla * Math.cos(lo), dy = Math.sin(la), dz = -cla * Math.sin(lo), r = gr + h * 0.5 - 30; // real ground per building, 30 m footing below grade
-        qrot(t3, 0, bq, q, dx, dy, dz); const ux = t3[0], uy = t3[1], uz = t3[2]; qrot(t3, 0, bq, q, -Math.sin(la) * Math.cos(lo), Math.cos(la), Math.sin(la) * Math.sin(lo));
-        qlook(sq, 0, t3[0], t3[1], t3[2], ux, uy, uz); inst(pos[o] + ux * r - cam[0], pos[o + 1] + uy * r - cam[1], pos[o + 2] + uz * r - cam[2], sc, sq, 0, 5, (h * 0.5) / sc, li, (w * 0.5) / sc); nBld++;
-        instF[(ni - 1) * ISTR + 9] = (h * 0.5) / sc; instF[(ni - 1) * ISTR + 11] = (w * 0.5) / sc; } // b.y = half height, b.w = half width (in instance units)
-    }
     nOpaque = ni; nTail = 0;
     for (let i = 1; i < sys.n; i++) { // comet tails (additive volumes; local +z points away from the star)
       const b = sys.list[i]; if (b.type !== 'comet') continue; const p = i * 3, r = Math.hypot(pos[p], pos[p + 1], pos[p + 2]);
@@ -1809,7 +1767,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   const api = {
     switchStarSystem, startBenchmark: startBench,
-    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), buildings: nBld, ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
+    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },

@@ -160,23 +160,6 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   45,000 ly away. They show as dots in the galaxy view and can be tapped and warped to anywhere in the galaxy.
 - **Destinations:** every star can be warped to, and its system is generated from its name.
 
-### 3D cities (Earth)
-
-- **Placement:** below about 4 km over Earth, buildings appear on a street grid wherever the satellite photo
-  looks built-up: grey or beige, not water and not vegetation. The game keeps small copies of the sharp
-  Sentinel-2 tiles (zoom 11+) for this, so buildings follow the real city footprints, and parks, rivers and the
-  sea stay open.
-- **Ground:** each building stands on the real ground height, from small decoded copies of the elevation tiles,
-  with a footing below grade.
-- **Look:** heights are mostly 5–15 m (6–8 storeys at game scale), with occasional towers, taller where the
-  photo is more densely built.
-- **Rendering:** an exact ray–box hit in the instanced SDF pass draws window façades, a flat roof and lit
-  windows at night. Up to about 1,600 buildings are drawn around you.
-- **Fixes along the way:**
-  - Inside an atmosphere the planet now writes its depth at the ground, not at the camera, so buildings and
-    stations in front of it are no longer hidden.
-  - Elevation and relief tiles now load before photo tiles.
-
 ### Galaxy view and intergalactic jumps
 
 - **GALAXY** (in the system map) flies the camera out from your star to the whole Milky
@@ -341,4 +324,5 @@ build was run end to end, including the full benchmark.
   reverse) that drives the JPL planet positions, the Moon's phase and Earth's rotation, so you can see the
   sky on any date, e.g. a past eclipse or a planetary alignment. The engine already derives everything from
   one Julian date (`jd0` + `simT` × `TS`), so this is mostly UI.
+- Proper 3D cities (buildings as their own geometry with roofs and window facades).
 
