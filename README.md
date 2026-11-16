@@ -29,6 +29,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `Q` / `E` | roll |
 | Mouse (click to lock pointer), or arrow keys | pitch / yaw |
 | `Shift` | boost (×8) |
+| `N` | live system map |
 | Click a planet / label, or `T` | choose target (`T` opens the target list) |
 | `Tab` / `Shift+Tab` | cycle target |
 | `F` | Supercruise to target: auto-aligns, accelerates exponentially, decelerates automatically, drops out on arrival. `F` or `S` cancels |
@@ -83,6 +84,14 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   single-file build without network) the generated surface is used instead.
 - **API:** `api.flyTo('earth', lat, lon, altitudeMetres, pitchDeg)` jumps to a real place, e.g.
   `flyTo('earth', 45.8, 6.9, 9000, -12)` for Mont Blanc.
+
+### System map
+
+The **MAP** button (or `N`) opens a live top-down map with every planet, moon, station and the comet moving in
+real time, plus orbits, the asteroid belt and your ship. Distances are log-compressed so the whole system fits.
+Pinch or scroll to zoom, and drag to pan. Tap a body for its card: **CRUISE HERE** closes the map, locks the
+target and starts supercruise, so you watch the trip from the cockpit. **TARGET** just selects it, and **MOONS**
+opens that planet's own system.
 
 ### Touch (phones / tablets)
 
