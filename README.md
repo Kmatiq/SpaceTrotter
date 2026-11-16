@@ -85,13 +85,15 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 - **API:** `api.flyTo('earth', lat, lon, altitudeMetres, pitchDeg)` jumps to a real place, e.g.
   `flyTo('earth', 45.8, 6.9, 9000, -12)` for Mont Blanc.
 
-### System map
+### System map (3D)
 
-The **MAP** button (or `N`) opens a live top-down map with every planet, moon, station and the comet moving in
-real time, plus orbits, the asteroid belt and your ship. Distances are log-compressed so the whole system fits.
-Pinch or scroll to zoom, and drag to pan. Tap a body for its card: **CRUISE HERE** closes the map, locks the
-target and starts supercruise, so you watch the trip from the cockpit. **TARGET** just selects it, and **MOONS**
-opens that planet's own system.
+The **MAP** button (or `N`) flies the real camera out of the ship to an orbiting view high above the system, then
+back in when you close it. The flight follows an exponential-distance path, so it feels like one continuous zoom
+across scales. Everything stays live and rendered: orbits are drawn brightly, and planets get coloured markers
+and labels. Overlapping labels are hidden until you zoom in, and your ship shows as an arrow along its heading.
+Drag to rotate, and pinch or scroll to zoom. Tap a body for its card: **CRUISE HERE** closes the map, locks the
+target and starts supercruise. **TARGET** just selects it. **MOONS** flies the camera over to that planet's own
+system, for example Saturn with its rings, Titan and Cassini Hub. Ship controls are paused while the map is out.
 
 ### Touch (phones / tablets)
 
