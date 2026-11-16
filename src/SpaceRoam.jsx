@@ -317,13 +317,11 @@ fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp))
 fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq,0u);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 // colour-shaded altimetry (LOLA / MOLA): hue runs blue (low) -> cyan -> green -> yellow -> red / white (high); hillshading only changes brightness
-fn hue01(c:vec3f)->f32{let mx=max(c.r,max(c.g,c.b));let d=mx-min(c.r,min(c.g,c.b));if(d<.12*mx||mx<.06){return select(-1.,1.,mx>.8&&d<.12*mx);}// grey: white peak, or shadow (unknown)
- var h:f32;if(mx==c.r){h=(c.g-c.b)/d;}else if(mx==c.g){h=2.+(c.b-c.r)/d;}else{h=4.+(c.r-c.g)/d;}h=fract(h/6.+1.);if(h>.85){h=0.;}return clamp((.7-h)/.7,0.,1.);}
+fn d16(c:vec4f)->f32{return (c.r*65280.+c.g*255.)/65535.;}// relief tiles: height pre-decoded on the CPU
 fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true),log2(3.1416/(256.*fp)),select(5,6,ms),true,4096u);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
- let v=vec4f(hue01(textureLoad(TA,c0,L,0).rgb),hue01(textureLoad(TA,vec2i(c1.x,c0.y),L,0).rgb),hue01(textureLoad(TA,vec2i(c0.x,c1.y),L,0).rgb),hue01(textureLoad(TA,c1,L,0).rgb));
- let w=vec4f((1.-f.x)*(1.-f.y),f.x*(1.-f.y),(1.-f.x)*f.y,f.x*f.y)*step(vec4f(0.),v);let ws=dot(w,vec4f(1.));if(ws<1e-3){return vec2f(0.);}// skip shadowed / unknown samples
- return vec2f(dot(w,v)/ws,1.);}
+ let a=d16(textureLoad(TA,c0,L,0));let bb=d16(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=d16(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=d16(textureLoad(TA,c1,L,0));
+ let sf=f*f*(3.-2.*f);return vec2f(mix(mix(a,bb,sf.x),mix(c,d,sf.x),sf.y),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
  if(b[12].w>1.5){let ms=b[12].w>2.5;if(tsel(select(2u,3u,ms),tuv(n,true),0.,0,true,0u).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}
@@ -821,9 +819,27 @@ async function createEngine(canvas, systemId, opts = {}) {
         for (let i = 0; i < NTL; i++) { if (tKey[i] === 0xffffffff) { sl = i; break; } if (tUse[i] < old) { old = tUse[i]; sl = i; } }
         if (tKey[sl] !== 0xffffffff) tmap.delete(tKey[sl]);
         tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); thDirty = true; tilesSeen = true;
-        device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
+        if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
+  // relief tiles (LOLA / MOLA colour-shaded altimetry): decode hue -> height once on the CPU, fill shadowed pixels, smooth JPEG blocks, upload as 16-bit (R,G)
+  const rcv = new OffscreenCanvas(256, 256), rcx = rcv.getContext('2d', { willReadFrequently: true }), rh = new Float32Array(65536), rtmp = new Float32Array(65536), rbuf = new Uint8Array(262144);
+  function reliefUpload(bm, sl) {
+    rcx.clearRect(0, 0, 256, 256); rcx.drawImage(bm, 0, 0, 256, 256); const d = rcx.getImageData(0, 0, 256, 256).data;
+    for (let i = 0; i < 65536; i++) { const r = d[i * 4] / 255, g = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255, mx = Math.max(r, g, b), dl = mx - Math.min(r, g, b);
+      if (dl < 0.12 * mx || mx < 0.06) { rh[i] = mx > 0.8 ? 1 : -1; continue; } // grey: white peak, or shadow (unknown)
+      let h = mx === r ? (g - b) / dl : mx === g ? 2 + (b - r) / dl : 4 + (r - g) / dl; h = (((h / 6) % 1) + 1) % 1; if (h > 0.85) h = 0; rh[i] = Math.min(1, Math.max(0, (0.7 - h) / 0.7)); }
+    for (let pass = 0; pass < 12; pass++) { let left = 0; rtmp.set(rh); // fill unknown pixels from known neighbours
+      for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const i = y * 256 + x; if (rh[i] >= 0) continue; let s = 0, n = 0;
+        if (x > 0 && rh[i - 1] >= 0) { s += rh[i - 1]; n++; } if (x < 255 && rh[i + 1] >= 0) { s += rh[i + 1]; n++; } if (y > 0 && rh[i - 256] >= 0) { s += rh[i - 256]; n++; } if (y < 255 && rh[i + 256] >= 0) { s += rh[i + 256]; n++; }
+        if (n) rtmp[i] = s / n; else left++; } rh.set(rtmp); if (!left) break; }
+    for (let i = 0; i < 65536; i++) if (rh[i] < 0) rh[i] = 0.5;
+    for (let it = 0; it < 2; it++) { // separable box blur, radius 3: removes 8x8 JPEG blocking and hue jitter
+      for (let y = 0; y < 256; y++) { let a = 0; for (let x = -3; x <= 3; x++) a += rh[y * 256 + Math.min(255, Math.max(0, x))]; for (let x = 0; x < 256; x++) { rtmp[y * 256 + x] = a / 7; a += rh[y * 256 + Math.min(255, x + 4)] - rh[y * 256 + Math.max(0, x - 3)]; } }
+      for (let x = 0; x < 256; x++) { let a = 0; for (let y = -3; y <= 3; y++) a += rtmp[Math.min(255, Math.max(0, y)) * 256 + x]; for (let y = 0; y < 256; y++) { rh[y * 256 + x] = a / 7; a += rtmp[Math.min(255, y + 4) * 256 + x] - rtmp[Math.max(0, y - 3) * 256 + x]; } } }
+    for (let i = 0; i < 65536; i++) { const v = Math.round(Math.min(1, Math.max(0, rh[i])) * 65535); rbuf[i * 4] = v >> 8; rbuf[i * 4 + 1] = v & 255; rbuf[i * 4 + 2] = 0; rbuf[i * 4 + 3] = 255; }
+    device.queue.writeTexture({ texture: tileTex, origin: [0, 0, sl] }, rbuf, { bytesPerRow: 1024, rowsPerImage: 256 }, [256, 256, 1]);
+  }
   const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
     let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }

@@ -140,7 +140,8 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 
 - **Moon and Mars relief:** heights come from NASA Trek's colour-shaded laser altimetry: LRO LOLA for the Moon
   (to zoom 5) and MGS MOLA for Mars (to zoom 6). The colour ramp (blue low, then cyan, green and yellow, up to
-  red or white high) is decoded back into height in the shader, and shadowed or grey pixels are skipped. Relief
+  red or white high) is decoded to height on the CPU when a tile arrives. Shadowed pixels are filled from their
+  neighbours and JPEG blocks are smoothed, then the tile is uploaded as 16-bit height. Relief
   is shown at 1.5× on top of the photo mosaics, so Tycho, Theophilus, Olympus Mons and Valles Marineris are real
   3D terrain for landing, collision and the horizon march.
 - **Collision:** the ground probe now samples the finest available map tiles, the same terrain that is drawn.
