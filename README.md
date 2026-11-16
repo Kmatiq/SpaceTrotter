@@ -148,6 +148,18 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 - **Size ratios:** planet, moon and star radii now use real ratios (Jupiter 11× Earth, Sun 109×), while orbit
   distances stay compressed. Generated star systems follow the same rule.
 
+### Stars
+
+- **Real stars:** the sky holds every star brighter than magnitude 4.5 with a known distance: 911 stars from the
+  [HYG v4.1 database](https://github.com/astronexus/HYG-Database) (CC BY-SA). That's on top of the curated stars
+  with facts and real exoplanets. Each has its real direction, distance, spectral colour and an estimated radius,
+  so the real constellations are in the sky, and they shift with parallax when you travel. Background
+  procedural stars are dimmed so the constellations stand out. Bright stars near the crosshair are named, with
+  overlapping labels hidden.
+- **Generated stars:** 150 named, generated star systems sit along the Milky Way's spiral arms, from 3,000 to
+  45,000 ly away. They show as dots in the galaxy view and can be tapped and warped to anywhere in the galaxy.
+- **Destinations:** every star can be warped to, and its system is generated from its name.
+
 ### Galaxy view and intergalactic jumps
 
 - **GALAXY** (in the system map) flies the camera out from your star to the whole Milky
@@ -312,8 +324,5 @@ build was run end to end, including the full benchmark.
   reverse) that drives the JPL planet positions, the Moon's phase and Earth's rotation, so you can see the
   sky on any date, e.g. a past eclipse or a planetary alignment. The engine already derives everything from
   one Julian date (`jd0` + `simT` × `TS`), so this is mostly UI.
-- **Add more star systems.** The galaxy view feels empty with only ~30 catalogue stars. Add many more real stars
-  (e.g. a few hundred of the brightest/nearest from the HYG catalogue) and a seeded field of procedural stars
-  across the Milky Way's arms, so you can pick and warp to points anywhere in the galaxy.
 - Proper 3D cities (buildings as their own geometry with roofs and window facades).
 
