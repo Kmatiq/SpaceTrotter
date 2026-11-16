@@ -169,21 +169,14 @@ fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp))
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
 fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,2u,eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,8,eq),eq);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
-// procedural city blocks where the satellite photo looks urban (grey, low saturation, mid brightness, low land): R units
-fn bld(n:vec3f,fp:f32,e:f32)->f32{const CS=5e-5;if(fp>CS*.7||e<3.||e>1200.){return 0.;}
- let a=pow(albedo(1.,n,fp*.5).rgb,vec3f(.4545));let mx=max(a.r,max(a.g,a.b));let mn=min(a.r,min(a.g,a.b));let l=dot(a,vec3f(.3,.5,.2));// sRGB for the colour test
- let u=smoothstep(.3,.13,(mx-mn)/max(mx,1e-3))*smoothstep(.22,.32,l)*smoothstep(.72,.6,l);if(u<.08){return 0.;}
- let ax=abs(n);var q=n.yz/ax.x;var fc=0;if(ax.y>ax.x&&ax.y>=ax.z){q=n.xz/ax.y;fc=1;}else if(ax.z>ax.x&&ax.z>ax.y){q=n.xy/ax.z;fc=2;}
- q/=CS;let c=floor(q);let f=q-c;if(max(abs(f.x-.5),abs(f.y-.5))>.36){return 0.;}// streets
- let hs=hf(vec3i(vec2i(c),fc*31+7));return u*smoothstep(CS*.7,CS*.25,fp)*1.1e-4*(.25+.75*pow(hs,4.));}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
  if(b[12].w>1.5){if(tsel(2u,tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
  let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=5.5e-7;// metres -> R (x3.5 relief)
- let ld=smoothstep(0.,30.,e.x);let bk=bld(n,fp,e.x);var bg=vec3f(0.);if(fp<3.5e-5){bg=(t1*(bld(n1,fp,ex)-bk)+t2*(bld(n2,fp,ey)-bk))/ep;}
- return TR(max(e.x,0.)*EK+ld*dt.x*da+bk,(t1*(max(ex,0.)-max(e.x,0.))+t2*(max(ey,0.)-max(e.x,0.)))/ep*EK+ld*dt.yzw*s*da+bg,e.x*.001,0.,1.);}
+ let ld=smoothstep(0.,30.,e.x);
+ return TR(max(e.x,0.)*EK+ld*dt.x*da,(t1*(max(ex,0.)-max(e.x,0.))+t2*(max(ey,0.)-max(e.x,0.)))/ep*EK+ld*dt.yzw*s*da,e.x*.001,0.,1.);}
 fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  if(b[12].w>.5){let r=terrMap(b,n,fp);if(r.m>.5){return r;}}
  let s=b[5].w;let sd=vec3f(b[8].w);

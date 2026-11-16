@@ -82,9 +82,6 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   - Moon imagery: [NASA Moon Trek](https://trek.nasa.gov/moon/) LRO WAC global mosaic (up to zoom 8).
   - Procedural micro-detail is blended in where the imagery runs out of resolution.
   - Real mountains use 3.5× relative relief.
-  - Procedural city blocks: wherever the photo looks urban (grey, low saturation, low-lying land), the
-    heightfield grows street-separated blocks and towers when you fly low. They're generated, not real
-    buildings, and appear at the right places.
   - Credits are shown in the HUD whenever the imagery is visible.
 - **Offline:** everything else stays procedural, and if the tile servers can't be reached (offline, or the
   single-file build without network) the generated surface is used instead.
