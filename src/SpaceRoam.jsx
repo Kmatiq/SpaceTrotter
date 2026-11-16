@@ -1353,7 +1353,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gxObs(); if (gxProj(gx.obs)) { const x = scr[0], y = scr[1]; circ(x, y, 4 * s, 0, 1, 0.8, 0.35, fa); circ(x, y, 9 * s, 2 * s, 1, 0.8, 0.35, fa * 0.8); put(x + 14 * s, y, 13 * 15 * s * 0.6);
       ts('YOU ARE HERE'); tout(x + 14 * s, y - 8 * s, 15 * s, 1, 0.8, 0.35, fa, 0); ts(STARS[here].sn || STARS[here].name); tout(x + 14 * s, y + 10 * s, 13 * s, 1, 0.85, 0.6, fa * 0.8, 0); }
     for (const i of [0, 3, 4, 1, 2]) { const G = GALAXIES[i]; if (!gxProj(G.p)) continue; const x = scr[0], y = scr[1], pr = (G.R / scr[2]) / tanY() * H * 0.5;
-      if (i === 0 && D < 20000) continue; if (i === gx.sel) circ(x, y, Math.max(pr * 0.35, 14 * s), 2.5 * s, 1, 0.8, 0.3, fa);
+      if (i === 0 && gx.focus === 0 && D < 600000) continue; if (i === gx.sel) circ(x, y, Math.max(pr * 0.35, 14 * s), 2.5 * s, 1, 0.8, 0.3, fa);
       const lx = x + Math.max(pr * 0.25, 10 * s); if (i !== gx.sel && !put(lx, y, G.name.length * 17 * s * 0.6)) continue;
       ts(G.name); tout(lx, y - 9 * s, 17 * s, 0.85, 0.92, 1, fa, 0); }
     if (D < 3000 && !STARS[here].gal) for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; // nearby stars, when zoomed in on the Sun
@@ -1361,7 +1361,8 @@ async function createEngine(canvas, systemId, opts = {}) {
       circ(x, y, 2.5 * s, 0, c[0], c[1], c[2], fa); if (k === wsel) circ(x, y, 9 * s, 2 * s, 1, 0.8, 0.3, fa); if (D < 900 || k === wsel) { ts(st.name); tout(x + 7 * s, y - 7 * s, 12 * s, c[0], c[1], c[2], fa * 0.8, 0); } }
   }
   function gxPick(x, y) { let bi = -1, bd = (44 * hs) ** 2; const D = Math.hypot(gx.cam[0] - gx.tg[0], gx.cam[1] - gx.tg[1], gx.cam[2] - gx.tg[2]);
-    for (let i = 1; i < GALAXIES.length; i++) { if (!gxProj(GALAXIES[i].p)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < bd) { bd = d2; bi = i; } }
+    for (let i = 0; i < GALAXIES.length; i++) { if (!gxProj(GALAXIES[i].p)) continue; const pr = (GALAXIES[i].R / scr[2]) / tanY() * H * 0.5, d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2;
+      if (d2 < Math.max(bd, i === 0 && D < 600000 ? 0 : (pr * 0.5) ** 2)) { bd = d2; bi = i; } } // a galaxy's disk counts as a hit (not the Milky Way while orbiting inside it)
     if (bi < 0 && D < 3000) { for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; sd3[0] = SUN_G[0] + st.p[0]; sd3[1] = SUN_G[1] + st.p[1]; sd3[2] = SUN_G[2] + st.p[2];
       if (!gxProj(sd3)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < bd) { bd = d2; bi = -2 - k; } } }
     if (bi <= -2) { gx.sel = -1; wsel = -2 - bi; } else { gx.sel = bi; wsel = -1; } }
@@ -1668,7 +1669,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
-      photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1686,7 +1687,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     warpTo: (k) => warpTo(k),
     galaxyOpen: () => { if (bench.on || wp.on) return; mp.on = false; gx.on = true; gx.t = 0; gx.focus = 0; gx.dist = 150000; gx.sel = -1; mp.ptrs.clear(); tc.jid = tc.lid = -1; tc.jx = tc.jy = 0; },
     galaxyClose: () => { gx.on = false; mp.ptrs.clear(); }, galaxyFocus: (i) => { gx.focus = i; gx.dist = i ? GALAXIES[i].R * 4 : 150000; gx.sel = -1; },
-    galaxyZoom: (k) => { gx.dist = Math.max(60, Math.min(9e6, gx.dist * k)); }, galaxyJump: (i) => warpTo(STARS.findIndex((x) => x.id === GALAXIES[i].id)), clearWarpSel: () => { wsel = -1; },
+    galaxyZoom: (k) => { gx.dist = Math.max(60, Math.min(9e6, gx.dist * k)); }, galaxyJump: (i) => warpTo(i === 0 ? 0 : STARS.findIndex((x) => x.id === GALAXIES[i].id)), clearWarpSel: () => { wsel = -1; },
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
@@ -1745,7 +1746,7 @@ function GalaxyUI({ eng, gv, wsel }) { // DOM chrome for the galaxy view
         <div onClick={() => eng.galaxyClose()} style={bt()}><Ico n="close" s={18} />CLOSE</div>
       </div>
       {gv.sel && card(gv.sel.name, 'Galaxy', ly(gv.sel.ly), gv.sel.fact + (gv.sel.home ? ' You are here.' : ' The star systems you visit there are generated.'), <>
-        {!gv.sel.home && <div onClick={ok(() => eng.galaxyJump(gv.sel.i))} style={bt({ borderColor: C.warn, color: C.warn })}><Ico n="cruise" s={18} />JUMP</div>}
+        {!gv.sel.home && <div onClick={ok(() => eng.galaxyJump(gv.sel.i))} style={bt({ borderColor: C.warn, color: C.warn })}><Ico n="cruise" s={18} />{gv.sel.i === 0 ? 'JUMP HOME' : 'JUMP'}</div>}
         <div onClick={ok(() => eng.galaxyFocus(gv.sel.i))} style={bt()}><Ico n="find" s={18} />ZOOM IN</div></>)}
       {!gv.sel && wsel && card(wsel.name, 'Star', wsel.ly.toFixed(1) + ' ly', wsel.fact, <div onClick={ok(() => eng.warpTo(wsel.k))} style={bt({ borderColor: C.warn, color: C.warn })}><Ico n="cruise" s={18} />WARP</div>)}
       {!gv.sel && !wsel && <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', color: C.dim, fontSize: 12, textShadow: '0 1px 3px #000' }}>Drag to rotate · pinch / scroll / − + to zoom · tap a galaxy (or a star near the Sun)</div>}
