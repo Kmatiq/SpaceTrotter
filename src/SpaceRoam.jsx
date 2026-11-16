@@ -555,7 +555,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
   let ac=floor(A*720.);let rh=hf(vec3i(i32(ac),3,9));let ao=abs(fract(A*720.)-.5);// hyperspace streaks: thin radial lines rushing outward, lengthening with the jump
   let d=fract(lr*.9-t*(1.6+rh*2.2)+rh*7.);let L=.04+.9*g.wv.y;let sg=smoothstep(1.-L,1.,d)*smoothstep(1.,.985,d);
   c+=mix(vec3f(.55,.7,1.),vec3f(1.),rh)*(1.-smoothstep(.0,.16,ao))*sg*step(.45,rh)*smoothstep(.04,.35,hr)*g.wv.y*2.2;
-  let tw=g.wv.w;if(tw>0.){let z=.3/max(hr,.015);let a2=ha+z*.18+t*.35;let tc=vec3f(cos(a2)*1.8,sin(a2)*1.8,z*1.4-t*9.);// flowing tunnel of light
+  let tw=g.wv.w;if(tw>0.){let z=.3/max(hr,.015);let a2=ha+z*.18+t*.35;let tc=vec3f(cos(a2)*1.8,sin(a2)*1.8,z*1.4+t*9.);// flowing tunnel of light
    let n1=vn(tc).x*.5+.5;let n2=vn(tc*2.3+vec3f(3.)).x*.5+.5;let wl=pow(clamp(n1*.7+n2*.45,0.,1.3),3.);
    let tcol=mix(vec3f(.03,.1,.55),vec3f(.75,.88,1.),clamp(wl*wl,0.,1.))*wl*1.15+vec3f(.6,.8,1.)*exp(-hr*9.)*.9;c=mix(c,tcol,tw*.92);}}
  c+=vec3f(1.,.93,.85)*g.wv.z*(2.2*exp(-hr*2.5)+.6);
@@ -1834,7 +1834,6 @@ function Overlay({ eng }) {
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
-        {item('sys', 'Galaxy view', false, () => { eng.galaxyOpen(); setMenu(false); })}
         {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
         {item('bench', ui.bench ? 'Stop benchmark' : 'Run benchmark', ui.bench, () => { eng.act('KeyB'); setMenu(false); })}
       </div>}

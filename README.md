@@ -123,7 +123,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 
 ### Galaxy view and intergalactic jumps
 
-- **GALAXY** (in the system map, or ☰ → Galaxy view) flies the camera out from your star to the whole Milky
+- **GALAXY** (in the system map) flies the camera out from your star to the whole Milky
   Way, then further to the Local Group: the Large and Small Magellanic Clouds, Andromeda and Triangulum.
   They sit at their real positions (galactic l/b + distance) and sizes. The Sun sits 26,000 ly from the centre.
 - **Rendering:** each galaxy is a procedural thin disk plus bulge: log-spiral arms, dust lanes, pink
@@ -278,3 +278,12 @@ build was run end to end, including the full benchmark.
 - GPU cost near the surface (map lookups + heightfield march) is not yet measured on the target hardware.
 - No moon-on-planet eclipses.
 - Distant belt asteroids orbit far slower than Kepler speeds, so they stay approachable.
+
+## Roadmap / reminders
+
+- **Add more star systems.** The galaxy view feels empty with only ~30 catalogue stars. Add many more real stars
+  (e.g. a few hundred of the brightest/nearest from the HYG catalogue) and a seeded field of procedural stars
+  across the Milky Way's arms, so you can pick and warp to points anywhere in the galaxy.
+- Moon (and Mars) elevation data for real 3D relief.
+- Proper 3D cities (buildings as their own geometry with roofs and window facades).
+
