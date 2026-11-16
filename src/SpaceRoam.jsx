@@ -321,13 +321,13 @@ fn d16(c:vec4f)->f32{return (c.r*65280.+c.g*255.)/65535.;}// relief tiles: heigh
 fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true),log2(3.1416/(256.*fp)),select(5,6,ms),true,4096u);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=d16(textureLoad(TA,c0,L,0));let bb=d16(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=d16(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=d16(textureLoad(TA,c1,L,0));
- let sf=f*f*(3.-2.*f);return vec2f(mix(mix(a,bb,sf.x),mix(c,d,sf.x),sf.y),1.);}
+ return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
  if(b[12].w>1.5){let ms=b[12].w>2.5;if(tsel(select(2u,3u,ms),tuv(n,true),0.,0,true,0u).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}
   let e=relief(n,fp,ms);if(e.y<.5){return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon / Mars: photo + real altimetry relief (+ fine procedural detail)
   let lo=select(-9100.,-8200.,ms);let hi=select(10700.,21200.,ms);let K=select(8.6e-7,4.4e-7,ms);// metres -> R (x1.5 relief)
-  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,6e-5);
+  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,select(3.8e-4,1.9e-4,ms));// gradient over >= one relief texel: smooth shading
   let h0=(lo+e.x*(hi-lo))*K;let hx=(lo+relief(normalize(n+t1*ep),fp,ms).x*(hi-lo))*K;let hy=(lo+relief(normalize(n+t2*ep),fp,ms).x*(hi-lo))*K;
   return TR(h0+dt.x*da,(t1*(hx-h0)+t2*(hy-h0))/ep+dt.yzw*s*da,e.x,0.,1.);}
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
@@ -462,7 +462,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  let H=b[11].x;var tA=vec2f(1e30,-1e30);if(H>0.){tA=isph(ro,rd,1.+H);}
  let atm=tA.y>0.&&tA.x<tA.y;let t0=max(tA.x,0.);let t1=select(tA.y,min(tA.y,tS),tS>0.);
  if(rC.a>0.&&atm&&tR>(t0+t1)*.5){acc=rC+(1.-rC.a)*acc;rC=vec4f(0.);tD=min(tD,tR);}
- if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333)));tD=min(tD,t0);}
+ if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));tD=min(tD,t0);}// daylit sky drowns out the stars
  if(rC.a>0.){acc=rC+(1.-rC.a)*acc;tD=min(tD,tR);}
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
  return FO(acc,zdep(max(tD,1e-9)*R,rdw));}
@@ -1549,8 +1549,8 @@ async function createEngine(canvas, systemId, opts = {}) {
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
-      const bon = K.ShiftLeft || K.ShiftRight; bRamp = bon ? Math.min(1, bRamp + dt / 4) : Math.max(0, bRamp - dt * 2); // afterburner builds up while held
-      const vb = Math.min(Math.max(30, alt * (0.12 + 0.23 * smooth(3e4, 3e5, alt))), 3e7), vmax = bon ? Math.max(vb * 6, 2500 * bRamp * bRamp) : vb, acc = Math.max(vmax * (1.2 + sm), 60) * dt; // 1 km up: 120 m/s; brakes never weaker than 60 m/s2
+      const bon = K.ShiftLeft || K.ShiftRight; bRamp = bon ? Math.min(1, bRamp + dt / 3) : Math.max(0, bRamp - dt * 2); // afterburner builds up while held
+      const vb = Math.min(Math.max(30, alt * (0.12 + 0.23 * smooth(3e4, 3e5, alt))), 3e7), vmax = bon ? Math.max(vb * 6, 12000 * bRamp * bRamp) : vb, acc = Math.max(vmax * (1.2 + sm), 60) * dt; // 1 km up: 120 m/s; brakes never weaker than 60 m/s2
       qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); }
       { const sp = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); if (sp > vmax) { const k = Math.max(vmax / sp, Math.exp(-dt * 1.6)); ship.vel[0] *= k; ship.vel[1] *= k; ship.vel[2] *= k; } } // drag: arriving too fast for this altitude bleeds off within a second or two
@@ -1561,7 +1561,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (wp.on) warpStep(dt);
     // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
-    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 3000) * 0.1 - clr) * Math.min(1, dt * 3); // more terrain clearance at speed
+    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 12000) * 0.04 - clr) * Math.min(1, dt * 3); // more terrain clearance at speed
     for (let i = 0; i < sys.n; i++) {
       const b = sys.list[i], d = dist(i), o = i * 3, gas = b.def && b.def.surface && b.def.surface.gas;
       const mr = i === prBody && prValid ? b.R * (1 + prH) + clr : b.type === 'station' ? b.R * 1.1 : b.type === 'star' ? b.R * 1.03 : gas ? b.R * 1.004 : b.R + clr;
