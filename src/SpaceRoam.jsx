@@ -1158,10 +1158,13 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < tl; i++) { const c = tb[i]; if (c !== 32 && hn < MAXH) { const o = hn++ * HSTR; hudF[o] = x + i * adv; hudF[o + 1] = y; hudF[o + 2] = sz; hudF[o + 4] = r; hudF[o + 5] = g; hudF[o + 6] = b; hudF[o + 7] = a; hudF[o + 8] = c; } }
     tl = 0;
   };
-  const hidden = (i) => { // is body i behind the planet/moon we are flying over?
-    if (!prValid || i === prBody) return false; const o = i * 3, q = prBody * 3, dx = pos[o] - cam[0], dy = pos[o + 1] - cam[1], dz = pos[o + 2] - cam[2], dl = Math.hypot(dx, dy, dz);
-    const cx = pos[q] - cam[0], cy = pos[q + 1] - cam[1], cz = pos[q + 2] - cam[2], t = (cx * dx + cy * dy + cz * dz) / dl, Rb = sys.list[prBody].R;
-    return t > 0 && t < dl && cx * cx + cy * cy + cz * cz - t * t < Rb * Rb; };
+  const occ = new Int32Array(8); let nocc = 0; // bodies big enough on screen to hide HUD lines/markers behind them
+  function findOcc() { nocc = 0; for (let i = 0; i < sys.n && nocc < 8; i++) { const b = sys.list[i]; if (!b.sphere) continue; const o = i * 3, x = pos[o] - cam[0], y = pos[o + 1] - cam[1], z = pos[o + 2] - cam[2], d = Math.hypot(x, y, z);
+    if (d < b.R * 1.0005 || (b.R / d) / tanY() * H * 0.5 > 6 * hs) occ[nocc++] = i; } }
+  const occluded = (px, py, pz, skip) => { const pl = Math.hypot(px, py, pz); if (pl < 1e-6) return false; const ux = px / pl, uy = py / pl, uz = pz / pl;
+    for (let k = 0; k < nocc; k++) { const i = occ[k]; if (i === skip) continue; const o = i * 3, cx = pos[o] - cam[0], cy = pos[o + 1] - cam[1], cz = pos[o + 2] - cam[2], R = sys.list[i].R, tca = cx * ux + cy * uy + cz * uz;
+      if (tca < 0) continue; const d2 = cx * cx + cy * cy + cz * cz - tca * tca; if (d2 < R * R && tca - Math.sqrt(R * R - d2) < pl) return true; } return false; };
+  const hidden = (i) => { const o = i * 3; return occluded(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2], i); };
   const lab = (t, x, y) => { ts(t); tout(x, y + 3 * hs, 15 * hs, 0.5, 0.72, 0.9, 0.85, 0); }; // dim panel label
   const tanY = () => Math.tan(fov / 2);
   const project = (x, y, z) => { // camera-relative f64 point -> screen px in scr[], returns false if behind
@@ -1171,13 +1174,13 @@ async function createEngine(canvas, systemId, opts = {}) {
   };
   function orbitPath(i, cr, cg, cb, a, w) { // projected orbit ellipse of body i around its parent
     const b = sys.list[i], p = b.parent * 3, N = b.ecc > 0 ? 160 : 128; let px = 0, py = 0, ok = false;
-    if (b.jpl) { jplSet(b, (jdNow() - 2451545) / 36525); for (let k = 0; k <= 160; k++) { jplPos((k / 160) * 6.283185307179586, kp); const v = project(kp[0] - cam[0], kp[1] - cam[1], kp[2] - cam[2]);
+    if (b.jpl) { jplSet(b, (jdNow() - 2451545) / 36525); for (let k = 0; k <= 160; k++) { jplPos((k / 160) * 6.283185307179586, kp); const v = project(kp[0] - cam[0], kp[1] - cam[1], kp[2] - cam[2]) && !occluded(kp[0] - cam[0], kp[1] - cam[1], kp[2] - cam[2], -1);
       if (v && ok && Math.abs(scr[0] - px) + Math.abs(scr[1] - py) < 4 * W) seg(px, py, scr[0], scr[1], cr, cg, cb, a, w); ok = v; px = scr[0]; py = scr[1]; } return; }
     for (let k = 0; k <= N; k++) {
       const M = (k / N) * 6.283185307179586; let x, z;
       if (b.ecc > 0) { x = b.a * (Math.cos(M) - b.ecc); z = b.a * Math.sqrt(1 - b.ecc * b.ecc) * Math.sin(M); } else { x = b.a * Math.cos(M); z = b.a * Math.sin(M); }
       const y = -z * Math.sin(b.inc), zi = z * Math.cos(b.inc), cn = Math.cos(b.node), sn = Math.sin(b.node);
-      const v = project(pos[p] + x * cn - zi * sn - cam[0], pos[p + 1] + y - cam[1], pos[p + 2] + x * sn + zi * cn - cam[2]);
+      const qx = pos[p] + x * cn - zi * sn - cam[0], qy = pos[p + 1] + y - cam[1], qz = pos[p + 2] + x * sn + zi * cn - cam[2], v = project(qx, qy, qz) && !occluded(qx, qy, qz, -1);
       if (v && ok && Math.abs(scr[0] - px) + Math.abs(scr[1] - py) < 4 * W) seg(px, py, scr[0], scr[1], cr, cg, cb, a, w);
       ok = v; px = scr[0]; py = scr[1];
     }
@@ -1262,6 +1265,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(wp.t < WT1 ? 'SPOOLING' : wp.t < WT1 + WT2 ? 'IN WARP' : 'ARRIVING'); tout(cx, H - 120 * s, 15 * s, 0.6, 0.85, 1, 0.8 * a, 0.5);
       ts(st.name); tout(cx, H - 98 * s, 28 * s, 1, 1, 1, a, 0.5); if (rem > 1e5) { tn(rem / 1e6, 2); ts(' million ly'); } else { tn(rem, rem < 10 ? 2 : 1); ts(' ly'); } tout(cx, H - 58 * s, 20 * s, 1, 0.8, 0.4, a, 0.5);
       const bw = 160 * s, pr = Math.min(1, wp.t / (WT1 + WT2)); seg(cx - bw, H - 28 * s, cx + bw, H - 28 * s, 0.3, 0.4, 0.5, 0.4 * a, 3 * s); seg(cx - bw, H - 28 * s, cx - bw + 2 * bw * pr, H - 28 * s, 1, 0.8, 0.4, a, 3 * s); return; }
+    findOcc();
     if (gx.a > 0.5) { gxHud(s); return; }
     if (mp.a > 0.02) { mapHud(s); return; }
     // orbit paths: planets around the star + moons/stations of the local planet
