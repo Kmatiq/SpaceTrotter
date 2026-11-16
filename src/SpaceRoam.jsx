@@ -1577,14 +1577,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     // atmosphere entry / exit + low-orbit banners and re-entry heat
     let ia = -1, ial = 0;
     for (let i = 1; i < sys.n; i++) { const b = sys.list[i], at = b.def && b.def.atmosphere; if (!at || !b.sphere) continue;
-      const al = dist(i) - b.R * (i === prBody && prValid ? 1 + prH : 1); if (al < b.R * at.height) { ia = i; ial = al; } }
+      const al = dist(i) - b.R * (i === prBody && prValid ? 1 + prH : 1); if (al < b.R * Math.max(at.height * 4, 0.08)) { ia = i; ial = al; } } // entry interface well above the visible air layer
     if (!bench.on && ia !== inAtm) { if (ia >= 0) { banner('ENTERING ' + sys.list[ia].name.toUpperCase() + ' ATMOSPHERE', true); whoosh(2.4, 180, 1400, 0.16); eflash = 0.35; }
       else banner('LEAVING ' + sys.list[inAtm].name.toUpperCase() + ' ATMOSPHERE', false); }
     inAtm = ia;
     const lb = prValid && !(sys.list[prBody].def.atmosphere) ? prBody : -1; if (!bench.on && lb >= 0 && lb !== lowB) banner('SURFACE APPROACH - ' + sys.list[lb].name.toUpperCase(), false); lowB = lb;
     let heatT = 0;
-    if (ia >= 0 && !bench.on && !cruise) { const b = sys.list[ia], f = 1 - ial / (b.R * b.def.atmosphere.height), o = ia * 3, d = dist(ia);
-      const dens = smooth(0.02, 0.15, f) * (1 - smooth(0.6, 0.93, f)), vr = -(ship.vel[0] * (abs[0] - pos[o]) + ship.vel[1] * (abs[1] - pos[o + 1]) + ship.vel[2] * (abs[2] - pos[o + 2])) / d;
+    if (ia >= 0 && !bench.on && !cruise) { const b = sys.list[ia], f = 1 - ial / (b.R * Math.max(b.def.atmosphere.height * 4, 0.08)), o = ia * 3, d = dist(ia);
+      const dens = smooth(0.01, 0.08, f) * (1 - smooth(0.55, 0.8, f)), vr = -(ship.vel[0] * (abs[0] - pos[o]) + ship.vel[1] * (abs[1] - pos[o + 1]) + ship.vel[2] * (abs[2] - pos[o + 2])) / d;
       heatT = dens * smooth(0.08, 0.22, (Math.max(vr, 0) + 0.3 * v0) / Math.max(ial, 1)); }
     heat += (heatT - heat) * Math.min(1, dt * (heatT > heat ? 2.5 : 1.2)); thump *= Math.exp(-dt * 5); eflash *= Math.exp(-dt * 3); bannerT -= dt;
     // camera
