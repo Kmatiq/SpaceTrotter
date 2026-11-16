@@ -121,6 +121,18 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   Gliese 581, Epsilon Eridani b, 51 Pegasi b, Kepler-452 b). Other systems are generated from the star's name, so
   they're the same on every visit. Warp to **Sol** to go home.
 
+### Galaxy view and intergalactic jumps
+
+- **GALAXY** (in the system map, or ☰ → Galaxy view) flies the camera out from your star to the whole Milky
+  Way, then further to the Local Group: the Large and Small Magellanic Clouds, Andromeda and Triangulum.
+  They sit at their real positions (galactic l/b + distance) and sizes. The Sun sits 26,000 ly from the centre.
+- **Rendering:** each galaxy is a procedural thin disk plus bulge: log-spiral arms, dust lanes, pink
+  star-forming knots, or clumpy irregulars for the Magellanic Clouds. The camera orbits each galaxy relative to
+  its own disk, and from your ship the other galaxies show as faint smudges in the sky.
+- **Interaction:** drag to rotate, and pinch, scroll or use − / + to zoom. Zoom in on the Sun to see and pick the
+  nearby catalogue stars. Tap a galaxy for **JUMP** (a longer, 20 s warp to a generated star system inside it) or
+  **ZOOM IN**. Warp to **Sol** to come home.
+
 ### System map (3D)
 
 The **MAP** button (or `N`) flies the real camera out of the ship to an orbiting view high above the system, then

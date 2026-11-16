@@ -139,6 +139,26 @@ export const STARS = ('sol|Sol|0|0|0|G|1|Home.|;' +
   'deneb|Deneb|310.36|45.28|2600|A|200|One of the most luminous stars known.|').split(';').map((e) => { const f = e.split('|'), K = Math.PI / 180, ra = +f[2] * K, de = +f[3] * K, ob = 23.44 * K;
     const x = Math.cos(de) * Math.cos(ra), y = Math.cos(de) * Math.sin(ra), z = Math.sin(de), ye = y * Math.cos(ob) + z * Math.sin(ob), ze = -y * Math.sin(ob) + z * Math.cos(ob);
     return { id: f[0], name: f[1], ly: +f[4], cls: f[5], rad: +f[6], fact: f[7], planets: f[8], p: [x * +f[4], ze * +f[4], -ye * +f[4]] }; }); // ecliptic frame, game y = ecliptic north
+// ---- Local Group: galactic l/b + distance from the Sun -> galaxy-frame positions (ly). Sun sits 26,000 ly from the Milky Way's centre.
+const SUN_G = [-26000, 65, 0];
+const gdir = (l, b) => { const K = Math.PI / 180; return [Math.cos(b * K) * Math.cos(l * K), Math.sin(b * K), -Math.cos(b * K) * Math.sin(l * K)]; };
+const gnorm = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return v.map((x) => x / l); };
+export const GALAXIES = [ // id, name, l, b, distance ly, radius ly, arm pitch (0 = irregular), inclination to our line of sight, fact, arrival star name
+  ['milkyway', 'Milky Way', 0, 0, 0, 52000, 0.22, 0, 'Our home: a barred spiral of some 200 billion stars.', 'Sol'],
+  ['lmc', 'Large Magellanic Cloud', 280.5, -32.9, 163000, 7000, 0, 35, 'A satellite galaxy, visible to the naked eye from the south.', 'Tarantula Reach'],
+  ['smc', 'Small Magellanic Cloud', 302.8, -44.3, 203000, 3500, 0, 60, 'A small irregular galaxy torn by the Milky Way and the LMC.', 'Hydri Drift'],
+  ['m31', 'Andromeda Galaxy', 121.2, -21.6, 2540000, 110000, 0.2, 77, 'The nearest large galaxy; it will merge with ours in about 4.5 billion years.', 'Andromeda Prime'],
+  ['m33', 'Triangulum Galaxy', 133.6, -31.3, 2730000, 30000, 0.32, 55, 'A loose spiral and the third-largest member of the Local Group.', 'Triangulum Vane'],
+].map(([id, name, l, b, d, R, pitch, inc, fact, sn]) => {
+  const dir = gdir(l, b), p = id === 'milkyway' ? [0, 0, 0] : [SUN_G[0] + dir[0] * d, SUN_G[1] + dir[1] * d, SUN_G[2] + dir[2] * d];
+  let n = [0, 1, 0]; if (id !== 'milkyway') { const k = Math.PI / 180, side = gnorm([dir[2], 0.3, -dir[0]]); n = gnorm([dir[0] * Math.cos(inc * k) + side[0] * Math.sin(inc * k), dir[1] * Math.cos(inc * k) + side[1] * Math.sin(inc * k), dir[2] * Math.cos(inc * k) + side[2] * Math.sin(inc * k)]); }
+  return { id, name, p, n, R, pitch, fact, sn, ly: d };
+});
+const f3 = (v) => v.map((x) => (+x).toFixed(3)).join(',');
+const GX_WGSL = `fn gxAll(ro:vec3f,rd:vec3f,sky:f32)->vec3f{var e=vec3f(0.);
+${GALAXIES.map((G) => `{let c=vec3f(${f3(G.p)});let v=c-ro;let dl=length(v);if(sky<.5||(dl>${(G.R * 1.6).toFixed(1)}&&dot(rd,v/dl)>cos(atan(${(G.R * 1.3).toFixed(1)}/dl)))){e+=gxDisk(ro,rd,c,vec3f(${f3(G.n)}),${G.R.toFixed(1)},${G.pitch.toFixed(3)});}}`).join('')}
+return e;}`;
+GALAXIES.slice(1).forEach((G) => STARS.push({ id: G.id, name: G.name, ly: G.ly, cls: 'G', rad: 1, fact: G.fact, planets: '', sn: G.sn, gal: 1, p: [G.p[0] - SUN_G[0], G.p[1] - SUN_G[1], G.p[2] - SUN_G[2]] }));
 const SCOL = { O: [0.62, 0.72, 1], B: [0.7, 0.8, 1], A: [0.86, 0.9, 1], F: [1, 0.96, 0.88], G: [1, 0.85, 0.66], K: [1, 0.7, 0.45], M: [1, 0.5, 0.3] };
 const ROCKY = [ // generated-world palettes
   { c: [[0.55, 0.4, 0.25], [0.35, 0.24, 0.15], 0, 0, 0], craters: 0.3, craterScale: 7, mix: 1.1, height: 0.005 },
@@ -151,7 +171,7 @@ const GAS = [[[0.82, 0.72, 0.57], [0.52, 0.33, 0.2], 0, [0.93, 0.88, 0.78], [0.7
   [[0.55, 0.8, 0.78], [0.3, 0.5, 0.52], 0, [0.85, 0.95, 0.93], 0], [[0.75, 0.55, 0.62], [0.42, 0.3, 0.45], 0, [0.9, 0.8, 0.85], [0.95, 0.85, 0.5]]];
 function starDef(st) { // a full star-system definition: real planets where known, otherwise generated (seeded by the star's name, so it never changes)
   let h = 2166136261; for (const ch of st.id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
-  const sr = 109 * st.rad, rm = 1.2e6 * Math.pow(sr, 0.75), amin = Math.pow((5 * rm) / 4e9, 1 / 0.55), bodies = [], N = (s) => st.name + ' ' + s;
+  const sr = 109 * st.rad, rm = 1.2e6 * Math.pow(sr, 0.75), amin = Math.pow((5 * rm) / 4e9, 1 / 0.55), bodies = [], N = (s) => (st.sn || st.name) + ' ' + s;
   const addPlanet = (id, name, au, r, gas, fact) => { const k = bodies.length, per = Math.max(240, 1500 * Math.pow(au / Math.max(amin, 0.01), 0.4) * (0.6 + rnd()));
     const b = { id, name, fact, type: 'planet', radius: r, orbit: { au, period: per, phase: rnd() * 6.28, inc: (rnd() - 0.5) * 6 }, spin: { period: 300 + rnd() * 600, tilt: rnd() * 30 } };
     if (gas) { b.surface = { gas: 1, c: GAS[Math.floor(rnd() * GAS.length)], bands: { amt: 0.6 + rnd() * 0.4, freq: 10 + rnd() * 12, turb: 2 + rnd() * 2, speed: 0.01 } };
@@ -169,13 +189,13 @@ function starDef(st) { // a full star-system definition: real planets where know
       a *= 1.6 + rnd() * 0.7; } }
   const sp = bodies.find((b) => b.type === 'planet' && b.radius < 2) || bodies[0];
   return { id: st.id, name: st.name, scale: { radius: 1.2e6, radiusExp: 0.75, au: 4e9, auExp: 0.55, lightRef: 4e9 * Math.max(1, Math.sqrt(st.rad)), lightExp: 0.5 },
-    star: { id: st.id + '-star', name: st.name, fact: st.fact, radius: sr, color: SCOL[st.cls], intensity: st.cls === 'M' && st.rad < 1 ? 26 : st.rad > 5 ? 55 : 40, corona: 1 },
+    star: { id: st.id + '-star', name: st.sn || st.name, fact: st.gal ? 'A star in the ' + st.name + '.' : st.fact, radius: sr, color: SCOL[st.cls], intensity: st.cls === 'M' && st.rad < 1 ? 26 : st.rad > 5 ? 55 : 40, corona: 1 },
     spawn: { near: sp.id, dist: 3.4 }, bodies };
 }
 const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
-struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f,wv:vec4f};
+struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f,wv:vec4f,gx:vec4f};
 struct Body{d:array<vec4f,16>};
 struct Inst{a:vec4f,q:vec4f,b:vec4f};
 struct Hud{a:vec4f,c:vec4f,b:vec4f};
@@ -196,6 +216,20 @@ const PI=3.14159265;
 fn qr(q:vec4f,v:vec3f)->vec3f{let t=2.*cross(q.xyz,v);return v+q.w*t+cross(q.xyz,t);}
 fn qc(q:vec4f)->vec4f{return vec4f(-q.xyz,q.w);}
 fn ry(v:vec3f,a:f32)->vec3f{let c=cos(a);let s=sin(a);return vec3f(c*v.x-s*v.z,v.y,s*v.x+c*v.z);}
+// ---- galaxies: one thin-disk + bulge model (log-spiral arms, dust lanes, HII knots; irregular clumps when pitch = 0), 3 slices through the disk
+fn gxDisk(ro:vec3f,rd:vec3f,c:vec3f,n:vec3f,R:f32,sp:f32)->vec3f{
+ let oc=ro-c;var e=vec3f(0.);let e1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,0.,1.),abs(n.x)>.9)));let e2=cross(n,e1);
+ let tc=-dot(oc,rd);let db=length(oc+rd*max(tc,0.))/R;
+ if(tc>0.){e+=vec3f(1.,.8,.55)*(exp(-db*db*select(40.,170.,sp>0.))*select(.35,1.1,sp>0.)+exp(-db*7.)*.04);}
+ let dn=dot(rd,n);let on=dot(oc,n);
+ if(abs(dn)>1e-5){for(var k=0;k<3;k++){let t=((f32(k)-1.)*R*.015-on)/dn;if(t>0.){let p=oc+rd*t;let x=dot(p,e1)/R;let y=dot(p,e2)/R;let r=length(vec2f(x,y));
+   if(r<1.3){var dens=exp(-r*3.);let cl=(vn(vec3f(x*9.,y*9.,R*1e-4)).x*.6+vn(vec3f(x*23.,y*23.,3.)).x*.4)*.5+.5;
+    if(sp>0.){let ph=atan2(y,x)-log(r+.03)/sp;let arm=pow(.5+.5*cos(2.*ph),4.)+.5*pow(.5+.5*cos(2.*ph+1.7),6.);dens*=.2+1.5*arm*(.55+.7*cl);
+     e+=vec3f(1.,.4,.6)*smoothstep(.78,.95,cl)*arm*exp(-r*2.)*.25;dens*=1.-.55*smoothstep(.55,.75,vn(vec3f(x*32.,y*32.,1.)).x*.5+.5)*arm;}
+    else{dens*=.3+1.6*cl*cl;}
+    e+=mix(vec3f(1.,.84,.6),vec3f(.6,.73,1.),smoothstep(.04,.45,r))*dens*smoothstep(1.3,.85,r)*.22;}}}}
+ return e;}
+${GX_WGSL}
 fn ray(f:vec2f)->vec3f{let n=vec2f(f.x*g.res.z*2.-1.,1.-f.y*g.res.w*2.);return normalize(g.fw.xyz+n.x*g.rt.w*g.rt.xyz+n.y*g.up.w*g.up.xyz);}
 fn zdep(t:f32,rd:vec3f)->f32{return clamp(g.fw.w/max(t*dot(rd,g.fw.xyz),1e-30),0.,1.);}// reversed-Z, infinite far
 fn isph(o:vec3f,d:vec3f,r:f32)->vec2f{let b=dot(o,d);let c=dot(o,o)-r*r;let h=b*b-c;if(h<0.){return vec2f(1e30,-1e30);}let s=sqrt(h);return vec2f(-b-s,-b+s);}
@@ -499,6 +533,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
    c+=tc*br*(exp(-d*d*1.4)+.03*br*exp(-d*.6))*mix(1.,.1,g.wp.x);}}
  if(be>0.){let ld=log2(dop);let sh=clamp(ld*.35,-1.,1.);// Doppler: blue ahead, red behind, brightness ~ D^1.5
   let tint=select(mix(vec3f(1.),vec3f(1.,.35,.12),-sh),mix(vec3f(1.),vec3f(.45,.6,1.4),sh),sh>0.);c*=tint*min(pow(dop,1.5),8.);}
+ if(g.gx.w<.5){c+=gxAll(g.gx.xyz,rd,1.)*.05;}// other galaxies as faint smudges in the sky
  return vec4f(c,1.);}
 // ================= POST: bloom-lite, sun glare, warp streaks, ACES =================
 @fragment fn fsPost(@builtin(position) f:vec4f)->@location(0) vec4f{
@@ -524,6 +559,7 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
    let n1=vn(tc).x*.5+.5;let n2=vn(tc*2.3+vec3f(3.)).x*.5+.5;let wl=pow(clamp(n1*.7+n2*.45,0.,1.3),3.);
    let tcol=mix(vec3f(.03,.1,.55),vec3f(.75,.88,1.),clamp(wl*wl,0.,1.))*wl*1.15+vec3f(.6,.8,1.)*exp(-hr*9.)*.9;c=mix(c,tcol,tw*.92);}}
  c+=vec3f(1.,.93,.85)*g.wv.z*(2.2*exp(-hr*2.5)+.6);
+ if(g.gx.w>0.){let gr=ray(f.xy);let sk=pow(hf(vec3i(vec2i(f.xy*.5),17)),400.)*.6;c=mix(c,gxAll(g.gx.xyz,gr,0.)+vec3f(sk),g.gx.w);}// galaxy view
  if(g.fx.x>0.){let t=g.mi.x;let n1=vn(vec3f(cos(ha)*9.+9.,sin(ha)*9.,hr*5.-t*9.)).x*.5+.5;let n2=vn(vec3f(cos(ha)*22.,sin(ha)*22.+4.,hr*12.-t*19.)).x*.5+.5;
   let fl=pow(clamp(n1*.65+n2*.4,0.,1.2),5.)*he;let gl=pow(smoothstep(.35,1.,hr),3.)*g.fx.x;
   c=c*(1.-.25*he)+vec3f(1.,.36,.08)*fl*1.8+vec3f(1.,.3,.35)*gl*.35+vec3f(1.,.5,.2)*g.fx.y*.6;} // plasma sheath + touchdown/entry flash
@@ -886,7 +922,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (k < bd) { bd = k; bi = i; }
     }
     if (bi >= 0) { setTgt(bi); return true; }
-    let si = -1, sd = rad * rad; for (let k = 0; k < STARS.length; k++) { if (k === here) continue; starDir(k, sd3); if (!project(sd3[0] * 1e13, sd3[1] * 1e13, sd3[2] * 1e13)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < sd) { sd = d2; si = k; } }
+    let si = -1, sd = rad * rad; for (let k = 0; k < STARS.length; k++) { if (k === here || STARS[k].gal || STARS[here].gal) continue; starDir(k, sd3); if (!project(sd3[0] * 1e13, sd3[1] * 1e13, sd3[2] * 1e13)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < sd) { sd = d2; si = k; } }
     if (si >= 0) { wsel = si; blip(660, 990, 0.12, 'sine', 0.05); } return si >= 0;
   }
   const act = (code, back) => { // discrete actions shared by keyboard and touch buttons
@@ -916,6 +952,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const pc = (e) => { scr[0] = (e.offsetX * W) / (canvas.clientWidth || 1); scr[1] = (e.offsetY * H) / (canvas.clientHeight || 1); };
   const pd = (e) => {
     canvas.focus(); audioInit();
+    if (gx.on) { e.preventDefault(); pc(e); mp.ptrs.set(e.pointerId, [scr[0], scr[1]]); mp.moved = 0; mp.t0 = performance.now(); if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId); if (mp.ptrs.size === 2) { const [a, b] = mp.ptrs.values(); mp.pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } return; }
     if (mp.on) { e.preventDefault(); pc(e); mp.ptrs.set(e.pointerId, [scr[0], scr[1]]); mp.moved = 0; mp.t0 = performance.now(); if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
       if (mp.ptrs.size === 2) { const [a, b] = mp.ptrs.values(); mp.pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } return; }
     if (e.pointerType === 'mouse') { // click: select what's under the cursor (or under the crosshair while flying with a locked mouse)
@@ -927,6 +964,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     else if (tc.lid < 0) { tc.lid = id; tc.lx = x; tc.ly = y; }
   };
   const pmv = (e) => {
+    if (gx.on) { const o = mp.ptrs.get(e.pointerId); if (!o) return; pc(e); const x = scr[0], y = scr[1];
+      if (mp.ptrs.size === 1) { gx.yaw -= ((x - o[0]) * 0.006) / hs; gx.pitch = Math.max(0.05, Math.min(1.52, gx.pitch + ((y - o[1]) * 0.006) / hs)); mp.moved += Math.abs(x - o[0]) + Math.abs(y - o[1]); o[0] = x; o[1] = y; }
+      else { o[0] = x; o[1] = y; const [a, b] = mp.ptrs.values(), d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (mp.pinch > 0 && d > 0) gx.dist = Math.max(60, Math.min(9e6, gx.dist * mp.pinch / d)); mp.pinch = d; mp.moved += 99; } return; }
     if (mp.on) { const o = mp.ptrs.get(e.pointerId); if (!o) return; pc(e); const x = scr[0], y = scr[1];
       if (mp.ptrs.size === 1) { mp.yaw -= ((x - o[0]) * 0.006) / hs; mp.pitch += ((y - o[1]) * 0.006) / hs; mp.moved += Math.abs(x - o[0]) + Math.abs(y - o[1]); o[0] = x; o[1] = y; }
       else { o[0] = x; o[1] = y; const [a, b] = mp.ptrs.values(), d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (mp.pinch > 0 && d > 0) mp.zoom *= mp.pinch / d; mp.pinch = d; mp.moved += 99; } return; }
@@ -937,10 +977,11 @@ async function createEngine(canvas, systemId, opts = {}) {
   };
   const pu = (e) => {
     const id = e.pointerId; if (id === tc.jid) { tc.jid = -1; tc.jx = tc.jy = 0; } if (id === tc.lid) tc.lid = -1;
+    if (gx.on) { const o = mp.ptrs.get(id); mp.ptrs.delete(id); if (o && mp.moved < 10 * hs && !mp.ptrs.size && performance.now() - mp.t0 < 450) gxPick(o[0], o[1]); return; }
     if (mp.on) { const o = mp.ptrs.get(id); mp.ptrs.delete(id); if (o && mp.moved < 10 * hs && !mp.ptrs.size && performance.now() - mp.t0 < 450) mp.sel = mapPick(o[0], o[1]); return; }
     if (id === tc.tid) { tc.tid = -1; if (tc.tm < 14 * hs && performance.now() - tc.tt < 320) pick(tc.tx, tc.ty, 46 * hs); } // short tap = select target
   };
-  const noCtx = (e) => e.preventDefault(), whl = (e) => { if (mp.on) { e.preventDefault(); mp.zoom *= Math.exp(e.deltaY * 0.0015); } };
+  const noCtx = (e) => e.preventDefault(), whl = (e) => { if (gx.on) { e.preventDefault(); gx.dist = Math.max(60, Math.min(9e6, gx.dist * Math.exp(e.deltaY * 0.0015))); return; } if (mp.on) { e.preventDefault(); mp.zoom *= Math.exp(e.deltaY * 0.0015); } };
   window.addEventListener('keydown', kd); window.addEventListener('keyup', ku); window.addEventListener('mousemove', mm);
   canvas.addEventListener('pointerdown', pd); canvas.addEventListener('pointermove', pmv); canvas.addEventListener('pointerup', pu); canvas.addEventListener('pointercancel', pu); canvas.addEventListener('contextmenu', noCtx); canvas.addEventListener('wheel', whl, { passive: false });
 
@@ -1052,7 +1093,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   const sd3 = new Float64Array(3);
   function starHud(s) { // catalogue stars as soft glows; named near the crosshair or when selected for warp
-    for (let k = 0; k < STARS.length; k++) { if (k === here) continue; const st = STARS[k], dl = starDir(k, sd3);
+    if (STARS[here].gal) return;
+    for (let k = 0; k < STARS.length; k++) { if (k === here || STARS[k].gal) continue; const st = STARS[k], dl = starDir(k, sd3);
       if (!project(sd3[0] * 1e13, sd3[1] * 1e13, sd3[2] * 1e13)) continue; const x = scr[0], y = scr[1]; if (x < 0 || y < 0 || x > W || y > H) continue;
       let occ = false; for (let i = 0; i < sys.n && !occ; i++) { const b = sys.list[i]; if (!b.sphere) continue; const o = i * 3, qx = pos[o] - cam[0], qy = pos[o + 1] - cam[1], qz = pos[o + 2] - cam[2], tt = qx * sd3[0] + qy * sd3[1] + qz * sd3[2];
         occ = tt > 0 && qx * qx + qy * qy + qz * qz - tt * tt < b.R * b.R * 1.1; } if (occ) continue;
@@ -1095,8 +1137,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (photo && !mp.on) return; // photo mode: no HUD at all
     if (wp.on) { const st = STARS[wp.dest], rem = wp.ly * (1 - smooth(0, 1, Math.min(1, Math.max(0, (wp.t - WT1) / WT2)))), a = wp.t > WT1 + WT2 ? Math.max(0, 1 - (wp.t - WT1 - WT2) / WT3 * 2) : 1;
       ts(wp.t < WT1 ? 'SPOOLING' : wp.t < WT1 + WT2 ? 'IN WARP' : 'ARRIVING'); tout(cx, H - 120 * s, 15 * s, 0.6, 0.85, 1, 0.8 * a, 0.5);
-      ts(st.name); tout(cx, H - 98 * s, 28 * s, 1, 1, 1, a, 0.5); tn(rem, rem < 10 ? 2 : 1); ts(' ly'); tout(cx, H - 58 * s, 20 * s, 1, 0.8, 0.4, a, 0.5);
+      ts(st.name); tout(cx, H - 98 * s, 28 * s, 1, 1, 1, a, 0.5); if (rem > 1e5) { tn(rem / 1e6, 2); ts(' million ly'); } else { tn(rem, rem < 10 ? 2 : 1); ts(' ly'); } tout(cx, H - 58 * s, 20 * s, 1, 0.8, 0.4, a, 0.5);
       const bw = 160 * s, pr = Math.min(1, wp.t / (WT1 + WT2)); seg(cx - bw, H - 28 * s, cx + bw, H - 28 * s, 0.3, 0.4, 0.5, 0.4 * a, 3 * s); seg(cx - bw, H - 28 * s, cx - bw + 2 * bw * pr, H - 28 * s, 1, 0.8, 0.4, a, 3 * s); return; }
+    if (gx.a > 0.5) { gxHud(s); return; }
     if (mp.a > 0.02) { mapHud(s); return; }
     // orbit paths: planets around the star + moons/stations of the local planet
     const loc = ship.ref > 0 ? (sys.list[ship.ref].parent > 0 ? sys.list[ship.ref].parent : ship.ref) : -1;
@@ -1260,11 +1303,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (dist(m.bi) < sys.list[m.bi].arrive * 1.25) apStart(); else { ap.pend = true; if (!cruise && charge < 0) { charge = 1.2; cruiseV = 0; } } }
   // ---- interstellar warp: spool (turn + aberration builds) -> fold (near-c, starbow, ly pulses, system swap at mid) -> bloom (arrival flash) ----
   let here = 0, wsel = -1; const wp = { on: false, t: 0, dest: -1, ly: 0, beta: 0, fold: 0, pulse: 0, flash: 0, swapped: false, np: 0, dir: new Float64Array(3), end: new Float64Array(3), endQ: new Float64Array(4), sp: -1, st: new Float64Array(3) };
-  const WT1 = 2.6, WT2 = 9, WT3 = 1.8;
+  const WT1 = 2.6, WT3 = 1.8; let WT2 = 9;
   const starDir = (k, o) => { const a = STARS[k].p, b = STARS[here].p; let x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2]; const l = Math.hypot(x, y, z) || 1; o[0] = x / l; o[1] = y / l; o[2] = z / l; return l; };
   function warpTo(k) {
-    if (k < 0 || k === here || wp.on || bench.on || mp.on) return false; audioInit(); mp.on = false; ap.on = ap.pend = false; cruise = false; charge = -1; wsel = -1;
-    wp.on = true; wp.t = 0; wp.inT = false; wp.streak = 0; wp.dest = k; wp.ly = starDir(k, wp.dir); wp.swapped = false; wp.np = 0; wp.flash = 0; ship.vel.fill(0); ship.w.fill(0);
+    if (k < 0 || k === here || wp.on || bench.on) return false; mp.on = false; audioInit(); mp.on = false; ap.on = ap.pend = false; cruise = false; charge = -1; wsel = -1;
+    WT2 = STARS[k].gal || STARS[here].gal ? 15 : 9; gx.on = false; wp.on = true; wp.t = 0; wp.inT = false; wp.streak = 0; wp.dest = k; wp.ly = starDir(k, wp.dir); wp.swapped = false; wp.np = 0; wp.flash = 0; ship.vel.fill(0); ship.w.fill(0);
     banner('WARP - ' + STARS[k].name.toUpperCase(), true); whoosh(2.5, 120, 900, 0.14); return true;
   }
   function warpStep(dt) {
@@ -1290,6 +1333,38 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (u >= 1) { wp.on = false; wp.beta = wp.fold = wp.flash = wp.streak = 0; banner('ARRIVED - ' + st.name.toUpperCase() + (st.id === 'sol' ? '' : ' SYSTEM'), false); } }
     ship.vel.fill(0); ship.w.fill(0);
   }
+  // ---- galaxy view: an orbiting camera in galaxy space (light-years); zooms from the Sun out to the Local Group ----
+  const gx = { on: false, a: 0, t: 0, focus: 0, yaw: 0.6, pitch: 0.9, dist: 150000, sel: -1, cam: new Float64Array(3), tg: new Float64Array(3), obs: new Float64Array(3) };
+  const gxObs = () => { const st = STARS[here]; if (st.gal) { const G = GALAXIES.find((x) => x.id === st.id); gx.obs[0] = G.p[0] + G.R * 0.45; gx.obs[1] = G.p[1]; gx.obs[2] = G.p[2]; } else { gx.obs[0] = SUN_G[0] + st.p[0]; gx.obs[1] = SUN_G[1] + st.p[1]; gx.obs[2] = SUN_G[2] + st.p[2]; } };
+  function gxCam(dt) {
+    gx.a = Math.max(0, Math.min(1, gx.a + (gx.on ? dt / 0.35 : -dt / 0.3))); if (gx.a <= 0) return; gx.t += dt; gxObs();
+    const intro = gx.on ? smooth(0, 1.6, gx.t) : 1, D = gx.on ? Math.exp(Math.log(40) + (Math.log(gx.dist) - Math.log(40)) * intro) : gx.dist; // fly out from the ship's star
+    const G = GALAXIES[gx.focus], k = gx.focus === 0 ? smooth(1500, 60000, D) : 1;
+    for (let j = 0; j < 3; j++) gx.tg[j] = gx.obs[j] + (G.p[j] - gx.obs[j]) * k;
+    const n = G.n, a1 = Math.abs(n[0]) > 0.9 ? [0, 0, 1] : [1, 0, 0], e1 = gnorm([n[1] * a1[2] - n[2] * a1[1], n[2] * a1[0] - n[0] * a1[2], n[0] * a1[1] - n[1] * a1[0]]), e2 = [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]];
+    const cp = Math.cos(gx.pitch), ox = cp * Math.sin(gx.yaw), oy = Math.sin(gx.pitch), oz = cp * Math.cos(gx.yaw); // orbit relative to the galaxy's own disk
+    for (let j = 0; j < 3; j++) gx.cam[j] = gx.tg[j] + D * (e1[j] * ox + n[j] * oy + e2[j] * oz);
+    if (gx.a > 0.5) { qlook(camQ, 0, gx.tg[0] - gx.cam[0], gx.tg[1] - gx.cam[1], gx.tg[2] - gx.cam[2], n[0], n[1], n[2]); }
+  }
+  const gxProj = (p) => project(p[0] - gx.cam[0], p[1] - gx.cam[1], p[2] - gx.cam[2]);
+  function gxHud(s) {
+    const fa = smooth(0.4, 1, gx.a), D = Math.hypot(gx.cam[0] - gx.tg[0], gx.cam[1] - gx.tg[1], gx.cam[2] - gx.tg[2]); let nl = 0;
+    const put = (x, y, wl) => { for (let j = 0; j < nl; j++) if (Math.abs(lbx[j * 3] + lbx[j * 3 + 2] / 2 - x - wl / 2) < (lbx[j * 3 + 2] + wl) / 2 + 6 * s && Math.abs(lbx[j * 3 + 1] - y) < 26 * s) return false; if (nl < 64) { lbx[nl * 3] = x; lbx[nl * 3 + 1] = y; lbx[nl * 3 + 2] = wl; nl++; } return true; };
+    gxObs(); if (gxProj(gx.obs)) { const x = scr[0], y = scr[1]; circ(x, y, 4 * s, 0, 1, 0.8, 0.35, fa); circ(x, y, 9 * s, 2 * s, 1, 0.8, 0.35, fa * 0.8); put(x + 14 * s, y, 13 * 15 * s * 0.6);
+      ts('YOU ARE HERE'); tout(x + 14 * s, y - 8 * s, 15 * s, 1, 0.8, 0.35, fa, 0); ts(STARS[here].sn || STARS[here].name); tout(x + 14 * s, y + 10 * s, 13 * s, 1, 0.85, 0.6, fa * 0.8, 0); }
+    for (const i of [0, 3, 4, 1, 2]) { const G = GALAXIES[i]; if (!gxProj(G.p)) continue; const x = scr[0], y = scr[1], pr = (G.R / scr[2]) / tanY() * H * 0.5;
+      if (i === 0 && D < 20000) continue; if (i === gx.sel) circ(x, y, Math.max(pr * 0.35, 14 * s), 2.5 * s, 1, 0.8, 0.3, fa);
+      const lx = x + Math.max(pr * 0.25, 10 * s); if (i !== gx.sel && !put(lx, y, G.name.length * 17 * s * 0.6)) continue;
+      ts(G.name); tout(lx, y - 9 * s, 17 * s, 0.85, 0.92, 1, fa, 0); }
+    if (D < 3000 && !STARS[here].gal) for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; // nearby stars, when zoomed in on the Sun
+      sd3[0] = SUN_G[0] + st.p[0]; sd3[1] = SUN_G[1] + st.p[1]; sd3[2] = SUN_G[2] + st.p[2]; if (!gxProj(sd3)) continue; const c = SCOL[st.cls], x = scr[0], y = scr[1];
+      circ(x, y, 2.5 * s, 0, c[0], c[1], c[2], fa); if (k === wsel) circ(x, y, 9 * s, 2 * s, 1, 0.8, 0.3, fa); if (D < 900 || k === wsel) { ts(st.name); tout(x + 7 * s, y - 7 * s, 12 * s, c[0], c[1], c[2], fa * 0.8, 0); } }
+  }
+  function gxPick(x, y) { let bi = -1, bd = (44 * hs) ** 2; const D = Math.hypot(gx.cam[0] - gx.tg[0], gx.cam[1] - gx.tg[1], gx.cam[2] - gx.tg[2]);
+    for (let i = 1; i < GALAXIES.length; i++) { if (!gxProj(GALAXIES[i].p)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < bd) { bd = d2; bi = i; } }
+    if (bi < 0 && D < 3000) { for (let k = 0; k < STARS.length; k++) { const st = STARS[k]; if (st.gal || k === here) continue; sd3[0] = SUN_G[0] + st.p[0]; sd3[1] = SUN_G[1] + st.p[1]; sd3[2] = SUN_G[2] + st.p[2];
+      if (!gxProj(sd3)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < bd) { bd = d2; bi = -2 - k; } } }
+    if (bi <= -2) { gx.sel = -1; wsel = -2 - bi; } else { gx.sel = bi; wsel = -1; } }
   // ---- 3D system map: the real camera flies out of the ship to an orbiting overview and back ----
   const mp = { on: false, a: 0, b: 1, focus: 0, yaw: 0, pitch: 0.95, zoom: 1, sel: -1, ptrs: new Map(), moved: 0, pinch: 0, t0: 0 }, NK = Object.freeze({});
   const mpS = new Float64Array(3), mpSQ = new Float64Array(4), mpP = new Float64Array(3), mpQ = new Float64Array(4), fw0 = new Float64Array(3);
@@ -1350,7 +1425,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R * (i === prBody && prValid ? 1 + prH : 1));
     altT = prValid ? dist(prBody) - sys.list[prBody].R * (1 + prH) : Infinity;
     if (ap.on && (keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD || keys.Space || keys.KeyX || tc.jid >= 0)) { ap.on = false; rqRef = -1; banner('AUTOPILOT OFF', false); } // any thrust input takes over
-    if (mp.on || ap.on || wp.on) mdx = mdy = 0; const K = mp.on || ap.on || wp.on ? NK : keys, jm = mp.on || ap.on || wp.on ? 0 : 1, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx * jm, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy * jm;
+    const lock = mp.on || ap.on || wp.on || gx.on; if (lock) mdx = mdy = 0; const K = lock ? NK : keys, jm = lock ? 0 : 1, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx * jm, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy * jm;
     // rotation: quaternion integration of local angular velocity (no Euler angles anywhere)
     const sens = 0.0022 / Math.max(dt, 1e-3);
     const wx = -mdy * sens + ((K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0)) * 1.2, wy = -mdx * sens + ((K.ArrowLeft ? 1 : 0) - (K.ArrowRight ? 1 : 0)) * 1.2, wz = ((K.KeyQ ? 1 : 0) - (K.KeyE ? 1 : 0)) * 1.6;
@@ -1445,7 +1520,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (sh > 1e-4) { const t = now * 0.001, ax = Math.sin(t * 41) + Math.sin(t * 67 + 1), ay = Math.sin(t * 53 + 2) + Math.sin(t * 29 + 4), al = Math.hypot(ax, ay) || 1;
         qaxis(dq, 0, ax / al, ay / al, 0, sh * al * 0.5); qmul(sq, 0, camQ, 0, dq, 0); camQ.set(sq); }
     }
-    qrot(fw0, 0, camQ, 0, 0, 0, -1); if (!bench.on) mapCam(dt); // fw0 = ship heading (map arrow)
+    qrot(fw0, 0, camQ, 0, 0, 0, -1); if (!bench.on) { mapCam(dt); gxCam(dt); } // fw0 = ship heading (map arrow)
     qrot(rt, 0, camQ, 0, 1, 0, 0); qrot(up, 0, camQ, 0, 0, 1, 0); qrot(fw, 0, camQ, 0, 0, 0, -1);
     const spd = bench.on ? Math.hypot(bench.v[0], bench.v[1], bench.v[2]) : cruise ? cruiseV : Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]);
     if (!bench.on) for (let i = 0; i < sys.n; i++) { // exploration log: get close to discover
@@ -1473,7 +1548,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
-    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1; gF[55] = (1 - 0.85 * mp.a) * (1 - wp.fold); gF[56] = wp.beta; gF[57] = wp.on ? wp.streak : 0; gF[58] = wp.flash; gF[59] = wp.fold; // sun glare dimmed in map view; warp optics
+    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1; gF[55] = (1 - 0.85 * mp.a) * (1 - wp.fold); gxObs(); if (gx.a > 0) { gF[60] = gx.cam[0]; gF[61] = gx.cam[1]; gF[62] = gx.cam[2]; } else { gF[60] = gx.obs[0]; gF[61] = gx.obs[1]; gF[62] = gx.obs[2]; } gF[63] = gx.a > 0.5 ? smooth(0.5, 1, gx.a) : 0; gF[56] = wp.beta; gF[57] = wp.on ? wp.streak : 0; gF[58] = wp.flash; gF[59] = wp.fold; // sun glare dimmed in map view; warp optics
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----
     let nb = 0; const L = sys.def.scale;
@@ -1551,8 +1626,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     let p = enc.beginRenderPass(sceneDesc);
     p.setBindGroup(0, bg0);
     p.setPipeline(skyP); p.draw(3);
-    if (nOpaque) { p.setPipeline(sdfP); p.draw(36, nOpaque, 0, 0); }
-    p.setPipeline(bodyP); for (let k = 0; k < nb; k++) p.draw(36, 1, 0, order[k]);
+    if (gx.a < 1) { if (nOpaque) { p.setPipeline(sdfP); p.draw(36, nOpaque, 0, 0); }
+    p.setPipeline(bodyP); for (let k = 0; k < nb; k++) p.draw(36, 1, 0, order[k]); }
     if (nTail) { p.setPipeline(tailP); p.draw(36, nTail, 0, nOpaque); }
     p.end();
     const sc = outT || ctx.getCurrentTexture(); finalAtt.view = sc.createView();
@@ -1593,7 +1668,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
-      photo, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1607,8 +1682,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     screenPos: (id) => { const i = sys.idx[id], o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) return null; const k = canvas.clientWidth / W; return [scr[0] * k, scr[1] * k]; },
     get audioLevel() { if (!au.an) return -1; au.an.getFloatTimeDomainData(au.ab); let e = 0; for (let i = 0; i < 1024; i++) e += au.ab[i] * au.ab[i]; return Math.sqrt(e / 1024); },
     places: () => sys.lm.map((m, k) => ({ k, name: m.name, kind: LMK[m.kind], body: sys.list[m.bi].name })), goPlace,
-    stars: () => STARS.map((st, k) => ({ sk: k, name: st.name, kind: 'Star', body: k === here ? 'you are here' : starDir(k, sd3).toFixed(1) + ' ly', here: k === here })),
-    warpTo: (k) => warpTo(k), clearWarpSel: () => { wsel = -1; },
+    stars: () => STARS.map((st, k) => ({ sk: k, name: st.name, kind: st.gal ? 'Galaxy' : 'Star', body: k === here ? 'you are here' : starDir(k, sd3).toFixed(1) + ' ly', here: k === here })),
+    warpTo: (k) => warpTo(k),
+    galaxyOpen: () => { if (bench.on || wp.on) return; mp.on = false; gx.on = true; gx.t = 0; gx.focus = 0; gx.dist = 150000; gx.sel = -1; mp.ptrs.clear(); tc.jid = tc.lid = -1; tc.jx = tc.jy = 0; },
+    galaxyClose: () => { gx.on = false; mp.ptrs.clear(); }, galaxyFocus: (i) => { gx.focus = i; gx.dist = i ? GALAXIES[i].R * 4 : 150000; gx.sel = -1; },
+    galaxyZoom: (k) => { gx.dist = Math.max(60, Math.min(9e6, gx.dist * k)); }, galaxyJump: (i) => warpTo(STARS.findIndex((x) => x.id === GALAXIES[i].id)), clearWarpSel: () => { wsel = -1; },
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
@@ -1648,6 +1726,31 @@ const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fil
 const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
 const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
 const TYPE_LBL = { star: 'Star', planet: 'Planet', moon: 'Moon', station: 'Station', comet: 'Comet' };
+function GalaxyUI({ eng, gv, wsel }) { // DOM chrome for the galaxy view
+  const selT = useRef(0), last = useRef(null), key = (gv.sel && gv.sel.name) || (wsel && wsel.name) || null;
+  if (key !== last.current) { last.current = key; selT.current = performance.now(); }
+  const ok = (fn) => () => { if (performance.now() - selT.current > 400) fn(); };
+  const bt = (extra) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, font: '600 13px ui-monospace,Consolas,monospace', letterSpacing: 1, ...extra });
+  const card = (title, sub, dist, fact, btns) => <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '14px 16px' }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 20, color: C.warn }}>{title}</span><span style={{ color: C.dim, fontSize: 12 }}>{sub}</span><span style={{ flex: 1 }} /><span style={{ color: C.dim, fontSize: 13 }}>{dist}</span></div>
+    <div style={{ fontSize: 13, margin: '8px 0 12px', opacity: 0.85 }}>{fact}</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{btns}</div></div>;
+  const ly = (v) => (v >= 1e6 ? (v / 1e6).toFixed(2) + ' million ly' : Math.round(v).toLocaleString('en') + ' ly');
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
+      <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        {gv.focus !== 0 && <div onClick={() => eng.galaxyFocus(0)} style={bt()}><Ico n="back" s={18} />MILKY WAY</div>}
+        <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{gv.far ? 'LOCAL GROUP' : 'MILKY WAY'}</div>
+        <span style={{ flex: 1 }} />
+        <div onClick={() => eng.galaxyZoom(4)} style={bt({ padding: 10 })} title="Zoom out">−</div><div onClick={() => eng.galaxyZoom(0.25)} style={bt({ padding: 10 })} title="Zoom in">+</div>
+        <div onClick={() => eng.galaxyClose()} style={bt()}><Ico n="close" s={18} />CLOSE</div>
+      </div>
+      {gv.sel && card(gv.sel.name, 'Galaxy', ly(gv.sel.ly), gv.sel.fact + (gv.sel.home ? ' You are here.' : ' The star systems you visit there are generated.'), <>
+        {!gv.sel.home && <div onClick={ok(() => eng.galaxyJump(gv.sel.i))} style={bt({ borderColor: C.warn, color: C.warn })}><Ico n="cruise" s={18} />JUMP</div>}
+        <div onClick={ok(() => eng.galaxyFocus(gv.sel.i))} style={bt()}><Ico n="find" s={18} />ZOOM IN</div></>)}
+      {!gv.sel && wsel && card(wsel.name, 'Star', wsel.ly.toFixed(1) + ' ly', wsel.fact, <div onClick={ok(() => eng.warpTo(wsel.k))} style={bt({ borderColor: C.warn, color: C.warn })}><Ico n="cruise" s={18} />WARP</div>)}
+      {!gv.sel && !wsel && <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', color: C.dim, fontSize: 12, textShadow: '0 1px 3px #000' }}>Drag to rotate · pinch / scroll / − + to zoom · tap a galaxy (or a star near the Sun)</div>}
+    </div>);
+}
 function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, close, selected-body card (the map itself is the real 3D scene)
   const selT = useRef(0), last = useRef(null), sel = m.sel;
   if ((sel && sel.id) !== last.current) { last.current = sel && sel.id; selT.current = performance.now(); }
@@ -1659,6 +1762,7 @@ function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, clos
         {m.focus !== eng.systemStar && <div onClick={() => eng.mapFocus(eng.systemStar)} style={bt()}><Ico n="back" s={18} />SYSTEM</div>}
         <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{m.focus === eng.systemStar ? sysName.toUpperCase() + ' SYSTEM' : m.focusName.toUpperCase() + ' SYSTEM'}<span style={{ color: C.dim, fontSize: 11, marginLeft: 10 }}>live</span></div>
         <span style={{ flex: 1 }} />
+        <div onClick={() => eng.galaxyOpen()} style={bt()} title="Galaxy view"><Ico n="sys" s={18} />GALAXY</div>
         <div onClick={() => eng.mapClose()} style={bt()} title="Close map (N)"><Ico n="close" s={18} />CLOSE</div>
       </div>
       {sel && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '14px 16px' }}>
@@ -1677,7 +1781,7 @@ function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, clos
 function Overlay({ eng }) {
   const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
-  useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); } };
+  useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); eng.galaxyClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
   const placesRef = useRef(null), sysRef = useRef(null);
   if (!ui) return null;
@@ -1690,7 +1794,7 @@ function Overlay({ eng }) {
     onPointerUp: () => eng.hold(code, 0), onPointerCancel: () => eng.hold(code, 0), onContextMenu: (e) => e.preventDefault() });
   const tap = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
   const round = (d, on, x) => btn({ width: d, height: d, borderRadius: '50%', ...(on ? { borderColor: C.warn, color: C.warn, background: 'rgba(60,40,5,.7)' } : {}), ...x });
-  const mapOut = ui.map.on || ui.map.a > 0.02 || ui.warp;
+  const mapOut = ui.map.on || ui.map.a > 0.02 || ui.warp || !!ui.galaxy;
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
     const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spaceroam-' + Date.now() + '.png'; a.click(); });
@@ -1730,6 +1834,7 @@ function Overlay({ eng }) {
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
+        {item('sys', 'Galaxy view', false, () => { eng.galaxyOpen(); setMenu(false); })}
         {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
         {item('bench', ui.bench ? 'Stop benchmark' : 'Run benchmark', ui.bench, () => { eng.act('KeyB'); setMenu(false); })}
       </div>}
@@ -1779,6 +1884,7 @@ function Overlay({ eng }) {
           : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />/ search · N map · F supercruise · V camera · M sound · P photo mode · G stats · B benchmark · J system · H hint bar</div>}
         <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
       {ui.map.on && <MapUI eng={eng} m={ui.map} sysName={ui.system} />}
+      {ui.galaxy && <GalaxyUI eng={eng} gv={ui.galaxy} wsel={ui.wsel} />}
       {/* touch action cluster */}
       {ui.touch && !mapOut && <>
         <div {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
