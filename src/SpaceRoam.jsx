@@ -1369,7 +1369,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.95, 4 * s); }
       ts('CHARGING SUPERCRUISE'); tout(cx, cy + 70 * s, 19 * s, 1, 0.8, 0.3, 0.95, 0.5); }
     // event banner (atmosphere entry/exit, surface approach, touchdown)
-    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * 0.72, bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
+    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * (tr.k >= 0 ? 0.34 : 0.72), bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
       seg(cx - bw, by, cx + bw, by, 0.02, 0.03, 0.05, 0.5 * a, 46 * s); seg(cx - bw, by - 23 * s, cx + bw, by - 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s); seg(cx - bw, by + 23 * s, cx + bw, by + 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s);
       ts(bannerS); tout(cx, by - 12 * s, 24 * s, bannerHot ? 1 : 0.7, bannerHot ? 0.75 : 1, bannerHot ? 0.45 : 0.85, a, 0.5); }
     // discovery toast
@@ -1450,7 +1450,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   function goPlace(k) { const m = sys.lm[k]; if (!m || bench.on) return; audioInit(); ap.k = k; ap.on = false; setTgt(m.bi);
     if (dist(m.bi) < sys.list[m.bi].arrive * 1.25) apStart(); else { ap.pend = true; if (!cruise && charge < 0) { charge = 1.2; cruiseV = 0; } } }
   // ---- guided tours ----
-  const tr = { k: -1, i: 0 };
+  const tr = { k: -1, i: 0, orb: true, lit: 0, up: new Float64Array(3) };
   function sunOver(lon) {
     // fast mode only: spin Earth so that it is midday at this longitude (radians)
     const e = sys.idx.earth; if (e === undefined || TS !== TSF) return;
@@ -1460,7 +1460,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     eSpin0 = keep + Math.atan2(Math.sin(lon - a0), Math.cos(lon - a0)) / k; updateOrbits(simT);
   }
   function tourGo() {
-    const st = TOURS[tr.k].stops[tr.i]; audioInit();
+    const st = TOURS[tr.k].stops[tr.i]; audioInit(); tr.orb = true;
     if (st.p) { const k = sys.lm.findIndex((m) => m.name === st.p); if (k < 0) return; const m = sys.lm[k], o = m.bi * 3;
       if (sys.list[m.bi].id === 'earth') { qrot(t3, 0, bq, m.bi * 4, m.dir[0], m.dir[1], m.dir[2]); const l = Math.hypot(pos[o], pos[o + 1], pos[o + 2]);
         if (-(t3[0] * pos[o] + t3[1] * pos[o + 1] + t3[2] * pos[o + 2]) / l < 0.35) { sunOver(m.lon * D2R); rqRef = -1; flash = 0.4; } }
@@ -1648,6 +1648,23 @@ async function createEngine(canvas, systemId, opts = {}) {
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
     if (ap.on && !bench.on) apStep(dt);
+    if (tr.k >= 0 && !bench.on && !wp.on && !mp.on && !gx.on && sys.def.id === 'sol') {
+      const st = TOURS[tr.k].stops[tr.i], pk = st.p ? sys.lm.findIndex((m) => m.name === st.p) : -1, bi = st.p ? (pk >= 0 ? sys.lm[pk].bi : -1) : sys.idx[st.b];
+      if (inX || inY || inZ || Math.abs(wx) + Math.abs(wy) + Math.abs(wz) > 0.02) tr.orb = false;
+      if (bi !== undefined && bi >= 0 && tr.orb && ship.ref === bi && tourArrived()) {
+        const o = bi * 3, R0 = sys.list[bi].R; let ax = 0, ay = 1, az = 0, lx = 0, ly = 0, lz = 0, rate = 0.05;
+        if (pk >= 0) { const m = sys.lm[pk]; qrot(t3, 0, bq, bi * 4, m.dir[0], m.dir[1], m.dir[2]); ax = t3[0]; ay = t3[1]; az = t3[2]; const rl = R0 * (1 + m.elev * 5.5e-7); lx = ax * rl; ly = ay * rl; lz = az * rl; rate = 0.1; }
+        qaxis(dq, 0, ax, ay, az, rate * dt); qrot(ship.off, 0, dq, 0, ship.off[0], ship.off[1], ship.off[2]); ship.vel.fill(0);
+        const d = Math.hypot(ship.off[0], ship.off[1], ship.off[2]);
+        qlook(dq, 0, lx - ship.off[0], ly - ship.off[1], lz - ship.off[2], ship.off[0] / d, ship.off[1] / d, ship.off[2] / d); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
+      }
+      // tour daylight: where the stop is on the night side, the light is moved so the stop is lit
+      let want = 0;
+      if (bi !== undefined && bi >= 0 && dist(bi) < sys.list[bi].arrive * 2.5) { const o = bi * 3, d = dist(bi);
+        if (pk >= 0) qrot(tr.up, 0, bq, bi * 4, sys.lm[pk].dir[0], sys.lm[pk].dir[1], sys.lm[pk].dir[2]); else { tr.up[0] = (abs[0] - pos[o]) / d; tr.up[1] = (abs[1] - pos[o + 1]) / d; tr.up[2] = (abs[2] - pos[o + 2]) / d; }
+        const sl = Math.hypot(pos[o], pos[o + 1], pos[o + 2]) || 1; if (-(tr.up[0] * pos[o] + tr.up[1] * pos[o + 1] + tr.up[2] * pos[o + 2]) / sl < (tr.lit > 0.5 ? 0.45 : 0.3)) want = 1; }
+      tr.lit += (want - tr.lit) * Math.min(1, dt * 1.5); tr.bi = bi;
+    } else tr.lit += (0 - tr.lit) * Math.min(1, dt * 1.5);
     if (wp.on) warpStep(dt);
     // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
@@ -1718,6 +1735,12 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
+    if (tr.lit > 0.01 && tr.bi >= 0 && sys.list[tr.bi]) { // light direction blended towards "50 degrees above the stop", on the real Sun's side
+      const o = tr.bi * 3, bx = pos[o] - cam[0], by = pos[o + 1] - cam[1], bz = pos[o + 2] - cam[2]; let rx = sx - bx, ry = sy - by, rz = sz - bz; const rl = Math.hypot(rx, ry, rz); rx /= rl; ry /= rl; rz /= rl;
+      const dn = rx * tr.up[0] + ry * tr.up[1] + rz * tr.up[2]; let tx = rx - tr.up[0] * dn, ty2 = ry - tr.up[1] * dn, tz = rz - tr.up[2] * dn; const tl = Math.hypot(tx, ty2, tz);
+      if (tl > 1e-3) { tx /= tl; ty2 /= tl; tz /= tl; } else { tx = tr.up[1]; ty2 = -tr.up[0]; tz = 0; }
+      let wx2 = rx + (tr.up[0] * 0.77 + tx * 0.64 - rx) * tr.lit, wy2 = ry + (tr.up[1] * 0.77 + ty2 * 0.64 - ry) * tr.lit, wz2 = rz + (tr.up[2] * 0.77 + tz * 0.64 - rz) * tr.lit; const wl = Math.hypot(wx2, wy2, wz2) || 1;
+      gF[32] = bx + (wx2 / wl) * rl; gF[33] = by + (wy2 / wl) * rl; gF[34] = bz + (wz2 / wl) * rl; }
     gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1; gF[55] = (1 - 0.85 * mp.a) * (1 - wp.fold); gxObs(); if (gx.a > 0) { gF[60] = gx.cam[0]; gF[61] = gx.cam[1]; gF[62] = gx.cam[2]; } else { gF[60] = gx.obs[0]; gF[61] = gx.obs[1]; gF[62] = gx.obs[2]; } gF[63] = gx.a > 0.5 ? smooth(0.5, 1, gx.a) : 0; gF[56] = wp.beta; gF[57] = wp.on ? wp.streak : 0; gF[58] = wp.flash; gF[59] = wp.fold; // sun glare dimmed in map view; warp optics
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----

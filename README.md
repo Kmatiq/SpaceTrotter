@@ -98,7 +98,8 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 The **TOURS** button lists five guided tours (`TOURS` in `SpaceRoam.jsx`): Capitals of Europe, Roof of the World,
 Footsteps on the Moon, The Red Planet and Grand Tour. The autopilot flies you from stop to stop, supercruising
 between worlds, and a story card shows a short text at each stop with BACK / NEXT STOP / EXIT TOUR. Touching
-thrust lets you look around on your own. In fast-orbit mode, Earth is turned so each Earth stop is in daylight.
+thrust lets you look around on your own. After arrival the camera slowly circles the stop until you touch the
+controls. Stops on a night side are lit: the light direction is moved for the tour, on any world.
 
 ### Landmarks and search
 
