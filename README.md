@@ -29,6 +29,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `Q` / `E` | roll |
 | Mouse (click to lock pointer), or arrow keys | pitch / yaw |
 | `Shift` | boost (×8) |
+| `/` | search places and fly there |
 | `N` | live system map |
 | Click a planet / label, or `T` | choose target (`T` opens the target list) |
 | `Tab` / `Shift+Tab` | cycle target |
@@ -87,6 +88,17 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   single-file build without network) the generated surface is used instead.
 - **API:** `api.flyTo('earth', lat, lon, altitudeMetres, pitchDeg)` jumps to a real place, e.g.
   `flyTo('earth', 45.8, 6.9, 9000, -12)` for Mont Blanc.
+
+### Landmarks and search
+
+- **Landmarks:** about 190 named places are built in (`PLACES` in `SpaceRoam.jsx`). On Earth: European capitals
+  and each country's largest cities, major world cities, famous peaks, oceans and seas. On the Moon: the Apollo
+  sites, major craters and maria. On Mars: Olympus Mons, Valles Marineris and the rover sites. Labels fade in by
+  importance as you descend, are hidden behind the horizon, and never overlap.
+- **Search:** the **FIND** button (or `/`) opens a search box over all places and bodies. **GO** on a place
+  starts the autopilot. It supercruises to the planet if needed, then flies a guided descent to a viewpoint
+  beside the place, looking at it. Any thrust input takes back control.
+- **Mars imagery:** Mars now streams NASA/USGS Viking MDIM 2.1 colour mosaic tiles (Mars Trek, up to zoom 7).
 
 ### System map (3D)
 

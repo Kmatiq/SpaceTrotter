@@ -28,7 +28,7 @@ registerStarSystem({
       surface: { c: [[0.44, 0.43, 0.42], [0.17, 0.17, 0.18], 0, 0, 0], scale: 1.6, height: 0.003, craters: 0.55, craterScale: 8, mix: 1.8, seed: 11, maps: 'moon' } },
     { id: 'gateway', name: 'Gateway Station', fact: 'Humanity\'s first deep-space harbour.', type: 'station', parent: 'earth', size: 1500, orbit: { pr: 1.45, period: 900, inc: 12, phase: 0.2 } },
     { id: 'mars', name: 'Mars', fact: 'Home to Olympus Mons, 2.5x taller than Everest.', type: 'planet', radius: 0.532, orbit: { au: 1.52, period: 2100, inc: 1.8, phase: 4.1 }, spin: { period: 620, tilt: 25 },
-      surface: { c: [[0.46, 0.18, 0.07], [0.24, 0.11, 0.06], 0, [0.92, 0.9, 0.86], 0], scale: 2, height: 0.007, craters: 0.35, craterScale: 7, mix: 1.1, caps: 0.9, seed: 5 },
+      surface: { c: [[0.46, 0.18, 0.07], [0.24, 0.11, 0.06], 0, [0.92, 0.9, 0.86], 0], scale: 2, height: 0.007, craters: 0.35, craterScale: 7, mix: 1.1, caps: 0.9, seed: 5, maps: 'mars' },
       atmosphere: { height: 0.018, rayleigh: [0.05, 0.03, 0.018], mie: 0.04, g: 0.65 } },
     { id: 'ares', name: 'Ares Ring', fact: 'Built from asteroid iron hauled in from the belt.', type: 'station', parent: 'mars', size: 1200, orbit: { pr: 1.6, period: 800, inc: 25, phase: 3 } },
     { id: 'belt', type: 'belt', inner: 2.2, outer: 3.3, count: 2000, thickness: 0.035, color: [0.36, 0.32, 0.28] },
@@ -83,6 +83,31 @@ registerStarSystem({
   ],
 });
 
+// ---- landmarks: Name|lat|lon|kind|rank|elevation(m). kind: c city, m mountain, s sea, o ocean, x feature, l landing site. ASCII names (HUD atlas).
+export const PLACES = {
+  earth: 'Stockholm|59.33|18.07|c|1;Goteborg|57.71|11.97|c|2;Malmo|55.6|13|c|3;Oslo|59.91|10.75|c|1;Bergen|60.39|5.32|c|2;Copenhagen|55.68|12.57|c|1;Aarhus|56.16|10.2|c|3;Helsinki|60.17|24.94|c|1;Tampere|61.5|23.76|c|3;Reykjavik|64.15|-21.94|c|2;' +
+    'London|51.51|-0.13|c|1;Manchester|53.48|-2.24|c|2;Birmingham|52.48|-1.9|c|3;Edinburgh|55.95|-3.19|c|2;Dublin|53.35|-6.26|c|1;Paris|48.86|2.35|c|1;Marseille|43.3|5.37|c|2;Lyon|45.76|4.84|c|2;Madrid|40.42|-3.7|c|1;Barcelona|41.39|2.17|c|1;Valencia|39.47|-0.38|c|3;' +
+    'Lisbon|38.72|-9.14|c|1;Porto|41.15|-8.61|c|2;Berlin|52.52|13.4|c|1;Hamburg|53.55|9.99|c|2;Munich|48.14|11.58|c|2;Amsterdam|52.37|4.9|c|1;Rotterdam|51.92|4.48|c|3;Brussels|50.85|4.35|c|1;Antwerp|51.22|4.4|c|3;Luxembourg|49.61|6.13|c|3;' +
+    'Zurich|47.38|8.54|c|2;Bern|46.95|7.45|c|2;Geneva|46.2|6.14|c|2;Vienna|48.21|16.37|c|1;Graz|47.07|15.44|c|3;Rome|41.9|12.5|c|1;Milan|45.46|9.19|c|1;Naples|40.85|14.27|c|2;Athens|37.98|23.73|c|1;Thessaloniki|40.64|22.94|c|2;' +
+    'Warsaw|52.23|21.01|c|1;Krakow|50.06|19.94|c|2;Prague|50.08|14.44|c|1;Brno|49.2|16.61|c|3;Bratislava|48.15|17.11|c|2;Budapest|47.5|19.04|c|1;Bucharest|44.43|26.1|c|1;Cluj-Napoca|46.77|23.6|c|3;Sofia|42.7|23.32|c|1;Belgrade|44.79|20.45|c|1;' +
+    'Zagreb|45.81|15.98|c|2;Split|43.51|16.44|c|3;Ljubljana|46.06|14.51|c|2;Sarajevo|43.86|18.41|c|2;Podgorica|42.44|19.26|c|3;Tirana|41.33|19.82|c|2;Skopje|42|21.43|c|2;Pristina|42.66|21.17|c|3;Tallinn|59.44|24.75|c|2;Riga|56.95|24.11|c|2;Vilnius|54.69|25.28|c|2;' +
+    'Kyiv|50.45|30.52|c|1;Kharkiv|49.99|36.23|c|2;Odesa|46.48|30.73|c|2;Minsk|53.9|27.57|c|1;Chisinau|47.01|28.86|c|2;Moscow|55.76|37.62|c|1;St Petersburg|59.93|30.34|c|1;Istanbul|41.01|28.98|c|1;Ankara|39.93|32.86|c|1;Valletta|35.9|14.51|c|3;Nicosia|35.17|33.36|c|3;' +
+    'New York|40.71|-74.01|c|1;Washington|38.91|-77.04|c|2;Chicago|41.88|-87.63|c|1;Los Angeles|34.05|-118.24|c|1;San Francisco|37.77|-122.42|c|2;Toronto|43.65|-79.38|c|1;Mexico City|19.43|-99.13|c|1;Bogota|4.71|-74.07|c|2;Lima|-12.05|-77.04|c|2;' +
+    'Sao Paulo|-23.55|-46.63|c|1;Rio de Janeiro|-22.91|-43.17|c|1;Buenos Aires|-34.6|-58.38|c|1;Cairo|30.04|31.24|c|1;Lagos|6.52|3.38|c|1;Nairobi|-1.29|36.82|c|2;Johannesburg|-26.2|28.05|c|1;Cape Town|-33.92|18.42|c|2;Dubai|25.2|55.27|c|1;Tehran|35.69|51.39|c|2;' +
+    'Delhi|28.61|77.21|c|1;Mumbai|19.08|72.88|c|1;Beijing|39.9|116.41|c|1;Shanghai|31.23|121.47|c|1;Hong Kong|22.32|114.17|c|2;Tokyo|35.68|139.69|c|1;Seoul|37.57|126.98|c|1;Bangkok|13.76|100.5|c|2;Singapore|1.35|103.82|c|1;Jakarta|-6.21|106.85|c|2;' +
+    'Sydney|-33.87|151.21|c|1;Melbourne|-37.81|144.96|c|2;Auckland|-36.85|174.76|c|2;' +
+    'Mont Blanc|45.83|6.86|m|1|4806;Matterhorn|45.98|7.66|m|1|4478;Kebnekaise|67.9|18.52|m|2|2097;Galdhopiggen|61.64|8.31|m|2|2469;Ben Nevis|56.8|-5|m|2|1345;Etna|37.75|14.99|m|1|3357;Vesuvius|40.82|14.43|m|2|1281;Mount Olympus|40.09|22.36|m|2|2917;' +
+    'Elbrus|43.35|42.44|m|1|5642;Zugspitze|47.42|10.99|m|2|2962;Grossglockner|47.07|12.69|m|2|3798;Teide|28.27|-16.64|m|2|3715;Mount Everest|27.99|86.93|m|1|8849;K2|35.88|76.51|m|1|8611;Kilimanjaro|-3.07|37.35|m|1|5895;Denali|63.07|-151.01|m|1|6190;' +
+    'Aconcagua|-32.65|-70.01|m|1|6961;Mount Fuji|35.36|138.73|m|1|3776;Grand Canyon|36.1|-112.1|x|1;Sahara|23|13|s|1;Amazon Rainforest|-3|-60|s|1;Himalaya|28.5|84|s|1;The Alps|46.5|9.5|s|1;' +
+    'Atlantic Ocean|30|-40|o|1;Pacific Ocean|0|-150|o|1;Indian Ocean|-20|80|o|1;Arctic Ocean|86|0|o|1;Southern Ocean|-62|20|o|1;Mediterranean Sea|35|18|s|1;Baltic Sea|58|20|s|1;North Sea|56|3|s|1;Black Sea|43|35|s|1;Norwegian Sea|68|3|s|1;' +
+    'Caspian Sea|42|51|s|1;Red Sea|20|38|s|1;Adriatic Sea|43|15|s|2;Aegean Sea|39|25|s|2;English Channel|50.2|-1|s|2;Bay of Biscay|45|-5|s|2;Gulf of Bothnia|62|20|s|2;Caribbean Sea|15|-75|s|1',
+  luna: 'Apollo 11|0.67|23.47|l|1;Apollo 12|-3.01|-23.42|l|2;Apollo 14|-3.65|-17.47|l|2;Apollo 15|26.13|3.63|l|2;Apollo 16|-8.97|15.5|l|2;Apollo 17|20.19|30.77|l|2;Tycho|-43.31|-11.36|x|1;Copernicus|9.62|-20.08|x|1;Kepler|8.12|-38.01|x|2;' +
+    'Aristarchus|23.7|-47.4|x|2;Plato|51.6|-9.4|x|2;Clavius|-58.4|-14.4|x|2;Sea of Tranquility|8.5|31.4|s|1;Sea of Serenity|28|17.5|s|1;Sea of Rains|32.8|-15.6|s|1;Ocean of Storms|18.4|-57.4|s|1;Sea of Crises|17|59.1|s|1;Sea of Clouds|-21.3|-16.6|s|2;' +
+    'Apennine Mountains|18.9|-3.7|x|2;Lunar South Pole|-89|0|x|1;Tsiolkovskiy|-20.4|129.1|x|2;Mare Orientale|-19.4|-92.8|s|2',
+  mars: 'Olympus Mons|18.65|-133.8|x|1;Valles Marineris|-13.9|-59.2|s|1;Gale Crater (Curiosity)|-5.4|137.8|l|1;Jezero (Perseverance)|18.44|77.45|l|1;Viking 1|22.27|-47.95|l|2;Opportunity|-1.95|-5.53|l|2;Zhurong|25.1|109.9|l|2;' +
+    'Hellas Basin|-42.4|70.5|s|1;Tharsis Volcanoes|1.57|-112.58|s|1;Elysium Mons|25.02|147.21|x|2;North Polar Cap|87|0|s|1;Syrtis Major|8.4|69.5|s|2',
+};
+const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
 struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f};
@@ -167,11 +192,11 @@ fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp))
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
-fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,2u,eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,8,eq),eq);
+fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let s=b[5].w*90.;let dt=fbm(n*s+vec3f(b[8].w),max(lod(fp,s)-1.,0.),.5);let da=b[4].w*.04;
- if(b[12].w>1.5){if(tsel(2u,tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
+ if(b[12].w>1.5){if(tsel(select(2u,3u,b[12].w>2.5),tuv(n,true),0.,0,true).x<0.){return TR(0.,vec3f(0.),0.,0.,0.);}return TR(dt.x*da,dt.yzw*s*da,1.,0.,1.);}// Moon: photo + fine procedural relief
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
  let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=5.5e-7;// metres -> R (x3.5 relief)
@@ -267,7 +292,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));let mm=b[12].w;
    let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=select(b[3].w,0.,T.m>.5&&mm<1.5);let hr=T.h/max(b[4].w,1e-6);
    var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS);}
-   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=A.rgb*select(1.15,1.7,mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
+   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=A.rgb*select(1.15,select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
    if(wat&&mm<1.5){spec=b[14].w;}else{wat=false;}}
    else if(wat){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;}
    else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
@@ -504,7 +529,10 @@ function compileSystem(def) {
     b.soi = b.type === 'star' ? 0 : b.type === 'planet' ? 32 * b.R : b.type === 'moon' ? 7 * b.R : b.type === 'station' ? 25 * b.R : 10 * b.R;
     b.arrive = b.type === 'station' || b.type === 'comet' ? 5 * b.R : Math.max(2.6, b.box * 1.6) * b.R;
   }
-  return { def, list, belts, n: list.length, idx: Object.fromEntries(list.map((b, i) => [b.id, i])) };
+  const lm = []; list.forEach((b, bi) => { const src = PLACES[b.id]; if (!src) return; for (const e of src.split(';')) { const f = e.split('|'), la = +f[1] * D2R, lo = +f[2] * D2R;
+    lm.push({ name: f[0], bi, lat: +f[1], lon: +f[2], kind: f[3], rank: +f[4], elev: +f[5] || 0, dir: [Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)] }); } });
+  lm.sort((a, b) => a.rank - b.rank);
+  return { def, list, belts, lm, n: list.length, idx: Object.fromEntries(list.map((b, i) => [b.id, i])) };
 }
 function packStatic(F, slot, b, sys) { // writes static uber-shader parameters for one sphere body
   const o = slot * BSTR, d = b.def || {}, s = d.surface || {}, at = d.atmosphere || {}, ri = d.rings || {}, c = s.c || [];
@@ -519,7 +547,7 @@ function packStatic(F, slot, b, sys) { // writes static uber-shader parameters f
   const bd = s.bands || {}, sp = s.spot || {};
   F.set([s.craters || 0, s.craterScale || 8, s.mix || 0.8, s.seed || 1, bd.amt || 0, bd.freq || 10, bd.turb || 1, sp.amt || 0,
     sp.lat || 0, sp.lon || 0, sp.size || 0.1, s.lights || 0, at.height || 0, at.mie || 0, at.g || 0.75, at.clouds || 0], o + 32);
-  set(12, at.rayleigh || [0, 0, 0], s.maps === 'earth' ? 1 : s.maps === 'moon' ? 2 : 0); // streamed real maps
+  set(12, at.rayleigh || [0, 0, 0], s.maps === 'earth' ? 1 : s.maps === 'moon' ? 2 : s.maps === 'mars' ? 3 : 0); // streamed real maps
   F.set([ri.inner || 0, ri.outer || 0, ri.opacity || 0, b.box], o + 52);
   set(14, ri.color || [0, 0, 0], s.specular || 0);
   F.set([bd.speed || at.cloudSpeed || 0, 0, at.cloudHeight || 0.004, 0], o + 60);
@@ -628,8 +656,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- tile streaming (only network use; procedural surface stays as fallback/offline) ----
   const TSRC = [(z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/${z}/${y}/${x}.jpg`, // Sentinel-2 cloudless (EOX), ~10 m/px
     (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
-    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
-  const TZM = [13, 12, 8], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`];
+  const TZM = [13, 12, 8, 7], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -648,8 +677,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let pass = 0; pass < 2; pass++) for (let i = 0; i < sys.n; i++) { // nearest mapped body first
       if ((pass === 0) !== (i === near)) continue;
       const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
-      const eq = mp === 'moon', o = i * 3, d = dist(i);
-      for (let kind = eq ? 2 : 0; kind <= (eq ? 2 : 1); kind++) {
+      const eq = mp !== 'earth', ek = mp === 'mars' ? 3 : 2, o = i * 3, d = dist(i);
+      for (let kind = eq ? ek : 0; kind <= (eq ? ek : 1); kind++) {
         const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
         if (d > 8 * b.R) continue;
         const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;
@@ -720,7 +749,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     au.wg.gain.setTargetAtTime(w * 0.12 + chg * 0.06 + ht * 0.22, t, 0.2); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
     au.sg.gain.setTargetAtTime(chg * 0.03 + w * 0.006, t, 0.08); au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
-  function dropCruise(v) { cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
+  function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
   let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
@@ -795,7 +824,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
   };
-  const onKey = (e, d) => { if (d) audioInit(); keys[e.code] = d; if (e.code === 'Tab') e.preventDefault(); if (d && !e.repeat) act(e.code, e.shiftKey); };
+  const onKey = (e, d) => { if (e.target && e.target.tagName === 'INPUT') return; if (d) audioInit(); keys[e.code] = d; if (e.code === 'Tab') e.preventDefault(); if (d && !e.repeat) act(e.code, e.shiftKey); };
   const kd = (e) => onKey(e, 1), ku = (e) => onKey(e, 0);
   const mm = (e) => { if (document.pointerLockElement === canvas) { mdx += e.movementX; mdy += e.movementY; } };
   // ---- touch: floating thumbstick (left 40%), drag-to-look (right), HUD buttons. All state preallocated. ----
@@ -920,6 +949,23 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < sys.n; i++) { if (!inMap(i)) continue; const o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) continue;
       const r = mapR(i, (sys.list[i].R / scr[2]) / tanY() * H * 0.5, hs), d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < Math.max(bd, r * r)) { bd = d2; bi = i; } }
     return bi; }
+  const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25] }, LMIN = { s: 0.015, o: 0.1 };
+  function lmHud(s) { // landmark labels on the body you are near: rank-gated by altitude, horizon-culled, decluttered
+    let nl = 0; const lh = 15 * s;
+    for (let k = 0; k < sys.lm.length; k++) {
+      const m = sys.lm[k], b = sys.list[m.bi], o = m.bi * 3, cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], d = Math.hypot(cx, cy, cz), al = (d - b.R) / b.R;
+      const mx = LMAX[m.kind][m.rank], mn = LMIN[m.kind] || 0; if (al > mx || al < mn * 0.7) continue;
+      qrot(t3, 0, bq, m.bi * 4, m.dir[0], m.dir[1], m.dir[2]); const hz = (cx * t3[0] + cy * t3[1] + cz * t3[2]) / b.R; if (hz < 1.0002) continue; // behind the horizon
+      const rr = b.R * (1 + m.elev * 5.5e-7 + 1e-4); if (!project(t3[0] * rr - cx, t3[1] * rr - cy, t3[2] * rr - cz)) continue;
+      const x = scr[0], y = scr[1]; if (x < 0 || y < 0 || x > W || y > H) continue;
+      const a = Math.min(1, (mx - al) / (mx * 0.25)) * (mn ? smooth(mn * 0.7, mn, al) : 1) * (ap.on && ap.k === k ? 1 : 0.9), wl = m.name.length * lh * 0.6; let hit = false;
+      for (let j = 0; j < nl && !hit; j++) hit = Math.abs(lbx[j * 3] + lbx[j * 3 + 2] / 2 - x - wl / 2 - 9 * s) < (lbx[j * 3 + 2] + wl) / 2 + 6 * s && Math.abs(lbx[j * 3 + 1] - y) < lh * 1.2;
+      if (hit || nl >= 64) continue; lbx[nl * 3] = x + 9 * s; lbx[nl * 3 + 1] = y; lbx[nl * 3 + 2] = wl; nl++;
+      const w = m.kind === 's' || m.kind === 'o', cr = m.kind === 'm' ? 1 : w ? 0.6 : m.kind === 'l' ? 0.6 : 1, cg = m.kind === 'm' ? 0.75 : w ? 0.85 : 1, cb = m.kind === 'm' ? 0.45 : w ? 1 : m.kind === 'l' ? 0.7 : 1, tgt = ap.k === k && (ap.on || ap.pend);
+      if (!w) circ(x, y, (tgt ? 6 : 3.5) * s, 1.6 * s, cr, cg, cb, a); if (tgt) circ(x, y, 12 * s, 2 * s, 1, 0.8, 0.3, a);
+      ts(m.name); tout(w ? x - wl / 2 : x + 9 * s, y - 8 * s, lh, cr, cg, cb, a, 0);
+    }
+  }
   function mapHud(s) { // HUD while the camera is out in map view: bright orbits, coloured markers, labels, the ship
     const fa = smooth(0.25, 1, mp.a), f = mp.focus;
     for (let i = 1; i < sys.n; i++) if (sys.list[i].parent === f) orbitPath(i, i === target ? 0.5 : 0.4, i === target ? 1 : 0.7, i === target ? 0.8 : 1, fa * (i === target ? 0.85 : sys.list[i].type === 'comet' ? 0.3 : 0.45), (i === target ? 2 : 1.3) * s);
@@ -966,6 +1012,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       circ(x, y, 4.5 * s, 1.6 * s, C, Cg, Cb, 0.7);
       ts(b.name); tout(x + 10 * s, y - 9 * s, 17 * s, C, Cg, Cb, 0.8, 0);
     }
+    if (sys.lm.length && !bench.on) lmHud(s);
     // target bracket / off-screen arrow
     const to = target * 3, tbdy = sys.list[target], td = dist(target);
     closing += ((lastDist - td) / Math.max(dt, 1e-4) - closing) * Math.min(1, dt * 4); lastDist = td;
@@ -1081,10 +1128,34 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
       creditY = H - 10 * s;
     }
-    if (tilesSeen && altT < 3e6) { ts(sys.list[prBody].def.surface.maps === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
+    if (tilesSeen && altT < 3e6) { const mk = sys.list[prBody].def.surface.maps; ts(mk === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : mk === 'mars' ? 'Imagery: NASA/USGS Viking MDIM 2.1 (Mars Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
       tout(L, T + PH + 10 * s, 12 * s, 0.75, 0.85, 0.95, 0.7, 0); }
   }
 
+  // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
+  const ap = { on: false, pend: false, k: -1, t: 0, a0: 1, a1: 1, ang: 0, d0: new Float64Array(3), d1: new Float64Array(3), ax: new Float64Array(3) };
+  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500] }; // [stand-off distance, height] in game metres
+  function apStart() {
+    const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
+    tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
+    const la = (m.lat + (m.lat > -60 ? -1 : 1) * (v[0] * Math.sqrt(sc) / b.R) / D2R) * D2R, lo = m.lon * D2R; ap.d1[0] = Math.cos(la) * Math.cos(lo); ap.d1[1] = Math.sin(la); ap.d1[2] = -Math.cos(la) * Math.sin(lo);
+    ap.a0 = Math.max(d - b.R, 50); ap.a1 = b.R * m.elev * 5.5e-7 + v[1] * Math.sqrt(sc);
+    const dt2 = Math.max(-1, Math.min(1, ap.d0[0] * ap.d1[0] + ap.d0[1] * ap.d1[1] + ap.d0[2] * ap.d1[2])); ap.ang = Math.acos(dt2);
+    ap.ax[0] = ap.d0[1] * ap.d1[2] - ap.d0[2] * ap.d1[1]; ap.ax[1] = ap.d0[2] * ap.d1[0] - ap.d0[0] * ap.d1[2]; ap.ax[2] = ap.d0[0] * ap.d1[1] - ap.d0[1] * ap.d1[0];
+    const l = Math.hypot(ap.ax[0], ap.ax[1], ap.ax[2]); if (l < 1e-6) { ap.ax[0] = 0; ap.ax[1] = 1; ap.ax[2] = 0; ap.ang = l < 1e-6 && dt2 < 0 ? Math.PI : 0; } else { ap.ax[0] /= l; ap.ax[1] /= l; ap.ax[2] /= l; }
+    ap.on = true; ap.pend = false; ap.t = 0; ap.dur = 7 + ap.ang * 2.5; cruise = false; charge = -1; ship.ref = m.bi; ship.vel.fill(0); ship.w.fill(0); banner('AUTOPILOT - ' + m.name.toUpperCase(), false);
+  }
+  function apStep(dt) { // called every frame while on: position along the great circle with exponential altitude, look at the place
+    const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4; ap.t = Math.min(1, ap.t + dt / ap.dur);
+    const e = smooth(0, 1, ap.t), ea = smooth(0.15, 1, ap.t), alt2 = ap.a0 * Math.pow(ap.a1 / ap.a0, ea) + Math.sin(Math.PI * e) * ap.ang * b.R * 0.25; // arc up and over on long hops
+    qaxis(dq, 0, ap.ax[0], ap.ax[1], ap.ax[2], ap.ang * e); qrot(t3, 0, dq, 0, ap.d0[0], ap.d0[1], ap.d0[2]); qrot(t3, 0, bq, q, t3[0], t3[1], t3[2]);
+    const ux = t3[0], uy = t3[1], uz = t3[2], r = b.R + alt2; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + t3[j] * r; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } ship.vel.fill(0);
+    qrot(t3, 0, bq, q, m.dir[0], m.dir[1], m.dir[2]); const rl = b.R * (1 + m.elev * 5.5e-7);
+    qlook(dq, 0, pos[o] + t3[0] * rl - abs[0], pos[o + 1] + t3[1] * rl - abs[1], pos[o + 2] + t3[2] * rl - abs[2], ux, uy, uz); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * (1 + 5 * e)));
+    if (ap.t >= 1) { ap.on = false; rqRef = -1; banner('ARRIVED - ' + m.name.toUpperCase(), false); chime(false); }
+  }
+  function goPlace(k) { const m = sys.lm[k]; if (!m || bench.on) return; audioInit(); ap.k = k; ap.on = false; setTgt(m.bi);
+    if (dist(m.bi) < sys.list[m.bi].arrive * 1.25) apStart(); else { ap.pend = true; if (!cruise && charge < 0) { charge = 1.2; cruiseV = 0; } } }
   // ---- 3D system map: the real camera flies out of the ship to an orbiting overview and back ----
   const mp = { on: false, a: 0, b: 1, focus: 0, yaw: 0, pitch: 0.95, zoom: 1, sel: -1, ptrs: new Map(), moved: 0, pinch: 0, t0: 0 }, NK = Object.freeze({});
   const mpS = new Float64Array(3), mpSQ = new Float64Array(4), mpP = new Float64Array(3), mpQ = new Float64Array(4), fw0 = new Float64Array(3);
@@ -1144,7 +1215,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     // nearest surface altitude (drives speed limits)
     let alt = Infinity; for (let i = 0; i < sys.n; i++) alt = Math.min(alt, dist(i) - sys.list[i].R * (i === prBody && prValid ? 1 + prH : 1));
     altT = prValid ? dist(prBody) - sys.list[prBody].R * (1 + prH) : Infinity;
-    if (mp.on) mdx = mdy = 0; const K = mp.on ? NK : keys, jm = mp.on ? 0 : 1, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx * jm, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy * jm;
+    if (ap.on && (keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD || keys.Space || keys.KeyX || tc.jid >= 0)) { ap.on = false; rqRef = -1; banner('AUTOPILOT OFF', false); } // any thrust input takes over
+    if (mp.on || ap.on) mdx = mdy = 0; const K = mp.on || ap.on ? NK : keys, jm = mp.on || ap.on ? 0 : 1, inX = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + tc.jx * jm, inY = (K.Space ? 1 : 0) - (K.KeyX ? 1 : 0), inZ = (K.KeyS ? 1 : 0) - (K.KeyW ? 1 : 0) + tc.jy * jm;
     // rotation: quaternion integration of local angular velocity (no Euler angles anywhere)
     const sens = 0.0022 / Math.max(dt, 1e-3);
     const wx = -mdy * sens + ((K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0)) * 1.2, wy = -mdx * sens + ((K.ArrowLeft ? 1 : 0) - (K.ArrowRight ? 1 : 0)) * 1.2, wz = ((K.KeyQ ? 1 : 0) - (K.KeyE ? 1 : 0)) * 1.6;
@@ -1182,6 +1254,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); ship.off[j] += ship.vel[j] * dt; }
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
+    if (ap.on && !bench.on) apStep(dt);
     // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
     const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 2000) * 0.08 - clr) * Math.min(1, dt * 3);
@@ -1371,7 +1444,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
-      third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1384,6 +1457,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     mapSelect: (id) => { mp.sel = id == null ? -1 : sys.idx[id]; },
     screenPos: (id) => { const i = sys.idx[id], o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) return null; const k = canvas.clientWidth / W; return [scr[0] * k, scr[1] * k]; },
     get audioLevel() { if (!au.an) return -1; au.an.getFloatTimeDomainData(au.ab); let e = 0; for (let i = 0; i < 1024; i++) e += au.ab[i] * au.ab[i]; return Math.sqrt(e / 1024); },
+    places: () => sys.lm.map((m, k) => ({ k, name: m.name, kind: LMK[m.kind], body: sys.list[m.bi].name })), goPlace,
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
@@ -1418,7 +1492,7 @@ const ICON = { // 24x24 stroke icons
   rl: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4', rr: 'M20 12a8 8 0 1 1-3-6.2M20 4v4h-4', menu: 'M4 7h16M4 12h16M4 17h16', close: 'M6 6l12 12M18 6L6 18',
   snd: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6', mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6', cam: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 .1',
   full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', help: 'M9 9a3 3 0 1 1 4 2.8c-1 .4-1 1.2-1 2.2M12 17v.5', stats: 'M5 19V11M10 19V5M15 19v-6M20 19V9',
-  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
+  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
 const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>;
 const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
 const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
@@ -1450,12 +1524,15 @@ function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, clos
     </div>);
 }
 function Overlay({ eng }) {
-  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false);
+  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
-  useEffect(() => { const k = (e) => { if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); eng.mapClose(); } };
+  useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash' || (e.code === 'KeyP' && !e.ctrlKey)) { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
+  const placesRef = useRef(null), sysRef = useRef(null);
   if (!ui) return null;
-  function openList() { eng.unlockMouse(); setMenu(false); setList((l) => (l ? null : eng.bodies())); }
+  if (sysRef.current !== ui.system) { sysRef.current = ui.system; placesRef.current = null; }
+  function openFind() { eng.unlockMouse(); setMenu(false); setList(null); setFind((f) => (f === null ? '' : null)); }
+  function openList() { eng.unlockMouse(); setMenu(false); setFind(null); setList((l) => (l ? null : eng.bodies())); }
   const btn = (extra) => ({ ...panel, pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer',
     font: '600 11px ui-monospace,Consolas,monospace', letterSpacing: 1, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', ...extra });
   const hold = (code) => ({ onPointerDown: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); eng.hold(code, 1); },
@@ -1482,8 +1559,9 @@ function Overlay({ eng }) {
             <span style={{ fontSize: 11, color: C.dim, letterSpacing: 0 }}>{fmtD(ui.dist)}</span>
           </span>
         </div>
-        <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(false); eng.mapOpen(); })} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="System map (N)"><Ico n="map" s={22} />MAP</div>
-        <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
+        <div {...tap(openFind)} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="Search places (/)"><Ico n="find" s={22} />FIND</div>
+        <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(false); setFind(null); eng.mapOpen(); })} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="System map (N)"><Ico n="map" s={22} />MAP</div>
+        <div {...tap(() => { eng.unlockMouse(); setList(null); setFind(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
       </div>
       {/* menu */}
       {menu && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 230, padding: 6 }}>
@@ -1510,10 +1588,29 @@ function Overlay({ eng }) {
         </div>
         <div style={{ padding: '8px 14px', fontSize: 11, color: C.dim, borderTop: '1px solid ' + C.line }}>Tip: you can also tap / click a planet on screen</div>
       </div>}
+      {/* place search */}
+      {find !== null && (() => { const q = find.trim().toLowerCase(), all = placesRef.current || (placesRef.current = eng.places().concat(eng.bodies().map((b) => ({ id: b.id, name: b.name, kind: TYPE_LBL[b.type], body: ui.system + ' system' }))));
+        const res = (q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((a, b) => (a.name.toLowerCase().startsWith(q) ? 0 : 1) - (b.name.toLowerCase().startsWith(q) ? 0 : 1)) : all).slice(0, 40);
+        const go = (p) => { if (p.id) { if (!eng.cruiseTo(p.id)) eng.setTarget(p.id); } else eng.goPlace(p.k); setFind(null); };
+        return (<div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, bottom: 12, width: 'min(360px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid ' + C.line }}>
+            <Ico n="find" s={20} />
+            <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && res[0]) go(res[0]); }} placeholder="Search a city, mountain, sea, planet..."
+              style={{ flex: 1, minWidth: 0, background: 'transparent', border: 0, outline: 'none', color: C.fg, font: '16px ui-monospace,Consolas,monospace' }} />
+            <span {...tap(() => setFind(null))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
+          <div style={{ overflowY: 'auto', padding: 6, WebkitOverflowScrolling: 'touch' }}>
+            {res.map((p, i) => <div key={i} {...tap(() => go(p))} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 10, cursor: 'pointer', background: i === 0 && q ? 'rgba(80,255,190,.1)' : 'transparent' }}>
+              <span style={{ flex: 1, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}><span style={{ fontSize: 15 }}>{p.name}</span><span style={{ color: C.dim, fontSize: 11 }}>{p.kind} · {p.body}</span></span>
+              <span style={{ color: C.warn, fontSize: 11, letterSpacing: 1 }}>GO ›</span></div>)}
+            {!res.length && <div style={{ padding: 14, color: C.dim }}>No match</div>}
+          </div>
+          <div style={{ padding: '8px 14px', fontSize: 11, color: C.dim, borderTop: '1px solid ' + C.line }}>GO flies you there: cruise to the planet, then an automatic descent</div>
+        </div>); })()}
+      {ui.auto && !mapOut && <div style={{ ...panel, position: 'absolute', left: '50%', top: 72, transform: 'translateX(-50%)', padding: '8px 14px', fontSize: 12, color: C.warn, borderColor: C.warn, whiteSpace: 'nowrap' }}>AUTOPILOT › {ui.auto}<span style={{ color: C.dim }}> · thrust to take over</span></div>}
       {/* controls help */}
       {help && <div {...tap(() => setHelp(false))} style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, left: '50%', top: '50%', transform: 'translate(-50%,-50%)', padding: '18px 22px', maxWidth: 'calc(100% - 32px)', lineHeight: 1.7, fontSize: 13 }}>
-        {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Target button (top right): list of all targets<br />MAP: live system map, tap a planet to cruise there<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
-          : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />N map · F supercruise · V camera · M sound · G stats · B benchmark · J system · H hint bar</div>}
+        {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Target button (top right): list of all targets<br />FIND: search a city, mountain or planet and fly there<br />MAP: live system map, tap a planet to cruise there<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
+          : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />/ search · N map · F supercruise · V camera · M sound · G stats · B benchmark · J system · H hint bar</div>}
         <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
       {ui.map.on && <MapUI eng={eng} m={ui.map} sysName={ui.system} />}
       {/* touch action cluster */}
