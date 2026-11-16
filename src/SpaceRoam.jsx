@@ -532,11 +532,11 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
   let bx=vec3f(s.b.w,s.b.y,s.b.w*(.7+.3*fract(sd*13.)));let bt=slab(ro/bx,rd/bx);if(bt.y<max(bt.x,0.)){discard;}let t=max(bt.x,0.);let p=ro+rd*t;
   let q=p/bx;let aq=abs(q);var n=vec3f(0.,sign(q.y),0.);if(aq.x>aq.y&&aq.x>=aq.z){n=vec3f(sign(q.x),0.,0.);}else if(aq.z>aq.y&&aq.z>aq.x){n=vec3f(0.,0.,sign(q.z));}
   let pm=p*sc;let up=n.y>.5;let hu=select(pm.x,pm.z,abs(n.x)>.5);let hv=pm.y+bx.y*sc;
-  let hue=fract(sd*7.31);var al=mix(mix(vec3f(.62,.6,.56),vec3f(.5,.52,.55),hue),vec3f(.42,.38,.33),step(.7,hue));
+  let hue=fract(sd*7.31);var al=mix(mix(vec3f(.48,.43,.36),vec3f(.4,.39,.38),hue),vec3f(.34,.27,.22),step(.72,hue))*(.8+.35*fract(sd*53.));// warm stone / grey concrete / brick
   var em=vec3f(0.);var sp=.05;
-  if(up){al=vec3f(.38,.37,.36)*(.85+.3*fract(sd*91.));}
+  if(up){al=mix(vec3f(.27,.27,.29),vec3f(.36,.24,.19),step(.6,fract(sd*91.)))*(.8+.3*fract(sd*17.));}// zinc / tile roofs
   else if(n.y>-.5){let cu=floor(hu/2.4);let cv=floor(hv/3.);let w=step(.22,fract(hu/2.4))*step(.3,fract(hv/3.))*step(1.,hv);
-   al=mix(al,vec3f(.08,.1,.13),w*.85);sp=mix(.05,.9,w);
+   al=mix(al,vec3f(.1,.12,.15),w*.55)*mix(.55,1.,smoothstep(0.,6.,hv));sp=mix(.05,.6,w);// softer windows, darker at street level
    let night=1.-smoothstep(-.05,.1,dot(L,qr(qi,qr(s.q,vec3f(0.,1.,0.)))));let on=step(.55,hf(vec3i(i32(cu),i32(cv),i32(sd*9999.))));em=vec3f(1.,.78,.45)*w*on*night*1.4;}
   let nl=max(dot(n,L),0.);let V=-rd;let hh=normalize(L+V);
   let c=al*E*nl+al*E*.11*(.55+.45*n.y)+E*sp*pow(max(dot(n,hh),0.),40.)*nl*.4+em;
@@ -842,11 +842,12 @@ async function createEngine(canvas, systemId, opts = {}) {
     tFly++; tmap.set(k, -1);
     fetch(TSRC[kind](z, x, y), { mode: 'cors' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
       .then((bl) => createImageBitmap(bl, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })).then((bm) => {
-        tFly--; if (dead) return; let sl = 0, old = Infinity;
+        tFly--; if (dead) { bm.close(); return; } let sl = -1, old = Infinity;
         for (let i = 0; i < NTL; i++) { if (tKey[i] === 0xffffffff) { sl = i; break; } if (tUse[i] < old) { old = tUse[i]; sl = i; } }
-        if (tKey[sl] !== 0xffffffff) tmap.delete(tKey[sl]);
-        tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); thDirty = true; tilesSeen = true;
-        if (kind === 0 && z >= 11) urbanKeep(k, bm); if (kind === 1 && z >= 9) elevKeep(k, bm); if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close();
+        if (sl < 0 || (tKey[sl] !== 0xffffffff && frame - tUse[sl] < 4)) { bm.close(); tmap.delete(k); return; } // cache full of visible tiles: drop this one, ask again later
+        if (tKey[sl] !== 0xffffffff) { tmap.delete(tKey[sl]); tKey[sl] = 0xffffffff; hashRebuild(); } // unlink the old tile BEFORE its slot is overwritten
+        tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); tilesSeen = true;
+        if (kind === 0 && z >= 11) urbanKeep(k, bm); if (kind === 1 && z >= 9) elevKeep(k, bm); if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
   // relief tiles (LOLA / MOLA colour-shaded altimetry): decode hue -> height once on the CPU, fill shadowed pixels, smooth JPEG blocks, upload as 16-bit (R,G)
@@ -876,8 +877,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     return NaN; }
   function urbanAt(lat, lon) { // 0..1: how built-up the photo looks (grey/beige, not water, not vegetation)
     const la = Math.max(-1.48, Math.min(1.48, lat)), u = (lon + Math.PI) / (2 * Math.PI), v = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2;
-    for (let z = 13; z >= 11; z--) { const n = 1 << z, x = Math.floor(u * n), y = Math.floor(v * n), d = umap.get(((z << 26) | (y << 13) | x) >>> 0); if (!d) continue;
-      const i = (Math.min(63, Math.floor((v * n - y) * 64)) * 64 + Math.min(63, Math.floor((u * n - x) * 64))) * 4, r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, g, b), sat = (mx - Math.min(r, g, b)) / Math.max(mx, 1e-3), l = 0.3 * r + 0.5 * g + 0.2 * b;
+    for (const z of [12, 13, 11]) { const n = 1 << z, x = Math.floor(u * n), y = Math.floor(v * n), d = umap.get(((z << 26) | (y << 13) | x) >>> 0); if (!d) continue;
+      const px = Math.min(62, Math.max(1, Math.floor((u * n - x) * 64))), py = Math.min(62, Math.max(1, Math.floor((v * n - y) * 64))); let r = 0, g = 0, b = 0;
+      for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) { const i = ((py + a) * 64 + px + c) * 4; r += d[i]; g += d[i + 1]; b += d[i + 2]; } r /= 2295; g /= 2295; b /= 2295; const mx = Math.max(r, g, b), sat = (mx - Math.min(r, g, b)) / Math.max(mx, 1e-3), l = 0.3 * r + 0.5 * g + 0.2 * b;
       return Math.max(0, Math.min(1, (0.32 - sat) / 0.18)) * Math.max(0, Math.min(1, (l - 0.2) / 0.12)) * Math.max(0, Math.min(1, (0.75 - l) / 0.15)) * (b > r * 1.15 && l < 0.35 ? 0 : 1) * (g > r * 1.08 && g > b ? 0.2 : 1); }
     return 0; }
   const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
@@ -898,15 +900,15 @@ async function createEngine(canvas, systemId, opts = {}) {
           const n = 1 << z, w = eq ? 2 * n : n; let u, v;
           if (eq) { u = ((lon + Math.PI) / Math.PI) * n; v = ((Math.PI / 2 - lat) / Math.PI) * n; }
           else { const la = Math.max(-1.4844, Math.min(1.4844, lat)); u = ((lon + Math.PI) / (2 * Math.PI)) * n; v = ((1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2) * n; }
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const y = Math.floor(v) + dy; if (y >= 0 && y < n) want(kind, z, (((Math.floor(u) + dx) % w) + w) % w, y); }
+          const rr = z > zt - 3 ? 1 : 0; for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const y = Math.floor(v) + dy; if (y >= 0 && y < n) want(kind, z, (((Math.floor(u) + dx) % w) + w) % w, y); }
         }
       }
     }
-    if (thDirty) { thDirty = false; thF.fill(0xffffffff); // rebuild the GPU hash (rare: only when a tile arrives)
-      for (let sl = 0; sl < NTL; sl++) { const k = tKey[sl]; if (k === 0xffffffff) continue; let h = Math.imul(k, 2654435761) >>> 20;
-        for (let p = 0; p < 16; p++, h++) { const e = (h & 4095) * 2; if (thF[e] === 0xffffffff) { thF[e] = k; thF[e + 1] = sl; break; } } }
-      device.queue.writeBuffer(thBuf, 0, thF); }
   }
+  function hashRebuild() { thF.fill(0xffffffff); // GPU tile hash, rewritten in queue order with the texture uploads (no frame ever sees a stale slot)
+    for (let sl = 0; sl < NTL; sl++) { const k = tKey[sl]; if (k === 0xffffffff) continue; let h = Math.imul(k, 2654435761) >>> 20;
+      for (let p = 0; p < 16; p++, h++) { const e = (h & 4095) * 2; if (thF[e] === 0xffffffff) { thF[e] = k; thF[e + 1] = sl; break; } } }
+    device.queue.writeBuffer(thBuf, 0, thF); }
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
