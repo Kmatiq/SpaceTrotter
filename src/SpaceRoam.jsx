@@ -961,6 +961,12 @@ async function createEngine(canvas, systemId, opts = {}) {
     loadLog(); toastI = -1; charge = -1; { const k = STARS.findIndex((x) => x.id === id); here = k >= 0 ? k : 0; } wsel = -1;
     const sp = def.spawn || {}; target = sys.idx[sp.near] || 1; jd0 += simT * TS; simT = 0; updateOrbits(0);
     placeNear(target, sp.dist || 4); cruise = false;
+    if (def.id === 'sol' && sys.idx.earth !== undefined) { // start above Europe at midday: spin Earth so the Sun is over 10°E, then hang 3.2 radii above 38°N 10°E
+      const e = sys.idx.earth, ssLon = () => { updateOrbits(0); const o = e * 3, q = e * 4, l = Math.hypot(pos[o], pos[o + 1], pos[o + 2]); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+        qrot(t3, 0, tq, 0, -pos[o] / l, -pos[o + 1] / l, -pos[o + 2] / l); return Math.atan2(-t3[2], t3[0]); };
+      if (TS === TSF) { eSpin0 = 0; const a0 = ssLon(); eSpin0 = 0.5; const a1 = ssLon(), k = Math.sign(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0))) || 1; eSpin0 = (Math.atan2(Math.sin(10 * D2R - a0), Math.cos(10 * D2R - a0))) / k; updateOrbits(0); }
+      const la = 38 * D2R, lo = 10 * D2R, q = e * 4, r = sp.dist * sys.list[e].R; qrot(t3, 0, bq, q, Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo));
+      ship.ref = e; ship.off[0] = t3[0] * r; ship.off[1] = t3[1] * r; ship.off[2] = t3[2] * r; ship.vel.fill(0); qrot(sq, 0, bq, q, 0, 1, 0); qlook(ship.q, 0, -t3[0], -t3[1], -t3[2], sq[0], sq[1], sq[2]); target = e; }
     return true;
   }
   function placeNear(i, dist, ang = 0.6, el = 0.15, pitch = 0) { // ship at dist*R from body i, az ang from the sub-solar point, looking at it (+pitch)
@@ -972,7 +978,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (pitch) { qaxis(dq, 0, 1, 0, 0, pitch); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
   }
   const TSF = 0.25, TSR = 1 / 86400; let TS = TSF, jd0 = Date.now() / 86400000 + 2440587.5; // game seconds -> real days (fast: 6 h per second; real time: 1:1)
-  const el6 = new Float64Array(6), kp = new Float64Array(3);
+  const el6 = new Float64Array(6), kp = new Float64Array(3); let eSpin0 = 0; // fast-mode Earth spin offset, set so the game opens on a sunlit Europe
   const jdNow = () => jd0 + simT * TS;
   function jplSet(b, T) { const j = b.jpl; for (let k = 0; k < 6; k++) el6[k] = j[k * 2] + j[k * 2 + 1] * T; }
   function jplPos(E, o) { // point on the real orbit at eccentric anomaly E -> game frame, distance compressed with the system's au() law
@@ -988,7 +994,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (b.parent < 0) { pos[o] = pos[o + 1] = pos[o + 2] = 0; qaxis(bq, i * 4, 0, 1, 0, t * 0.01); continue; }
       if (b.jpl) { jplSet(b, T); const M = ((el6[3] - el6[4]) * D2R) % 6.283185307179586, e = el6[1]; let E = M; for (let k = 0; k < 8; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
         jplPos(E, kp); pos[o] = kp[0]; pos[o + 1] = kp[1]; pos[o + 2] = kp[2];
-        if (b.id === 'earth') { qaxis(tq, 0, 1, 0, 0, -OBL); qaxis(sq, 0, 0, 1, 0, TS === TSR ? (280.46061837 + 360.98564736629 * dd) * D2R : (6.283185307179586 * t) / b.spinP); } // real axis; real sidereal rotation in real-time mode
+        if (b.id === 'earth') { qaxis(tq, 0, 1, 0, 0, -OBL); qaxis(sq, 0, 0, 1, 0, TS === TSR ? (280.46061837 + 360.98564736629 * dd) * D2R : (6.283185307179586 * t) / b.spinP + eSpin0); } // real axis; real sidereal rotation in real-time mode
         else { qaxis(tq, 0, 0, 0, 1, b.tilt); qaxis(sq, 0, 0, 1, 0, (6.283185307179586 * t) / b.spinP); }
         qmul(bq, i * 4, tq, 0, sq, 0); continue; }
       if (b.id === 'luna') { // real lunar phase/position (low-precision mean elements), compressed distance kept
