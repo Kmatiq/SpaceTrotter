@@ -701,7 +701,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
-  let clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
+  let photo = false, clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
   const banner = (txt, hot) => { bannerS = txt; bannerT = 3.2; bannerHot = hot; };
   const rq = new Float64Array(4), tpr = new Float64Array(3), tv = new Float64Array(3); let tpRef = -1, tpTgt = -1; // target velocity in the ship's reference frame
   const fpr = new Float64Array(3), fv = new Float64Array(3); let fRef = -1, anc = 0; // riding along: velocity of the ship's frame (small body) relative to its parent
@@ -820,6 +820,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       case 'KeyV': thirdPerson = !thirdPerson; break;
       case 'KeyH': showHelp = !showHelp; break;
       case 'KeyG': showStats = !showStats; break;
+      case 'KeyP': photo = !photo; break;
       case 'KeyJ': switchStarSystem(sys.def.id === 'sol' ? 'kestrel' : 'sol'); break;
       case 'BracketLeft': exposure /= 1.15; break; case 'BracketRight': exposure *= 1.15; break;
     }
@@ -996,6 +997,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   function buildHud(dt, spd) {
     hn = 0; const ch = canvas.clientHeight || H, s = hs = (H / ch) * Math.max(0.85, Math.min(1.45, ch / 850)), cx = W / 2, cy = H / 2; // HUD scale from CSS size: readable on phones and 4K alike
+    if (photo && !mp.on) return; // photo mode: no HUD at all
     if (mp.a > 0.02) { mapHud(s); return; }
     // orbit paths: planets around the star + moons/stations of the local planet
     const loc = ship.ref > 0 ? (sys.list[ship.ref].parent > 0 ? sys.list[ship.ref].parent : ship.ref) : -1;
@@ -1122,7 +1124,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       circ(jx + tc.jx * R, jy + tc.jy * R, 30 * s, 0, 0.55, 0.85, 1, tc.jid >= 0 ? 0.5 : 0.25);
       if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.6, H - 34 * s, 16 * s, 0.75, 0.9, 1, 0.75, 0.5); }
     } else if (showHelp) {
-      const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'CLICK or T target   TAB next   F supercruise   V camera   M sound   B bench   J system   G stats   H help';
+      const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'CLICK or T target   TAB next   F supercruise   V camera   M sound   B bench   J system   P photo   G stats   H help';
       const fz = Math.min(17 * s, (W - 40 * s) / (l2.length * 0.6)), by = H - 30 * s - fz * 2.6, bw = (l2.length * 0.6 * fz) / 2 + 20 * s;
       seg(cx - bw, by + fz * 1.15, cx + bw, by + fz * 1.15, 0.01, 0.025, 0.05, 0.4, fz * 3.2);
       ts(l1); tout(cx, by, fz, 0.8, 0.9, 1, 0.85, 0.5); ts(l2); tout(cx, by + fz * 1.45, fz, 0.8, 0.9, 1, 0.85, 0.5);
@@ -1444,7 +1446,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
-      auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      photo, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1492,7 +1494,7 @@ const ICON = { // 24x24 stroke icons
   rl: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4', rr: 'M20 12a8 8 0 1 1-3-6.2M20 4v4h-4', menu: 'M4 7h16M4 12h16M4 17h16', close: 'M6 6l12 12M18 6L6 18',
   snd: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6', mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6', cam: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 .1',
   full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5', help: 'M9 9a3 3 0 1 1 4 2.8c-1 .4-1 1.2-1 2.2M12 17v.5', stats: 'M5 19V11M10 19V5M15 19v-6M20 19V9',
-  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
+  sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', save: 'M12 4v11M7 11l5 5 5-5M5 20h14', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
 const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>;
 const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
 const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
@@ -1526,7 +1528,7 @@ function MapUI({ eng, m, sysName }) { // DOM chrome for the 3D map: header, clos
 function Overlay({ eng }) {
   const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
-  useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash' || (e.code === 'KeyP' && !e.ctrlKey)) { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); } };
+  useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
   const placesRef = useRef(null), sysRef = useRef(null);
   if (!ui) return null;
@@ -1540,6 +1542,14 @@ function Overlay({ eng }) {
   const tap = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
   const round = (d, on, x) => btn({ width: d, height: d, borderRadius: '50%', ...(on ? { borderColor: C.warn, color: C.warn, background: 'rgba(60,40,5,.7)' } : {}), ...x });
   const mapOut = ui.map.on || ui.map.a > 0.02;
+  if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
+    const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
+    const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spaceroam-' + Date.now() + '.png'; a.click(); });
+    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>
+      <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
+        <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
+        <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
+      </div></div>); }
   const cruiseLbl = ui.cruise ? 'STOP' : ui.charging ? 'CANCEL' : ui.canCruise ? 'CRUISE' : 'CLOSE';
   const rows = list ? list.filter((b) => b.type !== 'star' || true) : null;
   const depth = (b) => (b.type === 'star' ? 0 : b.parent && list.find((x) => x.id === b.parent).type !== 'star' ? 2 : 1);
@@ -1567,6 +1577,7 @@ function Overlay({ eng }) {
       {menu && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 230, padding: 6 }}>
         {item(ui.sound ? 'snd' : 'mute', ui.sound ? 'Sound: on' : 'Sound: off', ui.sound, () => eng.act('KeyM'))}
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
+        {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
@@ -1610,7 +1621,7 @@ function Overlay({ eng }) {
       {/* controls help */}
       {help && <div {...tap(() => setHelp(false))} style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, left: '50%', top: '50%', transform: 'translate(-50%,-50%)', padding: '18px 22px', maxWidth: 'calc(100% - 32px)', lineHeight: 1.7, fontSize: 13 }}>
         {ui.touch ? <div><b style={{ color: C.acc }}>Touch</b><br />Left thumb: move stick (anywhere on the left)<br />Right side: drag to look<br />Tap a planet or label: select target<br />Target button (top right): list of all targets<br />FIND: search a city, mountain or planet and fly there<br />MAP: live system map, tap a planet to cruise there<br />CRUISE: fly fast to the target, STOP to drop out<br />Hold BOOST / ▲ ▼ / ⟲ ⟳ for boost, up/down, roll</div>
-          : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />/ search · N map · F supercruise · V camera · M sound · G stats · B benchmark · J system · H hint bar</div>}
+          : <div><b style={{ color: C.acc }}>Keyboard &amp; mouse</b><br />W/S thrust · A/D strafe · Space/X up/down · Q/E roll<br />Mouse look (click to capture) · Shift boost<br />Click a planet or T: choose target · Tab: next target<br />/ search · N map · F supercruise · V camera · M sound · P photo mode · G stats · B benchmark · J system · H hint bar</div>}
         <div style={{ color: C.dim, fontSize: 11, marginTop: 8 }}>Tap to close</div></div>}
       {ui.map.on && <MapUI eng={eng} m={ui.map} sysName={ui.system} />}
       {/* touch action cluster */}

@@ -38,6 +38,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 | `B` | 60 s benchmark |
 | `J` | switch star system (Sol ↔ Kestrel V2 demo) |
 | `[` / `]` | exposure |
+| `P` | photo mode: hides all HUD text, labels, orbit lines and buttons; a button saves a PNG |
 | `G` | performance stats (CPU/GPU ms) |
 | `H` | hide help |
 
