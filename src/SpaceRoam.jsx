@@ -1225,7 +1225,19 @@ async function createEngine(canvas, systemId, opts = {}) {
     mdx = mdy = 0; const kw = 1 - Math.exp(-dt * 8); // rotational inertia
     ship.w[0] += (wx - ship.w[0]) * kw; ship.w[1] += (wy - ship.w[1]) * kw; ship.w[2] += (wz - ship.w[2]) * kw;
     const wl = Math.hypot(ship.w[0], ship.w[1], ship.w[2]);
-    if (!cruise && !bench.on && wl > 1e-9) { qaxis(dq, 0, ship.w[0] / wl, ship.w[1] / wl, ship.w[2] / wl, wl * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); qnorm(ship.q, 0); }
+    let sm = 0, nx = 0, ny = 1, nz = 0; // surface-flight blend (0 = free 6DoF in space, 1 = plane-like near the ground) and local vertical
+    if (prValid && !cruise && !bench.on && !ap.on) { const o = prBody * 3, d = dist(prBody); nx = (abs[0] - pos[o]) / d; ny = (abs[1] - pos[o + 1]) / d; nz = (abs[2] - pos[o + 2]) / d; sm = smooth(0.045, 0.02, altT / sys.list[prBody].R); }
+    if (!cruise && !bench.on) {
+      const yl = ship.w[1] * (1 - sm), l2 = Math.hypot(ship.w[0], yl, ship.w[2]);
+      if (l2 > 1e-9) { qaxis(dq, 0, ship.w[0] / l2, yl / l2, ship.w[2] / l2, l2 * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
+      if (sm > 0) { // yaw turns around the local vertical; wings level themselves unless you roll
+        if (Math.abs(ship.w[1]) > 1e-9) { qaxis(dq, 0, nx, ny, nz, ship.w[1] * sm * dt); qmul(sq, 0, dq, 0, ship.q, 0); ship.q.set(sq); }
+        qrot(rt, 0, ship.q, 0, 1, 0, 0); qrot(up, 0, ship.q, 0, 0, 1, 0); qrot(fw, 0, ship.q, 0, 0, 0, -1);
+        const rn = rt[0] * nx + rt[1] * ny + rt[2] * nz, un = up[0] * nx + up[1] * ny + up[2] * nz, fn = fw[0] * nx + fw[1] * ny + fw[2] * nz;
+        if (!K.KeyQ && !K.KeyE) { qaxis(dq, 0, 0, 0, -1, Math.atan2(rn, un) * (1 - Math.exp(-dt * 3)) * sm * smooth(0.985, 0.9, Math.abs(fn))); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
+      }
+      qnorm(ship.q, 0);
+    }
     qrot(fw, 0, ship.q, 0, 0, 0, -1);
     if (charge >= 0 && !bench.on) { // supercruise charge-up: align to target, then jump
       const to = target * 3; qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, pos[to] - abs[0], pos[to + 1] - abs[1], pos[to + 2] - abs[2], up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 3));
@@ -1251,15 +1263,17 @@ async function createEngine(canvas, systemId, opts = {}) {
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
-      const vmax = Math.min(Math.min(Math.max(30, alt * (0.08 + 0.27 * smooth(3e4, 3e5, alt))), 3e7) * (K.ShiftLeft || K.ShiftRight ? 6 : 1), 50 + alt * 0.8), acc = vmax * 0.7 * dt; // gentle near surfaces (1 km up: ~80 m/s), heavier inertia
+      const bst = K.ShiftLeft || K.ShiftRight ? 4 + 2 * smooth(3e4, 3e5, alt) : 1, vmax = Math.min(Math.max(30, alt * (0.12 + 0.23 * smooth(3e4, 3e5, alt))), 3e7) * bst, acc = Math.max(vmax * (1.2 + sm), 60) * dt; // 1 km up: 120 m/s; brakes never weaker than 60 m/s2
       qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
-      for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); ship.off[j] += ship.vel[j] * dt; }
+      for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); }
+      { const sp = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); if (sp > vmax) { const k = Math.max(vmax / sp, Math.exp(-dt * 2.5)); ship.vel[0] *= k; ship.vel[1] *= k; ship.vel[2] *= k; } } // drag: arriving too fast for this altitude bleeds off within a second or two
+      for (let j = 0; j < 3; j++) ship.off[j] += ship.vel[j] * dt;
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
     if (ap.on && !bench.on) apStep(dt);
     // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
-    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 2000) * 0.08 - clr) * Math.min(1, dt * 3);
+    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 2000) * 0.03 - clr) * Math.min(1, dt * 3);
     for (let i = 0; i < sys.n; i++) {
       const b = sys.list[i], d = dist(i), o = i * 3, gas = b.def && b.def.surface && b.def.surface.gas;
       const mr = i === prBody && prValid ? b.R * (1 + prH) + clr : b.type === 'station' ? b.R * 1.1 : b.type === 'star' ? b.R * 1.03 : gas ? b.R * 1.004 : b.R + clr;
@@ -1284,7 +1298,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     let heatT = 0;
     if (ia >= 0 && !bench.on && !cruise) { const b = sys.list[ia], f = 1 - ial / (b.R * b.def.atmosphere.height), o = ia * 3, d = dist(ia);
       const dens = smooth(0.02, 0.15, f) * (1 - smooth(0.6, 0.93, f)), vr = -(ship.vel[0] * (abs[0] - pos[o]) + ship.vel[1] * (abs[1] - pos[o + 1]) + ship.vel[2] * (abs[2] - pos[o + 2])) / d;
-      heatT = dens * smooth(0.15, 0.4, (Math.max(vr, 0) + 0.3 * v0) / Math.max(ial, 1)); }
+      heatT = dens * smooth(0.08, 0.22, (Math.max(vr, 0) + 0.3 * v0) / Math.max(ial, 1)); }
     heat += (heatT - heat) * Math.min(1, dt * (heatT > heat ? 2.5 : 1.2)); thump *= Math.exp(-dt * 5); eflash *= Math.exp(-dt * 3); bannerT -= dt;
     // camera
     if (bench.on) { bench.t += dt; benchCam(dt); if (bench.t >= 60) stopBench(true); bench.n++; abs.set(cam); } // HUD distances from the tour camera
