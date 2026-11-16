@@ -870,7 +870,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
-  let photo = false, clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
+  let photo = false, bRamp = 0, clr = 25, heat = 0, thump = 0, eflash = 0, inAtm = -1, lowB = -1, bannerS = '', bannerT = 0, bannerHot = false, hs = 1, showStats = false;
   const banner = (txt, hot) => { bannerS = txt; bannerT = 3.2; bannerHot = hot; };
   const rq = new Float64Array(4), tpr = new Float64Array(3), tv = new Float64Array(3); let tpRef = -1, tpTgt = -1; // target velocity in the ship's reference frame
   const fpr = new Float64Array(3), fv = new Float64Array(3); let fRef = -1, anc = 0; // riding along: velocity of the ship's frame (small body) relative to its parent
@@ -1549,10 +1549,11 @@ async function createEngine(canvas, systemId, opts = {}) {
       warpVis += (Math.min(1, Math.log10(Math.max(cruiseV, 1)) / 9) - warpVis) * Math.min(1, dt * 3);
     } else { // flight-assisted 6DoF Newtonian thrust; speed cap scales with altitude
       warpVis += (0 - warpVis) * Math.min(1, dt * 3); cruiseV = 0;
-      const bst = K.ShiftLeft || K.ShiftRight ? 4 + 2 * smooth(3e4, 3e5, alt) : 1, vmax = Math.min(Math.max(30, alt * (0.12 + 0.23 * smooth(3e4, 3e5, alt))), 3e7) * bst, acc = Math.max(vmax * (1.2 + sm), 60) * dt; // 1 km up: 120 m/s; brakes never weaker than 60 m/s2
+      const bon = K.ShiftLeft || K.ShiftRight; bRamp = bon ? Math.min(1, bRamp + dt / 4) : Math.max(0, bRamp - dt * 2); // afterburner builds up while held
+      const vb = Math.min(Math.max(30, alt * (0.12 + 0.23 * smooth(3e4, 3e5, alt))), 3e7), vmax = bon ? Math.max(vb * 6, 2500 * bRamp * bRamp) : vb, acc = Math.max(vmax * (1.2 + sm), 60) * dt; // 1 km up: 120 m/s; brakes never weaker than 60 m/s2
       qrot(t3, 0, ship.q, 0, inX, inY, inZ); const n = Math.max(1, Math.hypot(inX, inY, inZ)); // analog stick keeps partial throttle
       for (let j = 0; j < 3; j++) { const dv = (t3[j] / n) * vmax - ship.vel[j]; ship.vel[j] += Math.max(-acc, Math.min(acc, dv)); }
-      { const sp = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); if (sp > vmax) { const k = Math.max(vmax / sp, Math.exp(-dt * 2.5)); ship.vel[0] *= k; ship.vel[1] *= k; ship.vel[2] *= k; } } // drag: arriving too fast for this altitude bleeds off within a second or two
+      { const sp = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); if (sp > vmax) { const k = Math.max(vmax / sp, Math.exp(-dt * 1.6)); ship.vel[0] *= k; ship.vel[1] *= k; ship.vel[2] *= k; } } // drag: arriving too fast for this altitude bleeds off within a second or two
       for (let j = 0; j < 3; j++) ship.off[j] += ship.vel[j] * dt;
       ship.thrust += ((inZ < 0 ? 1 : 0) - ship.thrust) * Math.min(1, dt * 5);
     }
@@ -1560,7 +1561,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (wp.on) warpStep(dt);
     // collision: soft cushion + hard floor that keeps the eye a clearance above the probed ground (never inside the terrain)
     abs[0] = pos[ship.ref * 3] + ship.off[0]; abs[1] = pos[ship.ref * 3 + 1] + ship.off[1]; abs[2] = pos[ship.ref * 3 + 2] + ship.off[2];
-    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 2000) * 0.03 - clr) * Math.min(1, dt * 3);
+    const v0 = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]); clr += (25 + Math.min(v0, 3000) * 0.1 - clr) * Math.min(1, dt * 3); // more terrain clearance at speed
     for (let i = 0; i < sys.n; i++) {
       const b = sys.list[i], d = dist(i), o = i * 3, gas = b.def && b.def.surface && b.def.surface.gas;
       const mr = i === prBody && prValid ? b.R * (1 + prH) + clr : b.type === 'station' ? b.R * 1.1 : b.type === 'star' ? b.R * 1.03 : gas ? b.R * 1.004 : b.R + clr;

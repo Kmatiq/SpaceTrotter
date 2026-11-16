@@ -60,7 +60,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 ### Fly to the surface (real satellite data for Earth and the Moon)
 
 - **Flight near surfaces:** top speed is tied to altitude: about 120 m/s at 1 km, 1.2 km/s at 10 km, and a
-  30 m/s minimum. Boost is ×4 near the ground. Arriving faster than the limit bleeds off through drag within a
+  30 m/s minimum. Near the ground, boost works like an afterburner: hold it and it builds over about 4 s to about 2.5 km/s, fast enough to fly between continents. Terrain clearance grows with speed (up to about 270 m). Arriving faster than the limit bleeds off through drag within a
   second or two, and letting go of the controls brakes to a full stop. Below about 4 % of the body's radius the
   controls blend into plane-like flight: yaw turns around the local vertical and the wings level themselves
   (roll with Q/E still works), with strafe and up/down unchanged.
