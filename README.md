@@ -111,12 +111,12 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
   coloured glows, with their name and distance near the crosshair. Their positions shift with parallax once you
   leave Sol.
 - **Warp:** tap a star (or find it in **FIND**) and press **WARP**. The trip takes about 13 s whatever the
-  distance. It uses real relativistic optics instead of the usual light streaks:
-  1. **Spool:** the ship turns to the star and the sky begins to aberrate. Stars ahead blueshift and stars behind
-     redshift.
-  2. **Fold:** near light speed the whole sky crowds forward into a thin starbow ring and space behind goes dark.
-     A soft ripple and pulse marks each light-year, with a countdown and a rising two-note choir.
-  3. **Bloom:** a flash, then you glide in to a planet.
+  distance:
+  1. **Spool:** the ship turns to the star. The sky aberrates, blueshifting ahead and redshifting behind, and
+     stars start to stretch.
+  2. **Jump:** the stars become long streaks rushing past as the field of view widens, then they flash into a
+     swirling, flowing tunnel of light. The ship shakes and a deep roar plays, with a light-year countdown.
+  3. **Exit:** the tunnel collapses and the streaks retract to points as you glide in to a planet.
 - **Destinations:** stars with confirmed planets use those real planets (Proxima b/d, TRAPPIST-1 b-h, Ross 128 b,
   Gliese 581, Epsilon Eridani b, 51 Pegasi b, Kepler-452 b). Other systems are generated from the star's name, so
   they're the same on every visit. Warp to **Sol** to go home.

@@ -516,9 +516,13 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
  if(g.wp.x>0.){let u=(f.xy-g.res.xy*.5)/g.res.y;let r=length(u);let a=atan2(u.y,u.x);
   let s=pow(vn(vec3f(a*24.,r*3.-g.mi.x*14.,0.)).x*.5+.5,10.)*smoothstep(.05,.6,r)*g.wp.x;c+=vec3f(.55,.75,1.)*s*.8;}
  c+=vec3f(.75,.85,1.)*g.wp.y*3.;
- if(g.wv.w>0.){let f=g.wv.w;let rr=mix(.6,.13,f*f);let dr=(hr-rr)/(.02+.05*(1.-f));// starbow: thin ring where the crowded sky piles up, blue inside, warm outside
-  c+=mix(vec3f(.5,.7,1.),vec3f(1.,.78,.55),clamp(dr*.3+.5,0.,1.))*exp(-dr*dr)*.2*f+vec3f(.55,.7,1.)*exp(-hr*hr/(rr*rr*.3))*.1*f*f;
-  if(g.wv.y>0.){let pr=g.wv.y*1.3;c+=vec3f(.6,.8,1.)*exp(-pow((hr-pr)*70.,2.))*(1.-g.wv.y)*.25*g.wv.w;}c*=1.-.55*g.wv.w*smoothstep(.35,.95,hr);}
+ if(g.wv.y>0.||g.wv.w>0.){let t=g.mi.x;let A=ha/6.2832+.5;let lr=log(max(hr,.002));
+  let ac=floor(A*720.);let rh=hf(vec3i(i32(ac),3,9));let ao=abs(fract(A*720.)-.5);// hyperspace streaks: thin radial lines rushing outward, lengthening with the jump
+  let d=fract(lr*.9-t*(1.6+rh*2.2)+rh*7.);let L=.04+.9*g.wv.y;let sg=smoothstep(1.-L,1.,d)*smoothstep(1.,.985,d);
+  c+=mix(vec3f(.55,.7,1.),vec3f(1.),rh)*(1.-smoothstep(.0,.16,ao))*sg*step(.45,rh)*smoothstep(.04,.35,hr)*g.wv.y*2.2;
+  let tw=g.wv.w;if(tw>0.){let z=.3/max(hr,.015);let a2=ha+z*.18+t*.35;let tc=vec3f(cos(a2)*1.8,sin(a2)*1.8,z*1.4-t*9.);// flowing tunnel of light
+   let n1=vn(tc).x*.5+.5;let n2=vn(tc*2.3+vec3f(3.)).x*.5+.5;let wl=pow(clamp(n1*.7+n2*.45,0.,1.3),3.);
+   let tcol=mix(vec3f(.03,.1,.55),vec3f(.75,.88,1.),clamp(wl*wl,0.,1.))*wl*1.15+vec3f(.6,.8,1.)*exp(-hr*9.)*.9;c=mix(c,tcol,tw*.92);}}
  c+=vec3f(1.,.93,.85)*g.wv.z*(2.2*exp(-hr*2.5)+.6);
  if(g.fx.x>0.){let t=g.mi.x;let n1=vn(vec3f(cos(ha)*9.+9.,sin(ha)*9.,hr*5.-t*9.)).x*.5+.5;let n2=vn(vec3f(cos(ha)*22.,sin(ha)*22.+4.,hr*12.-t*19.)).x*.5+.5;
   let fl=pow(clamp(n1*.65+n2*.4,0.,1.2),5.)*he;let gl=pow(smoothstep(.35,1.,hr),3.)*g.fx.x;
@@ -823,8 +827,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     au.hg.gain.setTargetAtTime(thr * 0.03 * (1 + boost * 1.5), t, 0.2); au.hf.frequency.setTargetAtTime(1200 + boost * 1500, t, 0.3);
     au.wg.gain.setTargetAtTime(w * 0.12 + chg * 0.06 + ht * 0.22, t, 0.2); au.wf.frequency.setTargetAtTime(180 + w * 2600 + chg * 800 + ht * 700, t, 0.2);
     au.sg.gain.setTargetAtTime(chg * 0.03 + w * 0.006, t, 0.08);
-    au.pg.gain.setTargetAtTime(wf * 0.05, t, 0.3); au.p1.frequency.setTargetAtTime(196 + wf * 98, t, 0.6); au.p2.frequency.setTargetAtTime(294 + wf * 147 + Math.sin(t * 0.7) * 3, t, 0.6); // warp choir: a slow rising fifth
-    if (wf > 0) { au.wg.gain.setTargetAtTime(wf * 0.18, t, 0.3); au.wf.frequency.setTargetAtTime(400 + wf * 1800, t, 0.4); } au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
+    au.pg.gain.setTargetAtTime(wf * 0.025, t, 0.3); au.p1.frequency.setTargetAtTime(196 + wf * 98, t, 0.6); au.p2.frequency.setTargetAtTime(294 + wf * 147 + Math.sin(t * 0.7) * 3, t, 0.6); // warp choir: a slow rising fifth
+    if (wf > 0) { au.wg.gain.setTargetAtTime(wf * 0.26, t, 0.2); au.wf.frequency.setTargetAtTime(500 + wf * 1500 + Math.sin(t * 3) * 200, t, 0.2); } // tunnel roar au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
   function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
   let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
@@ -1090,7 +1094,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     hn = 0; const ch = canvas.clientHeight || H, s = hs = (H / ch) * Math.max(0.85, Math.min(1.45, ch / 850)), cx = W / 2, cy = H / 2; // HUD scale from CSS size: readable on phones and 4K alike
     if (photo && !mp.on) return; // photo mode: no HUD at all
     if (wp.on) { const st = STARS[wp.dest], rem = wp.ly * (1 - smooth(0, 1, Math.min(1, Math.max(0, (wp.t - WT1) / WT2)))), a = wp.t > WT1 + WT2 ? Math.max(0, 1 - (wp.t - WT1 - WT2) / WT3 * 2) : 1;
-      ts(wp.t < WT1 ? 'SPOOLING' : wp.t < WT1 + WT2 ? 'FOLDING SPACE' : 'ARRIVING'); tout(cx, H - 120 * s, 15 * s, 0.6, 0.85, 1, 0.8 * a, 0.5);
+      ts(wp.t < WT1 ? 'SPOOLING' : wp.t < WT1 + WT2 ? 'IN WARP' : 'ARRIVING'); tout(cx, H - 120 * s, 15 * s, 0.6, 0.85, 1, 0.8 * a, 0.5);
       ts(st.name); tout(cx, H - 98 * s, 28 * s, 1, 1, 1, a, 0.5); tn(rem, rem < 10 ? 2 : 1); ts(' ly'); tout(cx, H - 58 * s, 20 * s, 1, 0.8, 0.4, a, 0.5);
       const bw = 160 * s, pr = Math.min(1, wp.t / (WT1 + WT2)); seg(cx - bw, H - 28 * s, cx + bw, H - 28 * s, 0.3, 0.4, 0.5, 0.4 * a, 3 * s); seg(cx - bw, H - 28 * s, cx - bw + 2 * bw * pr, H - 28 * s, 1, 0.8, 0.4, a, 3 * s); return; }
     if (mp.a > 0.02) { mapHud(s); return; }
@@ -1260,15 +1264,16 @@ async function createEngine(canvas, systemId, opts = {}) {
   const starDir = (k, o) => { const a = STARS[k].p, b = STARS[here].p; let x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2]; const l = Math.hypot(x, y, z) || 1; o[0] = x / l; o[1] = y / l; o[2] = z / l; return l; };
   function warpTo(k) {
     if (k < 0 || k === here || wp.on || bench.on || mp.on) return false; audioInit(); mp.on = false; ap.on = ap.pend = false; cruise = false; charge = -1; wsel = -1;
-    wp.on = true; wp.t = 0; wp.dest = k; wp.ly = starDir(k, wp.dir); wp.swapped = false; wp.np = 0; wp.flash = 0; ship.vel.fill(0); ship.w.fill(0);
+    wp.on = true; wp.t = 0; wp.inT = false; wp.streak = 0; wp.dest = k; wp.ly = starDir(k, wp.dir); wp.swapped = false; wp.np = 0; wp.flash = 0; ship.vel.fill(0); ship.w.fill(0);
     banner('WARP - ' + STARS[k].name.toUpperCase(), true); whoosh(2.5, 120, 900, 0.14); return true;
   }
   function warpStep(dt) {
     wp.t += dt; const t = wp.t, st = STARS[wp.dest];
-    if (t < WT1) { const u = t / WT1; wp.beta = 0.35 * u * u; wp.fold = 0.25 * u; // spool: face the destination
+    if (t < WT1) { const u = t / WT1; wp.beta = 0.3 * u * u; wp.fold = 0; wp.streak = 0.35 * u * u; // spool: face the destination, stars begin to stretch
       qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, wp.dir[0], wp.dir[1], wp.dir[2], up[0], up[1], up[2]); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 3)); }
-    else if (t < WT1 + WT2) { const u = (t - WT1) / WT2, e = Math.sin(Math.PI * u); wp.beta = 0.35 + 0.643 * smooth(0, 0.35, u) * smooth(1, 0.7, u); wp.fold = 0.25 + 0.75 * Math.min(1, e * 1.4);
-      const np = Math.min(Math.max(4, Math.floor(wp.ly)), 24), pk = Math.floor(u * np); if (pk > wp.np) { wp.np = pk; wp.pulse = 0.001; blip(150, 70, 0.45, 'sine', 0.1); }
+    else if (t < WT1 + WT2) { const u = (t - WT1) / WT2; wp.beta = 0.3 + 0.35 * smooth(0, 0.1, u) * smooth(1, 0.85, u); wp.streak = 0.35 + 0.65 * smooth(0, 0.08, u); wp.fold = smooth(0.06, 0.16, u) * smooth(0.95, 0.84, u); // jump: streaks, then the tunnel
+      if (u > 0.06 && !wp.inT) { wp.inT = true; wp.flash = 0.5; whoosh(2.2, 200, 3000, 0.22); } wp.flash *= Math.exp(-dt * 4);
+      const np = Math.min(Math.max(4, Math.floor(wp.ly)), 24), pk = Math.floor(u * np); if (pk > wp.np) { wp.np = pk; blip(120, 60, 0.35, 'sine', 0.05); }
       if (!wp.swapped && u >= 0.5) { // mid-fold: swap to the destination system, start far out on the line towards the star
         wp.swapped = true; if (!STAR_SYSTEMS[st.id]) registerStarSystem(st.id === 'sol' ? STAR_SYSTEMS.sol : starDef(st)); switchStarSystem(st.id); here = wp.dest;
         wp.sp = ship.ref; for (let j = 0; j < 3; j++) wp.end[j] = ship.off[j]; wp.endQ.set(ship.q); // spawn pose (relative to its planet)
@@ -1279,11 +1284,10 @@ async function createEngine(canvas, systemId, opts = {}) {
       else { const w = (u - 0.5) / 0.5, rx = wp.st[0] - wp.end[0], ry = wp.st[1] - wp.end[1], rz = wp.st[2] - wp.end[2], K = Math.max(1, Math.log(Math.hypot(rx, ry, rz) / 400 + 1)), f = (Math.exp(-K * w) - Math.exp(-K)) / (1 - Math.exp(-K));
         ship.ref = wp.sp; ship.off[0] = wp.end[0] + rx * f; ship.off[1] = wp.end[1] + ry * f; ship.off[2] = wp.end[2] + rz * f; // exponential glide in
         qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, -ship.off[0], -ship.off[1], -ship.off[2], up[0], up[1], up[2]); qslerp(ship.q, 0, smooth(0.6, 1, w) > 0 ? wp.endQ : dq, 0, 1 - Math.exp(-dt * 2)); }
-    } else { const u = Math.min(1, (t - WT1 - WT2) / WT3); wp.beta = 0.35 * (1 - u) * (1 - u); wp.fold = 0.25 * (1 - u); wp.flash = u < 0.15 ? u / 0.15 : Math.max(0, 1 - (u - 0.15) / 0.6);
+    } else { const u = Math.min(1, (t - WT1 - WT2) / WT3); wp.beta = 0.3 * (1 - u) * (1 - u); wp.fold = 0; wp.streak = (1 - u) * (1 - u); wp.flash = u < 0.1 ? u / 0.1 * 0.6 : Math.max(0, 0.6 - (u - 0.1)); // exit: streaks retract to points
       if (u < 0.05 && wp.np >= 0) { wp.np = -1; whoosh(1.6, 2500, 150, 0.16); chime(true); }
       ship.ref = wp.sp; for (let j = 0; j < 3; j++) ship.off[j] = wp.end[j]; qslerp(ship.q, 0, wp.endQ, 0, 1 - Math.exp(-dt * 4));
-      if (u >= 1) { wp.on = false; wp.beta = wp.fold = wp.flash = 0; banner('ARRIVED - ' + st.name.toUpperCase() + (st.id === 'sol' ? '' : ' SYSTEM'), false); } }
-    if (wp.pulse > 0) { wp.pulse += dt / 0.9; if (wp.pulse >= 1) wp.pulse = 0; }
+      if (u >= 1) { wp.on = false; wp.beta = wp.fold = wp.flash = wp.streak = 0; banner('ARRIVED - ' + st.name.toUpperCase() + (st.id === 'sol' ? '' : ' SYSTEM'), false); } }
     ship.vel.fill(0); ship.w.fill(0);
   }
   // ---- 3D system map: the real camera flies out of the ship to an orbiting overview and back ----
@@ -1437,7 +1441,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         if (prValid) { const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), g = sys.list[prBody].R * (1 + prH) + 10; // chase cam never dips into the ground
           if (d < g) for (let j = 0; j < 3; j++) cam[j] = pos[o + j] + (cam[j] - pos[o + j]) * (g / d); }
       } else cam.set(abs);
-      const sh = heat * 0.006 + thump * 0.018; // buffeting during re-entry, jolt on touchdown
+      const sh = heat * 0.006 + thump * 0.018 + (wp.on ? wp.fold * 0.004 + wp.flash * 0.012 : 0); // buffeting during re-entry, jolt on touchdown
       if (sh > 1e-4) { const t = now * 0.001, ax = Math.sin(t * 41) + Math.sin(t * 67 + 1), ay = Math.sin(t * 53 + 2) + Math.sin(t * 29 + 4), al = Math.hypot(ax, ay) || 1;
         qaxis(dq, 0, ax / al, ay / al, 0, sh * al * 0.5); qmul(sq, 0, camQ, 0, dq, 0); camQ.set(sq); }
     }
@@ -1452,7 +1456,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     toastT -= dt; tgtT += dt; flash *= Math.exp(-dt * 3.5);
     const boosting = (K.ShiftLeft || K.ShiftRight) && spd > 50 && !cruise ? 1 : 0, thr = Math.min(1, Math.hypot(inX, inY, inZ));
-    const fovT = (65 + boosting * 9 + warpVis * 16 - (charge >= 0 ? (1.2 - charge) * 4 : 0)) * D2R; fov += (fovT - fov) * Math.min(1, dt * 4);
+    const fovT = (65 + boosting * 9 + warpVis * 16 + (wp.on ? wp.streak * 12 + wp.fold * 10 : 0) - (charge >= 0 ? (1.2 - charge) * 4 : 0)) * D2R; fov += (fovT - fov) * Math.min(1, dt * 4);
     audioFrame(thr, boosting, charge >= 0 ? 1 - charge / 1.2 : 0, heat, wp.on ? wp.fold : 0);
 
     // ---- globals ----
@@ -1469,7 +1473,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     gF[40] = simT % 10000; gF[41] = warpVis; gF[42] = exposure; gF[43] = (2 * ty) / H;
     if (project(sx, sy, sz)) { gF[44] = scr[0] / W; gF[45] = scr[1] / H; gF[46] = Math.max(2, (sR / scr[2]) / ty * H * 0.5); gF[47] = 1; gF[50] = (near * sd) / (Math.max(sd - sR, 1) * scr[2]); }
     else gF[47] = 0;
-    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1; gF[55] = (1 - 0.85 * mp.a) * (1 - wp.fold); gF[56] = wp.beta; gF[57] = wp.pulse; gF[58] = wp.flash; gF[59] = wp.fold; // sun glare dimmed in map view; warp optics
+    gF[48] = warpVis; gF[49] = flash; gF[52] = heat; gF[53] = eflash; gF[54] = tc.on ? 0 : 1; gF[55] = (1 - 0.85 * mp.a) * (1 - wp.fold); gF[56] = wp.beta; gF[57] = wp.on ? wp.streak : 0; gF[58] = wp.flash; gF[59] = wp.fold; // sun glare dimmed in map view; warp optics
 
     // ---- bodies: dynamic block (camera-relative centre computed in f64), sorted far → near ----
     let nb = 0; const L = sys.def.scale;
