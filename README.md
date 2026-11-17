@@ -6,7 +6,7 @@ model or audio files.
 
 **Play in the browser:** https://kmatiq.github.io/spaceroam/ (desktop Chrome, deployed from `main` by `.github/workflows/pages.yml`)
 
-**Share as one file:** download https://kmatiq.github.io/spaceroam/spaceroam.html (or run `npm run single`). That one ~233 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
+**Share as one file:** in the game, ☰ → **Download game file**, or download https://kmatiq.github.io/spaceroam/spaceroam.html directly (or run `npm run single`). Don't use the browser's "Save page" on the main site: that splits the page into an HTML file plus a folder, which won't run from disk. That one ~233 KB HTML file contains everything: send it to anyone and they double-click it. They need desktop Chrome or Edge, or another browser with WebGPU.
 
 ```bash
 npm install

@@ -2038,6 +2038,7 @@ function Overlay({ eng }) {
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
+        {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spaceroam.html'; a.download = 'spaceroam.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
         {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
