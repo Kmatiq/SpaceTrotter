@@ -1607,19 +1607,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     let sm = 0, nx = 0, ny = 1, nz = 0; // surface-flight blend (0 = free 6DoF in space, 1 = plane-like near the ground) and local vertical
     if (prValid && !cruise && !bench.on && !ap.on) { const o = prBody * 3, d = dist(prBody); nx = (abs[0] - pos[o]) / d; ny = (abs[1] - pos[o + 1]) / d; nz = (abs[2] - pos[o + 2]) / d; sm = smooth(0.045, 0.02, altT / sys.list[prBody].R); }
     if (!cruise && !bench.on) {
-      const yl = ship.w[1], l2 = Math.hypot(ship.w[0], yl, ship.w[2]); // full body yaw here; the plane-mode block below swaps part of it for yaw about the vertical
+      const yl = ship.w[1], l2 = Math.hypot(ship.w[0], yl, ship.w[2]); // same free 6DoF steering everywhere (no plane mode)
       if (l2 > 1e-9) { qaxis(dq, 0, ship.w[0] / l2, yl / l2, ship.w[2] / l2, l2 * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
-      if (sm > 0) { // plane-like near the ground: yaw about the local vertical, wings level themselves (only when the nose is not steeply up/down)
-        qrot(fw, 0, ship.q, 0, 0, 0, -1); const fn0 = fw[0] * nx + fw[1] * ny + fw[2] * nz, gate = sm * smooth(0.9, 0.6, Math.abs(fn0)); // steep dive / climb: free 6DoF, no auto-level
-        if (Math.abs(ship.w[1]) > 1e-9 && gate > 0) { qaxis(dq, 0, 0, 1, 0, -ship.w[1] * gate * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); qaxis(dq, 0, nx, ny, nz, ship.w[1] * gate * dt); qmul(sq, 0, dq, 0, ship.q, 0); ship.q.set(sq); } // swap body yaw for yaw about the vertical
-        if (!K.KeyQ && !K.KeyE && gate > 0) {
-          qrot(rt, 0, ship.q, 0, 1, 0, 0); qrot(up, 0, ship.q, 0, 0, 1, 0); qrot(fw, 0, ship.q, 0, 0, 0, -1);
-          let hx = fw[1] * nz - fw[2] * ny, hy = fw[2] * nx - fw[0] * nz, hz = fw[0] * ny - fw[1] * nx; const hl = Math.hypot(hx, hy, hz); // level "right" = forward x up(vertical)
-          if (hl > 0.3) { hx /= hl; hy /= hl; hz /= hl;
-            const err = Math.atan2((rt[1] * hz - rt[2] * hy) * fw[0] + (rt[2] * hx - rt[0] * hz) * fw[1] + (rt[0] * hy - rt[1] * hx) * fw[2], rt[0] * hx + rt[1] * hy + rt[2] * hz); // signed roll error about forward, continuous
-            const step = Math.max(-1.2 * dt, Math.min(1.2 * dt, err * (1 - Math.exp(-dt * 2.5)) * gate)); // rate-limited: never a snap
-            qaxis(dq, 0, 0, 0, -1, step); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); } }
-      }
       qnorm(ship.q, 0);
     }
     qrot(fw, 0, ship.q, 0, 0, 0, -1);

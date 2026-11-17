@@ -47,7 +47,7 @@ renders at your screen's full resolution.*
 ## What you can do
 
 - **Fly anywhere:** 6-degrees-of-freedom flight with no gimbal lock. Supercruise between planets, then
-  re-enter the atmosphere (with a plasma sheath) and fly low over the ground with plane-like controls and an
+  re-enter the atmosphere (with a plasma sheath) and fly low over the ground with the same free controls and an
   afterburner. You can land.
 - **Real places:** about 190 landmarks: European capitals and big cities, famous mountains, oceans and seas,
   the Apollo sites, lunar craters, Olympus Mons and the Mars rover sites. **FIND** searches them, plus every
