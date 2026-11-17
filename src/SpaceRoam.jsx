@@ -1895,6 +1895,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       const mo = m * 3, mx = pos[mo] - ex, my = pos[mo + 1] - ey, mz = pos[mo + 2] - ez, ml = Math.hypot(mx, my, mz), el = Math.acos((-ex * mx - ey * my - ez * mz) / (l * ml)) / D2R;
       return { date: new Date((jdNow() - 2440587.5) * 86400000).toISOString(), earthHelioLon: ((Math.atan2(-ez, ex) / D2R) + 360) % 360, subsolarLat: Math.asin(t3[1]) / D2R, subsolarLon: Math.atan2(-t3[2], t3[0]) / D2R, moonElongation: el,
         marsHelioLon: ((Math.atan2(-pos[sys.idx.mars * 3 + 2], pos[sys.idx.mars * 3]) / D2R) + 360) % 360, jupiterHelioLon: ((Math.atan2(-pos[sys.idx.jupiter * 3 + 2], pos[sys.idx.jupiter * 3]) / D2R) + 360) % 360 }; },
+    bodyPos: (id) => { const i = sys.idx[id]; return i === undefined ? null : [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], sys.list[i].R]; }, // debug / screenshots
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
