@@ -146,10 +146,10 @@ controls. Stops on a night side are lit: the light direction is moved for the to
 
 ### Moon and Mars relief, real size ratios
 
-- **Moon and Mars relief:** heights come from NASA Trek's colour-shaded laser altimetry: LRO LOLA for the Moon
-  (to zoom 5) and MGS MOLA for Mars (to zoom 6). The colour ramp (blue low, then cyan, green and yellow, up to
-  red or white high) is decoded to height on the CPU when a tile arrives. Shadowed pixels are filled from their
-  neighbours and JPEG blocks are smoothed, then the tile is uploaded as 16-bit height. Relief
+- **Moon and Mars relief:** heights come from NASA Trek's real 8-bit DEM tiles, LRO LOLA DEM v04 for the Moon
+  (-9,100 to 10,800 m) and the MOLA 128/64 merge for Mars (-8,200 to 21,200 m), both to zoom 5. They're decoded
+  on the CPU when a tile arrives: masked pixels are filled from their neighbours and the 8-bit steps are smoothed,
+  then uploaded as 16-bit height. Relief
   is shown at 1.5× on top of the photo mosaics, so Tycho, Theophilus, Olympus Mons and Valles Marineris are real
   3D terrain for landing, collision and the horizon march.
 - **Collision:** the ground probe now samples the finest available map tiles, the same terrain that is drawn.

@@ -367,7 +367,7 @@ fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,selec
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 // colour-shaded altimetry (LOLA / MOLA): hue runs blue (low) -> cyan -> green -> yellow -> red / white (high); hillshading only changes brightness
 fn d16(c:vec4f)->f32{return (c.r*65280.+c.g*255.)/65535.;}// relief tiles: height pre-decoded on the CPU
-fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true),log2(3.1416/(256.*fp)),select(5,6,ms),true,4096u);if(r.x<0.){return vec2f(0.);}
+fn relief(n:vec3f,fp:f32,ms:bool)->vec2f{let r=tsel(select(2u,3u,ms),tuv(n,true),log2(3.1416/(256.*fp)),5,true,4096u);if(r.x<0.){return vec2f(0.);}
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=d16(textureLoad(TA,c0,L,0));let bb=d16(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=d16(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=d16(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
@@ -861,9 +861,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
-    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_LOLA_ClrShade_Global_128ppd_v04/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // LOLA colour-shaded altimetry
-    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`]; // MOLA colour-shaded altimetry
-  const TZM = [13, 12, 8, 7, 5, 6], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+    (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_LOLA_DEM_Global_128ppd_v04/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // LOLA DEM, 8-bit grey: -9100..10800 m
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/mola128_mola64_merge_90Nto90S_SimpleC_clon0/1.0.0/default/default028mm/${z}/${y}/${x}.png`]; // MOLA DEM, 8-bit grey: -8200..21200 m
+  const TZM = [13, 12, 8, 7, 5, 5], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -882,8 +882,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   function reliefUpload(bm, sl) {
     rcx.clearRect(0, 0, 256, 256); rcx.drawImage(bm, 0, 0, 256, 256); const d = rcx.getImageData(0, 0, 256, 256).data;
     for (let i = 0; i < 65536; i++) { const r = d[i * 4] / 255, g = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255, mx = Math.max(r, g, b), dl = mx - Math.min(r, g, b);
-      if (dl < 0.12 * mx || mx < 0.06) { rh[i] = mx > 0.8 ? 1 : -1; continue; } // grey: white peak, or shadow (unknown)
-      let h = mx === r ? (g - b) / dl : mx === g ? 2 + (b - r) / dl : 4 + (r - g) / dl; h = (((h / 6) % 1) + 1) % 1; if (h > 0.85) h = 0; rh[i] = Math.min(1, Math.max(0, (0.7 - h) / 0.7)); }
+      rh[i] = d[i * 4 + 3] < 180 ? -1 : r; } // 8-bit grey DEM (r = height 0..1 over the body's range); masked pixels are unknown and get filled
     for (let pass = 0; pass < 12; pass++) { let left = 0; rtmp.set(rh); // fill unknown pixels from known neighbours
       for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const i = y * 256 + x; if (rh[i] >= 0) continue; let s = 0, n = 0;
         if (x > 0 && rh[i - 1] >= 0) { s += rh[i - 1]; n++; } if (x < 255 && rh[i + 1] >= 0) { s += rh[i + 1]; n++; } if (y > 0 && rh[i - 256] >= 0) { s += rh[i - 256]; n++; } if (y < 255 && rh[i + 256] >= 0) { s += rh[i + 256]; n++; }
