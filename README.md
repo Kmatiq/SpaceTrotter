@@ -16,8 +16,8 @@ take pictures.
 
 | | |
 | --- | --- |
-| ▶ **Play in the browser** | **https://kmatiq.github.io/spacetrotter/** |
-| ⬇ **Download the game (one file)** | **[spacetrotter.html](https://kmatiq.github.io/spacetrotter/spacetrotter.html)**: right-click → *Save link as…*, or in the game ☰ → **Download game file**. Double-click the file to play. |
+| ▶ **Play in the browser** | **https://kmatiq.github.io/SpaceTrotter/** |
+| ⬇ **Download the game (one file)** | **[spacetrotter.html](https://kmatiq.github.io/SpaceTrotter/spacetrotter.html)**: right-click → *Save link as…*, or in the game ☰ → **Download game file**. Double-click the file to play. |
 
 - **Domain:** spacetrotter.app is the planned home; for now it lives on GitHub Pages.
 - **Browsers:** needs WebGPU. That means desktop Chrome or Edge, Chrome on Android 12+, or Safari on
