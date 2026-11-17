@@ -2001,9 +2001,9 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     { t: 'Zoom out to the galaxy', b: 'Drag to rotate the map, then tap GALAXY to fly out to the whole Milky Way.', sel: 'galaxy', done: () => !!ui.galaxy },
     { t: 'The Milky Way', b: 'This is our galaxy, with the Andromeda galaxy and others further out. Tap a star or galaxy to warp there. Tap CLOSE to come back.', done: () => !ui.galaxy && !ui.map.on },
     { t: 'Guided tours', b: 'TOURS takes you on guided trips: the capitals of Europe, famous mountains, the Moon landings, Mars...', sel: 'tours', done: () => st.tours },
-    { t: 'Pick one any time', b: 'The ship flies itself from stop to stop and tells you about each place.', ok: 'Got it', after: () => setTours(false) },
+    { t: 'Pick one any time', b: 'The ship flies itself from stop to stop and tells you about each place.', ok: 'Got it', pos: 'left', after: () => setTours(false) },
     { t: 'The menu', b: 'Sound, camera, photo mode, real-time orbits, the game file download and this tutorial live here.', sel: 'menu', done: () => st.menu },
-    { t: 'Photo mode', b: 'Photo mode hides everything so you can take clean pictures. Replay tutorial is at the bottom.', ok: 'Got it', after: () => setMenu(false) },
+    { t: 'Photo mode', b: 'Photo mode hides everything so you can take clean pictures. Replay tutorial is at the bottom.', ok: 'Got it', pos: 'left', after: () => setMenu(false) },
     { end: true },
   ];
   const s = S[i], t0 = useRef(performance.now()), next = () => { if (s.after) s.after(); was.current = false; base.current = { ...ui.tut }; t0.current = performance.now(); setI(i + 1); };
@@ -2015,7 +2015,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
   const el = s.sel ? document.querySelector('[data-tut="' + s.sel + '"]') : null;
   if (el && el.dataset.tutSeen !== String(i)) { el.dataset.tutSeen = String(i); el.scrollIntoView({ block: 'nearest' }); } // e.g. Mars further down the target list
   const r = el ? el.getBoundingClientRect() : null;
-  const box = { ...panel, boxSizing: 'border-box', pointerEvents: 'auto', position: 'absolute', zIndex: 21, padding: '16px 18px', lineHeight: 1.45, fontSize: 14, width: 'min(420px, calc(100% - 32px))', borderColor: 'rgba(255,195,90,.6)', boxShadow: '0 8px 40px rgba(0,0,0,.6)' };
+  const box = { ...panel, boxSizing: 'border-box', ...(s.pos === 'left' ? { maxWidth: 'calc(100% - 420px)', minWidth: 240 } : {}), pointerEvents: 'auto', position: 'absolute', zIndex: 21, padding: '16px 18px', lineHeight: 1.45, fontSize: 14, width: 'min(420px, calc(100% - 32px))', borderColor: 'rgba(255,195,90,.6)', boxShadow: '0 8px 40px rgba(0,0,0,.6)' };
   const btnS = (hi) => ({ ...panel, cursor: 'pointer', padding: '10px 16px', fontSize: 13, letterSpacing: 1, ...(hi ? { borderColor: C.warn, color: C.warn } : {}) });
   const skip = <span onClick={finish} style={{ cursor: 'pointer', color: C.dim, fontSize: 12, textDecoration: 'underline' }}>Skip tutorial</span>;
   if (s.welcome || s.end) return (
@@ -2115,7 +2115,6 @@ function Overlay({ eng }) {
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
-        <div style={{ padding: '6px 14px 4px', fontSize: 10, color: C.dim }}>Version {typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'}</div>
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spacetrotter.html'; a.download = 'spacetrotter.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
@@ -2123,6 +2122,7 @@ function Overlay({ eng }) {
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
         {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
         {item('bench', ui.bench ? 'Stop benchmark' : 'Run benchmark', ui.bench, () => { eng.act('KeyB'); setMenu(false); })}
+        <div style={{ padding: '6px 14px 4px', fontSize: 10, color: C.dim }}>Version {typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'}</div>
       </div>}
       {/* target list */}
       {list && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, bottom: 12, width: 'min(340px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
