@@ -969,6 +969,17 @@ async function createEngine(canvas, systemId, opts = {}) {
   function whoosh(dur, f0, f1, vol) { const c = au.ctx; if (!c || !au.on) return; const t = c.currentTime, n = c.createBufferSource(), b = c.createBiquadFilter(), g = c.createGain();
     n.buffer = au.nb; b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(f0, t); b.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(b); b.connect(g); g.connect(au.m); n.start(t); n.stop(t + dur); }
+  function swoosh(deep) { // arrival whoosh: rushing air sweeping down + a soft sub-bass swell (deep = warp arrival: darker, longer, echo)
+    const c = au.ctx; if (!c || !au.on) return; const t = c.currentTime, D = deep ? 3.2 : 1.7;
+    const layer = (f0, f1, q, vol, at, dur, delay) => { const n = c.createBufferSource(), b = c.createBiquadFilter(), g = c.createGain(), t0 = t + delay;
+      n.buffer = au.nb; n.playbackRate.value = deep ? 0.6 : 1; b.type = 'bandpass'; b.Q.value = q; b.frequency.setValueAtTime(f0, t0); b.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + at); g.gain.setTargetAtTime(0.0001, t0 + at, (dur - at) / 3.2); // long smooth tail
+      n.connect(b); b.connect(g); g.connect(au.m); n.start(t0); n.stop(t0 + dur * 1.3); };
+    const sub = (f0, f1, vol, dur) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(au.m); o.start(t); o.stop(t + dur + 0.05); };
+    if (!deep) { layer(2600, 260, 0.9, 0.34, 0.1, D, 0); layer(5200, 900, 1.6, 0.08, 0.06, D * 0.7, 0); sub(95, 42, 0.1, D * 0.8); }
+    else { layer(1100, 70, 0.7, 0.4, 0.3, D, 0); layer(2400, 180, 1.1, 0.1, 0.2, D * 0.8, 0); sub(62, 26, 0.2, D); layer(900, 60, 0.7, 0.13, 0.35, D, 0.32); } // last layer = soft echo
+  }
   const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.1); blip(990, 990, 0.5, 'sine', 0.09, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.08, 0.26); blip(1760, 1760, 1.2, 'sine', 0.06, 0.42); } };
   function audioFrame(thr, boost, chg, ht, wf) {
     const c = au.ctx; if (!c) return; const t = c.currentTime, w = warpVis;
@@ -979,7 +990,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     au.pg.gain.setTargetAtTime(wf * 0.025, t, 0.3); au.p1.frequency.setTargetAtTime(196 + wf * 98, t, 0.6); au.p2.frequency.setTargetAtTime(294 + wf * 147 + Math.sin(t * 0.7) * 3, t, 0.6); // warp choir: a slow rising fifth
     if (wf > 0) { au.wg.gain.setTargetAtTime(wf * 0.26, t, 0.2); au.wf.frequency.setTargetAtTime(500 + wf * 1500 + Math.sin(t * 3) * 200, t, 0.2); } // tunnel roar au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
-  function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
+  function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; swoosh(false); }
   let tutLook = 0, tutMove = 0, mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
@@ -1498,7 +1509,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         ship.ref = wp.sp; ship.off[0] = wp.end[0] + rx * f; ship.off[1] = wp.end[1] + ry * f; ship.off[2] = wp.end[2] + rz * f; // exponential glide in
         qrot(up, 0, ship.q, 0, 0, 1, 0); qlook(dq, 0, -ship.off[0], -ship.off[1], -ship.off[2], up[0], up[1], up[2]); qslerp(ship.q, 0, smooth(0.6, 1, w) > 0 ? wp.endQ : dq, 0, 1 - Math.exp(-dt * 2)); }
     } else { const u = Math.min(1, (t - WT1 - WT2) / WT3); wp.beta = 0.3 * (1 - u) * (1 - u); wp.fold = 0; wp.streak = (1 - u) * (1 - u); wp.flash = u < 0.1 ? u / 0.1 * 0.6 : Math.max(0, 0.6 - (u - 0.1)); // exit: streaks retract to points
-      if (u < 0.05 && wp.np >= 0) { wp.np = -1; whoosh(1.6, 2500, 150, 0.16); chime(true); }
+      if (u < 0.05 && wp.np >= 0) { wp.np = -1; swoosh(true); }
       ship.ref = wp.sp; for (let j = 0; j < 3; j++) ship.off[j] = wp.end[j]; qslerp(ship.q, 0, wp.endQ, 0, 1 - Math.exp(-dt * 4));
       if (u >= 1) { wp.on = false; wp.beta = wp.fold = wp.flash = wp.streak = 0; banner('ARRIVED - ' + st.name.toUpperCase() + (st.id === 'sol' ? '' : ' SYSTEM'), false); } }
     ship.vel.fill(0); ship.w.fill(0);
@@ -1890,6 +1901,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       return { date: new Date((jdNow() - 2440587.5) * 86400000).toISOString(), earthHelioLon: ((Math.atan2(-ez, ex) / D2R) + 360) % 360, subsolarLat: Math.asin(t3[1]) / D2R, subsolarLon: Math.atan2(-t3[2], t3[0]) / D2R, moonElongation: el,
         marsHelioLon: ((Math.atan2(-pos[sys.idx.mars * 3 + 2], pos[sys.idx.mars * 3]) / D2R) + 360) % 360, jupiterHelioLon: ((Math.atan2(-pos[sys.idx.jupiter * 3 + 2], pos[sys.idx.jupiter * 3]) / D2R) + 360) % 360 }; },
     bodyPos: (id) => { const i = sys.idx[id]; return i === undefined ? null : [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2], sys.list[i].R]; }, // debug / screenshots
+    testSound: (deep) => { audioInit(); swoosh(!!deep); }, // debug
     get systemStar() { return sys.list[0].id; },
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
