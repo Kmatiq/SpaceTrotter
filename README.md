@@ -86,7 +86,7 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
     glint.
   - Moon imagery: [NASA Moon Trek](https://trek.nasa.gov/moon/) LRO WAC global mosaic (up to zoom 8).
   - Procedural micro-detail is blended in where the imagery runs out of resolution.
-  - Real mountains use 3.5× relative relief.
+  - Real mountains use about 2× slope exaggeration.
   - Credits are shown in the HUD whenever the imagery is visible.
 - **Offline:** everything else stays procedural, and if the tile servers can't be reached (offline, or the
   single-file build without network) the generated surface is used instead.
@@ -167,6 +167,12 @@ controls. Stops on a night side are lit: the light direction is moved for the to
 - **Generated stars:** 150 named, generated star systems sit along the Milky Way's spiral arms, from 3,000 to
   45,000 ly away. They show as dots in the galaxy view and can be tapped and warped to anywhere in the galaxy.
 - **Destinations:** every star can be warped to, and its system is generated from its name.
+
+### Surface lighting
+
+Solid bodies get a hemisphere fill (sky colour from above, a dim bounce from below) and a soft cool fill from the
+side away from the Sun, on the day side only. Shadows stay readable without crushing to black, and nights stay
+dark. Earth imagery is slightly desaturated-boosted and darker so it doesn't wash out under the atmosphere.
 
 ### Galaxy view and intergalactic jumps
 

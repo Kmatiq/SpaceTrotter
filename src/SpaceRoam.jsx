@@ -381,7 +381,7 @@ fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
   return TR(h0+dt.x*da,(t1*(hx-h0)+t2*(hy-h0))/ep+dt.yzw*s*da,e.x,0.,1.);}
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
- let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=5.5e-7;// metres -> R (x3.5 relief)
+ let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=3.1e-7;// metres -> R (x2 relief)
  let ld=smoothstep(0.,30.,e.x);
  return TR(max(e.x,0.)*EK+ld*dt.x*da,(t1*(max(ex,0.)-max(e.x,0.))+t2*(max(ey,0.)-max(e.x,0.)))/ep*EK+ld*dt.yzw*s*da,e.x*.001,0.,1.);}
 fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
@@ -474,7 +474,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));let mm=b[12].w;
    let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=select(b[3].w,0.,T.m>.5&&mm<1.5);let hr=T.h/max(b[4].w,1e-6);
    var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS);}
-   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=A.rgb*select(1.15,select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
+   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=select(mix(vec3f(dot(A.rgb,vec3f(.3,.55,.15))),A.rgb,1.25)*.85,A.rgb*select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
    if(wat&&mm<1.5){spec=b[14].w;}else{wat=false;}}
    else if(wat){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;}
    else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
@@ -489,7 +489,11 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
   if(ringOn&&abs(L.y)>1e-4){let tr=-p.y/L.y;if(tr>0.){let rq=p+L*tr;sT*=1.-ringD(b,length(rq.xz),.01)*b[13].z*.9;}}
   if(b[11].w>0.){let ch=b[15].z;sT*=1.-.7*cloud(b,normalize(p+L*(ch/max(dot(n,L),.15))),.01);}
   let ndl=dot(N,L);let gdl=dot(n,L);
-  var c=col*E*max(ndl,0.)*smoothstep(-.03,.08,gdl)*sT+col*E*(.0025+b[12].xyz*.3*smoothstep(-.2,.3,gdl));
+  let day=smoothstep(-.12,.25,gdl);let thin=dot(b[12].xyz,vec3f(1.))<1e-4;// airless: Moon, Mercury...
+  let skyC=select(normalize(b[12].xyz+vec3f(1e-4))*.75+vec3f(.25),vec3f(.55,.6,.7),thin);
+  let hemi=mix(vec3f(.04,.05,.07),skyC,.5+.5*dot(N,n))*select(.09,.085,thin);// hemisphere fill: sky from above, dim bounce from below (keeps shadows readable)
+  let Lr=normalize(n*.55-(L-n*gdl));let rim=max(dot(N,Lr),0.)*select(.05,.06,thin);// soft cool fill from the side away from the Sun
+  var c=col*E*max(ndl,0.)*smoothstep(-.03,.08,gdl)*sT+col*E*(.0025+b[12].xyz*.3*smoothstep(-.2,.3,gdl))+col*E*(hemi+vec3f(.55,.7,1.)*rim)*day;
   if(spec>0.){let Hh=normalize(L+V);let nh=max(dot(N,Hh),0.);let a2=rough*rough*rough*rough;let dd=nh*nh*(a2-1.)+1.;
    let F=.02+.98*pow(1.-max(dot(V,Hh),0.),5.);c+=E*sT*spec*a2/(PI*dd*dd)*F*.25*max(ndl,0.)/max(dot(N,V),.15);}
   acc=vec4f(c+em,1.)*cov;tD=tS;}
@@ -1222,7 +1226,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       const m = sys.lm[k], b = sys.list[m.bi], o = m.bi * 3, cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], d = Math.hypot(cx, cy, cz), al = (d - b.R) / b.R;
       const mx = LMAX[m.kind][m.rank], mn = LMIN[m.kind] || 0; if (al > mx || al < mn * 0.7) continue;
       qrot(t3, 0, bq, m.bi * 4, m.dir[0], m.dir[1], m.dir[2]); const hz = (cx * t3[0] + cy * t3[1] + cz * t3[2]) / b.R; if (hz < 1.0002) continue; // behind the horizon
-      const rr = b.R * (1 + m.elev * 5.5e-7 + 1e-4); if (!project(t3[0] * rr - cx, t3[1] * rr - cy, t3[2] * rr - cz)) continue;
+      const rr = b.R * (1 + m.elev * 3.1e-7 + 1e-4); if (!project(t3[0] * rr - cx, t3[1] * rr - cy, t3[2] * rr - cz)) continue;
       const x = scr[0], y = scr[1]; if (x < 0 || y < 0 || x > W || y > H) continue;
       const a = Math.min(1, (mx - al) / (mx * 0.25)) * (mn ? smooth(mn * 0.7, mn, al) : 1) * (ap.on && ap.k === k ? 1 : 0.9), wl = m.name.length * lh * 0.6; let hit = false;
       for (let j = 0; j < nl && !hit; j++) hit = Math.abs(lbx[j * 3] + lbx[j * 3 + 2] / 2 - x - wl / 2 - 9 * s) < (lbx[j * 3 + 2] + wl) / 2 + 6 * s && Math.abs(lbx[j * 3 + 1] - y) < lh * 1.2;
@@ -1431,7 +1435,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
     const la = (m.lat + (m.lat > -60 ? -1 : 1) * (v[0] * Math.sqrt(sc) / b.R) / D2R) * D2R, lo = m.lon * D2R; ap.d1[0] = Math.cos(la) * Math.cos(lo); ap.d1[1] = Math.sin(la); ap.d1[2] = -Math.cos(la) * Math.sin(lo);
-    ap.a0 = Math.max(d - b.R, 50); ap.a1 = b.R * m.elev * 5.5e-7 + v[1] * Math.sqrt(sc);
+    ap.a0 = Math.max(d - b.R, 50); ap.a1 = b.R * m.elev * 3.1e-7 + v[1] * Math.sqrt(sc);
     const dt2 = Math.max(-1, Math.min(1, ap.d0[0] * ap.d1[0] + ap.d0[1] * ap.d1[1] + ap.d0[2] * ap.d1[2])); ap.ang = Math.acos(dt2);
     ap.ax[0] = ap.d0[1] * ap.d1[2] - ap.d0[2] * ap.d1[1]; ap.ax[1] = ap.d0[2] * ap.d1[0] - ap.d0[0] * ap.d1[2]; ap.ax[2] = ap.d0[0] * ap.d1[1] - ap.d0[1] * ap.d1[0];
     const l = Math.hypot(ap.ax[0], ap.ax[1], ap.ax[2]); if (l < 1e-6) { ap.ax[0] = 0; ap.ax[1] = 1; ap.ax[2] = 0; ap.ang = l < 1e-6 && dt2 < 0 ? Math.PI : 0; } else { ap.ax[0] /= l; ap.ax[1] /= l; ap.ax[2] /= l; }
@@ -1442,7 +1446,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const e = smooth(0, 1, ap.t), ea = smooth(0.15, 1, ap.t), alt2 = ap.a0 * Math.pow(ap.a1 / ap.a0, ea) + Math.sin(Math.PI * e) * ap.ang * b.R * 0.25; // arc up and over on long hops
     qaxis(dq, 0, ap.ax[0], ap.ax[1], ap.ax[2], ap.ang * e); qrot(t3, 0, dq, 0, ap.d0[0], ap.d0[1], ap.d0[2]); qrot(t3, 0, bq, q, t3[0], t3[1], t3[2]);
     const ux = t3[0], uy = t3[1], uz = t3[2], r = b.R + alt2; for (let j = 0; j < 3; j++) { abs[j] = pos[o + j] + t3[j] * r; ship.off[j] = abs[j] - pos[ship.ref * 3 + j]; } ship.vel.fill(0);
-    qrot(t3, 0, bq, q, m.dir[0], m.dir[1], m.dir[2]); const rl = b.R * (1 + m.elev * 5.5e-7);
+    qrot(t3, 0, bq, q, m.dir[0], m.dir[1], m.dir[2]); const rl = b.R * (1 + m.elev * 3.1e-7);
     qlook(dq, 0, pos[o] + t3[0] * rl - abs[0], pos[o + 1] + t3[1] * rl - abs[1], pos[o + 2] + t3[2] * rl - abs[2], ux, uy, uz); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * (1 + 5 * e)));
     if (ap.t >= 1) { ap.on = false; rqRef = -1; banner('ARRIVED - ' + m.name.toUpperCase(), false); chime(false); }
   }
@@ -1652,7 +1656,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (inX || inY || inZ || Math.abs(wx) + Math.abs(wy) + Math.abs(wz) > 0.02) tr.orb = false;
       if (bi !== undefined && bi >= 0 && tr.orb && ship.ref === bi && tourArrived()) {
         const o = bi * 3, R0 = sys.list[bi].R; let ax = 0, ay = 1, az = 0, lx = 0, ly = 0, lz = 0, rate = 0.05;
-        if (pk >= 0) { const m = sys.lm[pk]; qrot(t3, 0, bq, bi * 4, m.dir[0], m.dir[1], m.dir[2]); ax = t3[0]; ay = t3[1]; az = t3[2]; const rl = R0 * (1 + m.elev * 5.5e-7); lx = ax * rl; ly = ay * rl; lz = az * rl; rate = 0.1; }
+        if (pk >= 0) { const m = sys.lm[pk]; qrot(t3, 0, bq, bi * 4, m.dir[0], m.dir[1], m.dir[2]); ax = t3[0]; ay = t3[1]; az = t3[2]; const rl = R0 * (1 + m.elev * 3.1e-7); lx = ax * rl; ly = ay * rl; lz = az * rl; rate = 0.1; }
         qaxis(dq, 0, ax, ay, az, rate * dt); qrot(ship.off, 0, dq, 0, ship.off[0], ship.off[1], ship.off[2]); ship.vel.fill(0);
         const d = Math.hypot(ship.off[0], ship.off[1], ship.off[2]);
         qlook(dq, 0, lx - ship.off[0], ly - ship.off[1], lz - ship.off[2], ship.off[0] / d, ship.off[1] / d, ship.off[2] / d); qslerp(ship.q, 0, dq, 0, 1 - Math.exp(-dt * 2.5));
