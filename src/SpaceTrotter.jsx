@@ -1,4 +1,4 @@
-// SpaceRoam — real-time procedural Solar System flight sim. Pure WebGPU, single React component.
+// SpaceTrotter — real-time procedural Solar System flight sim. Pure WebGPU, single React component.
 // Floating origin (f64 CPU → camera-relative f32 GPU), reversed-Z infinite depth, quaternion 6DoF,
 // one spherical-body uber-shader + one SDF uber-shader, zero per-frame JS allocations in engine code.
 import { useEffect, useRef, useState } from 'react';
@@ -768,7 +768,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   if (!opts.offscreen && canvas.parentElement) { hcv = document.createElement('canvas'); hcv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
     canvas.after(hcv); hctx = hcv.getContext('webgpu'); hctx.configure({ device, format: fmt, alphaMode: 'premultiplied' }); }
   const hudAtt = { view: null, clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: 'clear', storeOp: 'store' }, hudDesc = { colorAttachments: [hudAtt] };
-  device.addEventListener('uncapturederror', (e) => console.error('[SpaceRoam] GPU error:', e.error.message));
+  device.addEventListener('uncapturederror', (e) => console.error('[SpaceTrotter] GPU error:', e.error.message));
   const mod = device.createShaderModule({ code: WGSL });
   const U = GPUBufferUsage, T = GPUTextureUsage, VF = GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT;
 
@@ -936,7 +936,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const disc = new Uint8Array(MAXB), dust = new Float64Array(480);
   for (let i = 0; i < 480; i++) dust[i] = hash(i, 77, 3);
   let nDisc = 0, toastI = -1, toastT = 0, toastAll = false, charge = -1, flash = 0;
-  const LOGKEY = 'spaceroam.log.';
+  const LOGKEY = 'spaceroam.log.'; // storage keys keep the old name so existing progress carries over
   const saveLog = () => { try { const ids = []; for (let i = 0; i < sys.n; i++) if (disc[i]) ids.push(sys.list[i].id); localStorage.setItem(LOGKEY + sys.def.id, ids.join(',')); } catch (e) { /* storage unavailable */ } };
   const loadLog = () => { disc.fill(0); nDisc = 0; let ids = ''; try { ids = localStorage.getItem(LOGKEY + sys.def.id) || ''; } catch (e) { /* ignore */ }
     for (const id of ids.split(',')) { const i = sys.idx[id]; if (i !== undefined && !disc[i]) { disc[i] = 1; nDisc++; } } };
@@ -1132,7 +1132,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     ['earth', 0, 7, 1.12, -0.2, 1.6, 0.25, 0.03], ['sun', 15, 9, 1.7, 2.0, 3.4, 0.3, 0.05],
     ['saturn', 28, 4.2, 1.55, 0.3, 1.9, 0.12, 0.012], ['gateway', 45, 14, 1.6, 0.4, 2.6, 0.5, 0.12]];
   const bench = { on: false, t: 0, n: 0, seg: -1, lag: new Float64Array(3), v: new Float64Array(3), rel: new Float64Array(3), cpu: new Float32Array(NSLOT), res: null };
-  function startBench() { if (!sys.idx.saturn) { switchStarSystem('sol'); } bench.on = true; bench.t = 0; bench.n = 0; bench.seg = -1; bench.res = null; cruise = false; simT = 100; console.log('[SpaceRoam] benchmark started (60 s)'); }
+  function startBench() { if (!sys.idx.saturn) { switchStarSystem('sol'); } bench.on = true; bench.t = 0; bench.n = 0; bench.seg = -1; bench.res = null; cruise = false; simT = 100; console.log('[SpaceTrotter] benchmark started (60 s)'); }
   function benchCam(dt) {
     let si = 0; for (let i = 0; i < BSEG.length; i++) if (bench.t >= BSEG[i][1]) si = i;
     const s = BSEG[si], end = si + 1 < BSEG.length ? BSEG[si + 1][1] : 60, u = Math.min(1, (bench.t - s[1]) / (end - s[1])), e = u * u * (3 - 2 * u);
@@ -1151,7 +1151,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const cpu = Array.from(bench.cpu.subarray(1, n)).sort((a, b) => a - b), pct = (a, p) => a[Math.min(a.length - 1, Math.floor(a.length * p))];
     const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
     const res = bench.res = { frames: n, cpuAvg: avg(cpu), cpuP99: pct(cpu, 0.99), gpuAvg: NaN, gpuP50: NaN, gpuP99: NaN, gpuMax: NaN, resolution: W + 'x' + H };
-    const report = () => { console.log('[SpaceRoam] benchmark results'); console.table(res); };
+    const report = () => { console.log('[SpaceTrotter] benchmark results'); console.table(res); };
     if (!hasTS) { report(); return; }
     const enc = device.createCommandEncoder(); enc.copyBufferToBuffer(resBuf, 0, rdBuf, 0, n * 256); device.queue.submit([enc.finish()]);
     rdBusy = true;
@@ -1918,7 +1918,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       device.destroy();
     },
   };
-  device.lost.then((i) => { if (!dead) console.error('[SpaceRoam] device lost:', i.reason, i.message); });
+  device.lost.then((i) => { if (!dead) console.error('[SpaceTrotter] device lost:', i.reason, i.message); });
   return api;
 }
 
@@ -2026,7 +2026,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(2,6,14,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}>
       <div style={{ ...box, position: 'relative', width: 'min(520px, calc(100% - 32px))', maxHeight: 'calc(100% - 24px)', overflowY: 'auto', padding: 'clamp(14px, 3vh, 26px) 22px clamp(12px, 2.5vh, 20px)', textAlign: 'center' }}>
         {s.welcome ? <>
-          <div style={{ fontSize: 'clamp(22px, 5vh, 30px)', letterSpacing: 4, color: C.acc, marginBottom: 4 }}>SPACEROAM</div>
+          <div style={{ fontSize: 'clamp(22px, 5vh, 30px)', letterSpacing: 4, color: C.acc, marginBottom: 4 }}>SPACETROTTER</div>
           <div style={{ fontSize: 12, letterSpacing: 2, color: C.warn, marginBottom: 'clamp(8px, 2vh, 16px)' }}>EXPLORE THE REAL SOLAR SYSTEM</div>
           <div style={{ textAlign: 'left', fontSize: 'clamp(12px, 3.3vh, 14px)', lineHeight: 1.5 }}>
             Fly your own ship through space, from orbit down to the ground.<br /><br />
@@ -2083,7 +2083,7 @@ function Overlay({ eng }) {
   const mapOut = ui.map.on || ui.map.a > 0.02 || ui.warp || !!ui.galaxy;
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
-    const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spaceroam-' + Date.now() + '.png'; a.click(); });
+    const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spacetrotter-' + Date.now() + '.png'; a.click(); });
     return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
@@ -2122,7 +2122,7 @@ function Overlay({ eng }) {
         <div style={{ padding: '6px 14px 4px', fontSize: 10, color: C.dim }}>Version {typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'}</div>
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
-        {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spaceroam.html'; a.download = 'spaceroam.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
+        {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spacetrotter.html'; a.download = 'spacetrotter.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
         {item('help', 'Controls', help, () => { setHelp(!help); setMenu(false); })}
         {item('stats', 'Performance stats', ui.stats, () => eng.act('KeyG'))}
         {item('sys', 'Switch star system', false, () => { eng.act('KeyJ'); setMenu(false); })}
@@ -2208,7 +2208,7 @@ function Overlay({ eng }) {
     </div>);
 }
 
-export default function SpaceRoam({ systemId = 'sol', onReady, style, offscreen = false, renderScale = 0 }) {
+export default function SpaceTrotter({ systemId = 'sol', onReady, style, offscreen = false, renderScale = 0 }) {
   const ref = useRef(null), eng = useRef(null), [err, setErr] = useState(null), [api, setApi] = useState(null);
   useEffect(() => {
     let dead = false, e = null;
@@ -2216,7 +2216,7 @@ export default function SpaceRoam({ systemId = 'sol', onReady, style, offscreen 
     return () => { dead = true; eng.current = null; e && e.destroy(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { eng.current && eng.current.switchStarSystem(systemId); }, [systemId]); // V2 interstellar hook
-  if (err) return <div style={{ color: '#9cf', font: '16px monospace', padding: 24, background: '#000', height: '100%' }}>SpaceRoam: {err}</div>;
+  if (err) return <div style={{ color: '#9cf', font: '16px monospace', padding: 24, background: '#000', height: '100%' }}>SpaceTrotter: {err}</div>;
   return (<div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#000', ...style }}>
     <canvas ref={ref} tabIndex={0} style={{ width: '100%', height: '100%', display: 'block', outline: 'none', cursor: 'crosshair', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} />
     {api && <Overlay eng={api} />}</div>);

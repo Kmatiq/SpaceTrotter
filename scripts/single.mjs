@@ -1,4 +1,4 @@
-// Builds ONE self-contained, double-clickable HTML file (React + engine inlined): dist/spaceroam.html
+// Builds ONE self-contained, double-clickable HTML file (React + engine inlined): dist/spacetrotter.html (+ spaceroam.html copy for old links)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { build } from 'esbuild';
 
@@ -12,5 +12,5 @@ const js = outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const html = readFileSync(new URL('index.html', root), 'utf8')
   .replace(/<script type="module" src="\/src\/main.jsx"><\/script>/, () => `<script>${js}</script>`);
 mkdirSync(new URL('dist', root), { recursive: true });
-writeFileSync(new URL('dist/spaceroam.html', root), html);
-console.log(`dist/spaceroam.html  ${(Buffer.byteLength(html) / 1024).toFixed(1)} KB`);
+writeFileSync(new URL('dist/spacetrotter.html', root), html); writeFileSync(new URL('dist/spaceroam.html', root), html); // old link keeps working
+console.log(`dist/spacetrotter.html  ${(Buffer.byteLength(html) / 1024).toFixed(1)} KB`);

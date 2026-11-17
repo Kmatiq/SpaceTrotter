@@ -1,4 +1,4 @@
-# SpaceRoam
+# SpaceTrotter
 
 **Explore the real Solar System in your browser.** Fly your own ship from orbit down to the ground: over real
 satellite imagery of Earth, the Moon and Mars, past planets sitting where they really are today, out to 900
@@ -17,8 +17,9 @@ take pictures.
 | | |
 | --- | --- |
 | ▶ **Play in the browser** | **https://kmatiq.github.io/spaceroam/** |
-| ⬇ **Download the game (one file)** | **[spaceroam.html](https://kmatiq.github.io/spaceroam/spaceroam.html)**: right-click → *Save link as…*, or in the game ☰ → **Download game file**. Double-click the file to play. |
+| ⬇ **Download the game (one file)** | **[spacetrotter.html](https://kmatiq.github.io/spaceroam/spacetrotter.html)**: right-click → *Save link as…*, or in the game ☰ → **Download game file**. Double-click the file to play. |
 
+- **Domain:** spacetrotter.app is the planned home; for now it lives on GitHub Pages.
 - **Browsers:** needs WebGPU. That means desktop Chrome or Edge, Chrome on Android 12+, or Safari on
   iOS/iPadOS 26+.
 - **Offline:** the downloaded file contains the whole game (~345 KB). The real satellite maps stream from free
@@ -110,7 +111,7 @@ and ☰.
 
 ## How it was built
 
-SpaceRoam was built over a few days in an iterative conversation with **Claude Code** (Anthropic): about 55
+SpaceTrotter (first called SpaceRoam) was built over a few days in an iterative conversation with **Claude Code** (Anthropic): about 55
 commits, each one tested in a headless browser and then played by a human on desktop and on a Galaxy Fold. It
 started from a single brief:
 
@@ -137,7 +138,7 @@ procedurally generated city blocks (too noisy), and an early warp with glowing "
 
 ## Architecture
 
-Everything lives in one file, [`src/SpaceRoam.jsx`](src/SpaceRoam.jsx) (~2,200 lines): a pure-WebGPU engine with
+Everything lives in one file, [`src/SpaceTrotter.jsx`](src/SpaceTrotter.jsx) (~2,200 lines): a pure-WebGPU engine with
 one WGSL module plus a small React layer for the UI.
 
 - **Precision:** all positions are Float64 on the CPU and become camera-relative f32 each frame. Spheres are
@@ -171,13 +172,13 @@ one WGSL module plus a small React layer for the UI.
 ```bash
 npm install
 npm run dev        # open the printed URL in Chrome
-npm run build      # dist/ (site) + dist/spaceroam.html (single file)
+npm run build      # dist/ (site) + dist/spacetrotter.html (single file)
 npm run size       # size report
 ```
 
 ```jsx
-import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
-<SpaceRoam systemId="sol" onReady={(api) => api.flyTo('earth', 45.8, 6.9, 9000, -12)} />
+import SpaceTrotter, { registerStarSystem, STAR_SYSTEMS } from './SpaceTrotter.jsx';
+<SpaceTrotter systemId="sol" onReady={(api) => api.flyTo('earth', 45.8, 6.9, 9000, -12)} />
 ```
 
 - **Engine API:** `flyTo`, `teleport`, `setTarget`, `cruiseTo`, `goPlace`, `warpTo`, `tourStart`, `mapOpen`,

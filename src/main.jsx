@@ -1,3 +1,3 @@
 import { createRoot } from 'react-dom/client';
-import SpaceRoam from './SpaceRoam.jsx';
-createRoot(document.getElementById('root')).render(<SpaceRoam offscreen={location.search.includes('headless')} onReady={(api) => { window.spaceroam = api; }} />);
+import SpaceTrotter from './SpaceTrotter.jsx';
+createRoot(document.getElementById('root')).render(<SpaceTrotter offscreen={location.search.includes('headless')} onReady={(api) => { window.spacetrotter = window.spaceroam = api; }} />);
