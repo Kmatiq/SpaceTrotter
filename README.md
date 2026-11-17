@@ -211,6 +211,9 @@ import SpaceTrotter, { registerStarSystem, STAR_SYSTEMS } from './SpaceTrotter.j
 
 ## Roadmap
 
+- **Smoother atmospheric entry:** some jerkiness remains when diving into an atmosphere. Suspects to test one
+  by one: the re-entry camera shake, hard braking from the altitude speed cap, and field-of-view changes
+  during boost.
 - **Date & time control:** a picker plus pause, real-time, fast and reverse, for seeing eclipses and
   alignments. The engine already runs from one Julian date.
 - **City buildings from open data:** OpenStreetMap outlines and heights, plus hand-made models of each city's
