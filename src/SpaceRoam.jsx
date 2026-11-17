@@ -1997,7 +1997,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     { t: 'Choose a target', b: 'This shows where you are heading. Tap it to see every planet, moon and station.', sel: 'target', done: () => st.list },
     { t: 'Pick Mars', b: 'Tap Mars in the list. You can also tap any planet directly on screen.', sel: 'body-mars', done: () => ui.target === 'mars' },
     { t: 'Cruise there', b: T ? 'Tap CRUISE. The ship turns, charges and jumps toward Mars at incredible speed.' : 'Press F to cruise. The ship turns, charges and jumps toward Mars at incredible speed.', sel: T ? 'cruise' : null, done: () => { if (ui.cruise || ui.charging) was.current = true; return was.current; } },
-    { t: 'Arriving', b: 'Cruise slows down by itself and drops you out near the target. Tap CRUISE again (or press F) to stop early.', sel: T ? 'cruise' : null, done: () => was.current && !ui.cruise && !ui.charging },
+    { t: 'Arriving', b: 'Cruise slows down by itself and drops you out near the target. Tap CRUISE again (or press F) to stop early.', sel: T ? 'cruise' : null, done: () => !ui.cruise && !ui.charging },
     { t: 'Find any place', b: 'FIND searches cities, mountains, seas, craters, planets and stars. GO flies you there by autopilot.', sel: 'find', done: () => st.find },
     { t: 'Try a search', b: 'Type a name, for example Paris, and press GO. Or close the search box to continue.', done: () => !st.find },
     { t: 'The live map', b: 'MAP lifts the camera out to a live 3D map of the Solar System, with the planets where they really are today.', sel: 'map', done: () => ui.map.on },
@@ -2009,7 +2009,8 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     { t: 'Photo mode', b: 'Photo mode hides everything so you can take clean pictures. Replay tutorial is at the bottom.', ok: 'Got it', after: () => setMenu(false) },
     { end: true },
   ];
-  const s = S[i], next = () => { if (s.after) s.after(); was.current = false; base.current = { ...ui.tut }; setI(i + 1); };
+  const s = S[i], t0 = useRef(performance.now()), next = () => { if (s.after) s.after(); was.current = false; base.current = { ...ui.tut }; t0.current = performance.now(); setI(i + 1); };
+  const stuck = !s.ok && !s.welcome && !s.end && performance.now() - t0.current > 20000; // safety net: never leave the player stuck on a step
   if (!base.current) base.current = { ...ui.tut };
   useEffect(() => { if (s.done && s.done()) next(); }); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const id = setInterval(() => force((x) => x + 1), 250); return () => clearInterval(id); }, []);
@@ -2057,7 +2058,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
       <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 6 }}><span style={{ fontSize: 17, color: C.acc, flex: 1 }}>{s.t}</span><span style={{ fontSize: 11, color: C.dim }}>{i} / {S.length - 2}</span></div>
       <div>{s.b}</div>
       <div style={{ display: 'flex', alignItems: 'center', marginTop: 12, gap: 10 }}>{skip}<span style={{ flex: 1 }} />
-        {s.ok ? <div onClick={next} style={btnS(true)}>{s.ok.toUpperCase()}</div> : <span style={{ fontSize: 11, color: C.warn, letterSpacing: 1 }}>{hole ? 'TAP THE HIGHLIGHTED BUTTON' : 'DO IT TO CONTINUE'}</span>}</div>
+        {s.ok ? <div onClick={next} style={btnS(true)}>{s.ok.toUpperCase()}</div> : stuck ? <div onClick={next} style={btnS(true)}>CONTINUE</div> : <span style={{ fontSize: 11, color: C.warn, letterSpacing: 1 }}>{hole ? 'TAP THE HIGHLIGHTED BUTTON' : 'DO IT TO CONTINUE'}</span>}</div>
     </div>
     <style>{'@keyframes tutpulse{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
   </>);
