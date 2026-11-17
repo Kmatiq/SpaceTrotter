@@ -6,7 +6,7 @@ const root = new URL('..', import.meta.url);
 const { outputFiles } = await build({
   entryPoints: [new URL('src/main.jsx', root).pathname], bundle: true, minify: true, write: false,
   format: 'iife', target: 'es2022', jsx: 'automatic', loader: { '.jsx': 'jsx' },
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: { 'process.env.NODE_ENV': '"production"', __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC') },
 });
 const js = outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const html = readFileSync(new URL('index.html', root), 'utf8')

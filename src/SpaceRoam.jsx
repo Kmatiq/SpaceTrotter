@@ -2118,6 +2118,7 @@ function Overlay({ eng }) {
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
+        <div style={{ padding: '6px 14px 4px', fontSize: 10, color: C.dim }}>Version {typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'}</div>
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spaceroam.html'; a.download = 'spaceroam.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
