@@ -1994,7 +1994,9 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     { t: 'Cruise there', b: T ? 'Tap CRUISE. The ship turns, charges and jumps toward Mars at incredible speed.' : 'Press F to cruise. The ship turns, charges and jumps toward Mars at incredible speed.', sel: T ? 'cruise' : null, done: () => { if (ui.cruise || ui.charging) was.current = true; return was.current; } },
     { t: 'Arriving', b: 'Cruise slows down by itself and drops you out near the target. Tap CRUISE again (or press F) to stop early.', sel: T ? 'cruise' : null, done: () => !ui.cruise && !ui.charging },
     { t: 'Find any place', b: 'FIND searches cities, mountains, seas, craters, planets and stars. GO flies you there by autopilot.', sel: 'find', done: () => st.find },
-    { t: 'Try a search', b: 'Type a name, for example Paris, and press GO. Or close the search box to continue.', done: () => !st.find },
+    { t: 'Try a search', b: 'Type Valles Marineris and press GO (or Enter). The autopilot flies you down into the biggest canyon in the Solar System.', sel: 'find-panel', pos: 'left',
+      done: () => !!ui.auto || !st.find, after: () => { if (!ui.auto) { const v = eng.places().find((x) => x.name === 'Valles Marineris'); if (v) eng.goPlace(v.k); } } },
+    { t: 'Valles Marineris', b: 'A canyon 4,000 km long and up to 7 km deep, in real 3D from NASA height data. The ship flies itself there; touch the controls any time to take over.', ok: 'Got it', pos: 'left' },
     { t: 'The live map', b: 'MAP lifts the camera out to a live 3D map of the Solar System, with the planets where they really are today.', sel: 'map', done: () => ui.map.on },
     { t: 'Zoom out to the galaxy', b: 'Drag to rotate the map, then tap GALAXY to fly out to the whole Milky Way.', sel: 'galaxy', done: () => !!ui.galaxy },
     { t: 'The Milky Way', b: 'This is our galaxy, with the Andromeda galaxy and others further out. Tap a star or galaxy to warp there. Tap CLOSE to come back.', done: () => !ui.galaxy && !ui.map.on },
@@ -2041,8 +2043,8 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
   const pad = 8, hole = r ? { l: r.left - pad, t: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2 } : null;
   const dim = { position: 'absolute', background: 'rgba(2,6,14,.62)', pointerEvents: 'auto', zIndex: 20 };
   const VW = window.innerWidth, VH = window.innerHeight, BW = Math.min(420, VW - 32), side = hole && VH < 620 && VW > 700 && hole.t + hole.h > 150; // short landscape screens: bubble beside the control
-  const bubbleTop = !hole ? { top: 84 } : side ? { top: Math.max(12, Math.min(VH - 220, hole.t + hole.h / 2 - 90)) } : hole.t + hole.h / 2 > VH / 2 ? { bottom: VH - hole.t + 12 } : { top: hole.t + hole.h + 12 };
-  const bubbleLeft = !hole ? null : side ? (hole.l + hole.w / 2 > VW / 2 ? Math.max(16, hole.l - BW - 16) : Math.min(VW - BW - 16, hole.l + hole.w + 16)) : Math.max(16, Math.min(VW - BW - 16, hole.l + hole.w / 2 - BW / 2));
+  const left = s.pos === 'left', bubbleTop = left ? { top: 84 } : !hole ? { top: 84 } : side ? { top: Math.max(12, Math.min(VH - 220, hole.t + hole.h / 2 - 90)) } : hole.t + hole.h / 2 > VH / 2 ? { bottom: VH - hole.t + 12 } : { top: hole.t + hole.h + 12 };
+  const bubbleLeft = left ? 16 : !hole ? null : side ? (hole.l + hole.w / 2 > VW / 2 ? Math.max(16, hole.l - BW - 16) : Math.min(VW - BW - 16, hole.l + hole.w + 16)) : Math.max(16, Math.min(VW - BW - 16, hole.l + hole.w / 2 - BW / 2));
   return (<>
     {hole && <> {/* four panels around the spotlight: only the highlighted control can be pressed */}
       <div style={{ ...dim, left: 0, top: 0, right: 0, height: Math.max(0, hole.t) }} /><div style={{ ...dim, left: 0, top: hole.t + hole.h, right: 0, bottom: 0 }} />
@@ -2141,10 +2143,10 @@ function Overlay({ eng }) {
       {find !== null && (() => { const q = find.trim().toLowerCase(), all = placesRef.current || (placesRef.current = eng.places().concat(eng.bodies().map((b) => ({ id: b.id, name: b.name, kind: TYPE_LBL[b.type], body: ui.system + ' system' })), eng.stars().filter((x) => !x.here).map((x) => ({ ...x, kind: 'Star - warp' }))));
         const res = (q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((a, b) => (a.name.toLowerCase().startsWith(q) ? 0 : 1) - (b.name.toLowerCase().startsWith(q) ? 0 : 1)) : all).slice(0, 40);
         const go = (p) => { if (p.sk !== undefined) eng.warpTo(p.sk); else if (p.id) { if (!eng.cruiseTo(p.id)) eng.setTarget(p.id); } else eng.goPlace(p.k); setFind(null); };
-        return (<div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, bottom: 12, width: 'min(360px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
+        return (<div data-tut="find-panel" style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, bottom: 12, width: 'min(360px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid ' + C.line }}>
             <Ico n="find" s={20} />
-            <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && res[0]) go(res[0]); }} placeholder="Search a city, mountain, sea, planet..."
+            <input data-tut="find-input" autoFocus value={find} onChange={(e) => setFind(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && res[0]) go(res[0]); }} placeholder="Search a city, mountain, sea, planet..."
               style={{ flex: 1, minWidth: 0, background: 'transparent', border: 0, outline: 'none', color: C.fg, font: '16px ui-monospace,Consolas,monospace' }} />
             <span {...tap(() => setFind(null))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
           <div style={{ overflowY: 'auto', padding: 6, WebkitOverflowScrolling: 'touch' }}>
