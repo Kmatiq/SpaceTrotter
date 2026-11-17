@@ -1609,11 +1609,16 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (!cruise && !bench.on) {
       const yl = ship.w[1] * (1 - sm), l2 = Math.hypot(ship.w[0], yl, ship.w[2]);
       if (l2 > 1e-9) { qaxis(dq, 0, ship.w[0] / l2, yl / l2, ship.w[2] / l2, l2 * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
-      if (sm > 0) { // yaw turns around the local vertical; wings level themselves unless you roll
-        if (Math.abs(ship.w[1]) > 1e-9) { qaxis(dq, 0, nx, ny, nz, ship.w[1] * sm * dt); qmul(sq, 0, dq, 0, ship.q, 0); ship.q.set(sq); }
-        qrot(rt, 0, ship.q, 0, 1, 0, 0); qrot(up, 0, ship.q, 0, 0, 1, 0); qrot(fw, 0, ship.q, 0, 0, 0, -1);
-        const rn = rt[0] * nx + rt[1] * ny + rt[2] * nz, un = up[0] * nx + up[1] * ny + up[2] * nz, fn = fw[0] * nx + fw[1] * ny + fw[2] * nz;
-        if (!K.KeyQ && !K.KeyE) { qaxis(dq, 0, 0, 0, -1, Math.atan2(rn, un) * (1 - Math.exp(-dt * 3)) * sm * smooth(0.985, 0.9, Math.abs(fn))); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
+      if (sm > 0) { // plane-like near the ground: yaw about the local vertical, wings level themselves (only when the nose is not steeply up/down)
+        qrot(fw, 0, ship.q, 0, 0, 0, -1); const fn0 = fw[0] * nx + fw[1] * ny + fw[2] * nz, gate = sm * smooth(0.9, 0.6, Math.abs(fn0)); // steep dive / climb: free 6DoF, no auto-level
+        if (Math.abs(ship.w[1]) > 1e-9 && gate > 0) { qaxis(dq, 0, 0, 1, 0, -ship.w[1] * gate * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); qaxis(dq, 0, nx, ny, nz, ship.w[1] * gate * dt); qmul(sq, 0, dq, 0, ship.q, 0); ship.q.set(sq); } // swap body yaw for yaw about the vertical
+        if (!K.KeyQ && !K.KeyE && gate > 0) {
+          qrot(rt, 0, ship.q, 0, 1, 0, 0); qrot(up, 0, ship.q, 0, 0, 1, 0); qrot(fw, 0, ship.q, 0, 0, 0, -1);
+          let hx = fw[1] * nz - fw[2] * ny, hy = fw[2] * nx - fw[0] * nz, hz = fw[0] * ny - fw[1] * nx; const hl = Math.hypot(hx, hy, hz); // level "right" = forward x up(vertical)
+          if (hl > 0.3) { hx /= hl; hy /= hl; hz /= hl;
+            const err = Math.atan2((rt[1] * hz - rt[2] * hy) * fw[0] + (rt[2] * hx - rt[0] * hz) * fw[1] + (rt[0] * hy - rt[1] * hx) * fw[2], rt[0] * hx + rt[1] * hy + rt[2] * hz); // signed roll error about forward, continuous
+            const step = Math.max(-1.2 * dt, Math.min(1.2 * dt, err * (1 - Math.exp(-dt * 2.5)) * gate)); // rate-limited: never a snap
+            qaxis(dq, 0, 0, 0, -1, step); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); } }
       }
       qnorm(ship.q, 0);
     }
@@ -1859,7 +1864,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   const api = {
     switchStarSystem, startBenchmark: startBench,
-    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
+    get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
