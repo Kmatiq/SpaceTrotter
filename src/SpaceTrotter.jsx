@@ -977,7 +977,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       n.connect(b); b.connect(g); g.connect(au.m); n.start(t0); n.stop(t0 + dur * 1.3); };
     const sub = (f0, f1, vol, dur) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(au.m); o.start(t); o.stop(t + dur + 0.05); };
-    if (!deep) { layer(2600, 260, 0.9, 0.34, 0.1, D, 0); layer(5200, 900, 1.6, 0.08, 0.06, D * 0.7, 0); sub(95, 42, 0.1, D * 0.8); }
+    if (!deep) { layer(2600, 260, 0.9, 0.16, 0.1, D, 0); layer(5200, 900, 1.6, 0.035, 0.06, D * 0.7, 0); sub(95, 42, 0.07, D * 0.8); } // high hiss reads louder than the warp's low rumble: matched by ear-weighting
     else { layer(1100, 70, 0.7, 0.4, 0.3, D, 0); layer(2400, 180, 1.1, 0.1, 0.2, D * 0.8, 0); sub(62, 26, 0.2, D); layer(900, 60, 0.7, 0.13, 0.35, D, 0.32); } // last layer = soft echo
   }
   const chime = (big) => { blip(660, 660, 0.35, 'sine', 0.1); blip(990, 990, 0.5, 'sine', 0.09, 0.12); if (big) { blip(1320, 1320, 0.8, 'sine', 0.08, 0.26); blip(1760, 1760, 1.2, 'sine', 0.06, 0.42); } };

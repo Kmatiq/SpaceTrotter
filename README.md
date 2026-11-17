@@ -211,6 +211,8 @@ import SpaceTrotter, { registerStarSystem, STAR_SYSTEMS } from './SpaceTrotter.j
 
 ## Roadmap
 
+- **Sound redesign:** rework most sounds (engine, boost, cruise, warp, UI beeps, atmosphere), ideally tuned by ear.
+  The cruise and warp arrival whooshes are done.
 - **Smoother atmospheric entry:** some jerkiness remains when diving into an atmosphere. Suspects to test one
   by one: the re-entry camera shake, hard braking from the altitude speed cap, and field-of-view changes
   during boost.
