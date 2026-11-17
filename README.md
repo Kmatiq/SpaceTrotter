@@ -93,6 +93,15 @@ import SpaceRoam, { registerStarSystem, STAR_SYSTEMS } from './SpaceRoam.jsx';
 - **API:** `api.flyTo('earth', lat, lon, altitudeMetres, pitchDeg)` jumps to a real place, e.g.
   `flyTo('earth', 45.8, 6.9, 9000, -12)` for Mont Blanc.
 
+### First-run tutorial
+
+The first visit opens a welcome screen (what SpaceRoam is: a real-data, educational space explorer), then an
+interactive tutorial of about 2 minutes. The screen dims except one highlighted control, and each step waits until
+you actually do it: look around, fly forward, open TARGET and pick Mars, cruise, stop, FIND, MAP and GALAXY, TOURS
+and the ☰ menu. Touch and keyboard get their own instructions. **Skip** is always available,
+**☰ → Replay tutorial** brings it back, and completion is remembered per browser. For testing, `?tutorial` forces
+it on and `&tutstep=N` jumps to a step.
+
 ### Guided tours
 
 The **TOURS** button lists five guided tours (`TOURS` in `SpaceRoam.jsx`): Capitals of Europe, Roof of the World,

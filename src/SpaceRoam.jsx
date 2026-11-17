@@ -980,7 +980,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (wf > 0) { au.wg.gain.setTargetAtTime(wf * 0.26, t, 0.2); au.wf.frequency.setTargetAtTime(500 + wf * 1500 + Math.sin(t * 3) * 200, t, 0.2); } // tunnel roar au.so.frequency.setTargetAtTime(160 + chg * 1100 + w * 300, t, 0.1);
   }
   function dropCruise(v) { if (ap.pend) { if (sys.lm[ap.k].bi === target && dist(target) < sys.list[target].arrive * 1.25) apStart(); else ap.pend = false; } cruise = false; flash = 0.6; for (let j = 0; j < 3; j++) ship.vel[j] = fw[j] * v; whoosh(1.4, 3000, 120, 0.18); blip(160, 50, 0.7, 'sine', 0.14); }
-  let mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
+  let tutLook = 0, tutMove = 0, mdx = 0, mdy = 0, fov = 65 * D2R, exposure = 1.0, frame = 0, nOpaque = 0, nTail = 0;
   const keys = Object.create(null);
 
   function switchStarSystem(id) {
@@ -1603,7 +1603,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     const wx = -mdy * sens + ((K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0)) * 1.2, wy = -mdx * sens + ((K.ArrowLeft ? 1 : 0) - (K.ArrowRight ? 1 : 0)) * 1.2, wz = ((K.KeyQ ? 1 : 0) - (K.KeyE ? 1 : 0)) * 1.6;
     mdx = mdy = 0; const kw = 1 - Math.exp(-dt * 8); // rotational inertia
     ship.w[0] += (wx - ship.w[0]) * kw; ship.w[1] += (wy - ship.w[1]) * kw; ship.w[2] += (wz - ship.w[2]) * kw;
-    const wl = Math.hypot(ship.w[0], ship.w[1], ship.w[2]);
+    const wl = Math.hypot(ship.w[0], ship.w[1], ship.w[2]); if (!cruise && !ap.on && !wp.on) { tutLook += Math.min(wl, 3) * dt; if (inZ < -0.2) tutMove += dt; }
     let sm = 0, nx = 0, ny = 1, nz = 0; // surface-flight blend (0 = free 6DoF in space, 1 = plane-like near the ground) and local vertical
     if (prValid && !cruise && !bench.on && !ap.on) { const o = prBody * 3, d = dist(prBody); nx = (abs[0] - pos[o]) / d; ny = (abs[1] - pos[o + 1]) / d; nz = (abs[2] - pos[o + 2]) / d; sm = smooth(0.045, 0.02, altT / sys.list[prBody].R); }
     if (!cruise && !bench.on) {
@@ -1865,6 +1865,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
+      tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
       date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
@@ -1969,7 +1970,7 @@ function MapUI({ eng, m, sysName, date }) { // DOM chrome for the 3D map: header
         {m.focus !== eng.systemStar && <div onClick={() => eng.mapFocus(eng.systemStar)} style={bt()}><Ico n="back" s={18} />SYSTEM</div>}
         <div style={{ ...panel, padding: '10px 14px', letterSpacing: 1 }}>{m.focus === eng.systemStar ? sysName.toUpperCase() + ' SYSTEM' : m.focusName.toUpperCase() + ' SYSTEM'}<span style={{ color: C.dim, fontSize: 11, marginLeft: 10 }}>{date}</span></div>
         <span style={{ flex: 1 }} />
-        <div onClick={() => eng.galaxyOpen()} style={bt()} title="Galaxy view"><Ico n="sys" s={18} />GALAXY</div>
+        <div data-tut="galaxy" onClick={() => eng.galaxyOpen()} style={bt()} title="Galaxy view"><Ico n="sys" s={18} />GALAXY</div>
         <div onClick={() => eng.mapClose()} style={bt()} title="Close map (N)"><Ico n="close" s={18} />CLOSE</div>
       </div>
       {sel && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '14px 16px' }}>
@@ -1985,8 +1986,84 @@ function MapUI({ eng, m, sysName, date }) { // DOM chrome for the 3D map: header
       {!sel && <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', color: C.dim, fontSize: 12, textShadow: '0 1px 3px #000' }}>Tap a planet · drag to rotate · pinch / scroll to zoom</div>}
     </div>);
 }
+/* ---- first-run tutorial: a dimmed screen with one spotlighted control; each step waits until the player actually does it ---- */
+const TUT_KEY = 'spaceroam.tutorial.v1';
+function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
+  const [i, setI] = useState(() => +(new URLSearchParams(location.search).get('tutstep') || 0)), base = useRef(null), was = useRef(false), [, force] = useState(0);
+  const T = ui.touch, S = [
+    { welcome: true },
+    { t: 'Look around', b: T ? 'Drag on the right half of the screen to turn the ship.' : 'Click the screen to capture the mouse, then move it to turn. (Esc releases the mouse.)', area: T ? 'right' : null, done: () => ui.tut.look - base.current.look > 1.2 },
+    { t: 'Fly forward', b: T ? 'Put your left thumb anywhere on the left half and push the stick up.' : 'Hold W to thrust forward. S brakes, A / D strafe, Space / X go up and down.', area: T ? 'left' : null, done: () => ui.tut.move - base.current.move > 1.2 },
+    { t: 'Choose a target', b: 'This shows where you are heading. Tap it to see every planet, moon and station.', sel: 'target', done: () => st.list },
+    { t: 'Pick Mars', b: 'Tap Mars in the list. You can also tap any planet directly on screen.', sel: 'body-mars', done: () => ui.target === 'mars' },
+    { t: 'Cruise there', b: T ? 'Tap CRUISE. The ship turns, charges and jumps toward Mars at incredible speed.' : 'Press F to cruise. The ship turns, charges and jumps toward Mars at incredible speed.', sel: T ? 'cruise' : null, done: () => { if (ui.cruise || ui.charging) was.current = true; return was.current; } },
+    { t: 'Arriving', b: 'Cruise slows down by itself and drops you out near the target. Tap CRUISE again (or press F) to stop early.', sel: T ? 'cruise' : null, done: () => was.current && !ui.cruise && !ui.charging },
+    { t: 'Find any place', b: 'FIND searches cities, mountains, seas, craters, planets and stars. GO flies you there by autopilot.', sel: 'find', done: () => st.find },
+    { t: 'Try a search', b: 'Type a name, for example Paris, and press GO. Or close the search box to continue.', done: () => !st.find },
+    { t: 'The live map', b: 'MAP lifts the camera out to a live 3D map of the Solar System, with the planets where they really are today.', sel: 'map', done: () => ui.map.on },
+    { t: 'Zoom out to the galaxy', b: 'Drag to rotate the map, then tap GALAXY to fly out to the whole Milky Way.', sel: 'galaxy', done: () => !!ui.galaxy },
+    { t: 'The Milky Way', b: 'This is our galaxy, with the Andromeda galaxy and others further out. Tap a star or galaxy to warp there. Tap CLOSE to come back.', done: () => !ui.galaxy && !ui.map.on },
+    { t: 'Guided tours', b: 'TOURS takes you on guided trips: the capitals of Europe, famous mountains, the Moon landings, Mars...', sel: 'tours', done: () => st.tours },
+    { t: 'Pick one any time', b: 'The ship flies itself from stop to stop and tells you about each place.', ok: 'Got it', after: () => setTours(false) },
+    { t: 'The menu', b: 'Sound, camera, photo mode, real-time orbits, the game file download and this tutorial live here.', sel: 'menu', done: () => st.menu },
+    { t: 'Photo mode', b: 'Photo mode hides everything so you can take clean pictures. Replay tutorial is at the bottom.', ok: 'Got it', after: () => setMenu(false) },
+    { end: true },
+  ];
+  const s = S[i], next = () => { if (s.after) s.after(); was.current = false; base.current = { ...ui.tut }; setI(i + 1); };
+  if (!base.current) base.current = { ...ui.tut };
+  useEffect(() => { if (s.done && s.done()) next(); }); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const id = setInterval(() => force((x) => x + 1), 250); return () => clearInterval(id); }, []);
+  const finish = () => { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* storage unavailable */ } onClose(); };
+  const el = s.sel ? document.querySelector('[data-tut="' + s.sel + '"]') : null;
+  if (el && el.dataset.tutSeen !== String(i)) { el.dataset.tutSeen = String(i); el.scrollIntoView({ block: 'nearest' }); } // e.g. Mars further down the target list
+  const r = el ? el.getBoundingClientRect() : null;
+  const box = { ...panel, boxSizing: 'border-box', pointerEvents: 'auto', position: 'absolute', zIndex: 21, padding: '16px 18px', lineHeight: 1.45, fontSize: 14, width: 'min(420px, calc(100% - 32px))', borderColor: 'rgba(255,195,90,.6)', boxShadow: '0 8px 40px rgba(0,0,0,.6)' };
+  const btnS = (hi) => ({ ...panel, cursor: 'pointer', padding: '10px 16px', fontSize: 13, letterSpacing: 1, ...(hi ? { borderColor: C.warn, color: C.warn } : {}) });
+  const skip = <span onClick={finish} style={{ cursor: 'pointer', color: C.dim, fontSize: 12, textDecoration: 'underline' }}>Skip tutorial</span>;
+  if (s.welcome || s.end) return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(2,6,14,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}>
+      <div style={{ ...box, position: 'relative', width: 'min(520px, calc(100% - 32px))', maxHeight: 'calc(100% - 24px)', overflowY: 'auto', padding: 'clamp(14px, 3vh, 26px) 22px clamp(12px, 2.5vh, 20px)', textAlign: 'center' }}>
+        {s.welcome ? <>
+          <div style={{ fontSize: 'clamp(22px, 5vh, 30px)', letterSpacing: 4, color: C.acc, marginBottom: 4 }}>SPACEROAM</div>
+          <div style={{ fontSize: 12, letterSpacing: 2, color: C.warn, marginBottom: 'clamp(8px, 2vh, 16px)' }}>EXPLORE THE REAL SOLAR SYSTEM</div>
+          <div style={{ textAlign: 'left', fontSize: 'clamp(12px, 3.3vh, 14px)', lineHeight: 1.5 }}>
+            Fly your own ship through space, from orbit down to the ground.<br /><br />
+            Everything here is <b style={{ color: C.acc }}>real</b>: the planets are where they are today, Earth, the Moon and Mars use real satellite
+            photos and heights, and the stars and galaxies sit at their true positions.<br /><br />
+            Visit cities and mountains, walk the Apollo landing sites, take a guided tour, or warp to another star.
+            Learn as you go, and take beautiful pictures along the way.
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 'clamp(10px, 3vh, 20px)', flexWrap: 'wrap' }}>
+            <div onClick={next} style={btnS(true)}>SHOW ME HOW (2 MIN)</div><div onClick={finish} style={btnS(false)}>SKIP</div></div>
+        </> : <>
+          <div style={{ fontSize: 24, letterSpacing: 2, color: C.acc, marginBottom: 10 }}>You're ready!</div>
+          <div style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 18 }}>Have a good trip. A nice first flight: the <b>Capitals of Europe</b> tour.<br />You can replay this tutorial from the menu.</div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <div onClick={() => { finish(); eng.tourStart(0); }} style={btnS(true)}>START THE TOUR</div><div onClick={finish} style={btnS(false)}>FLY FREELY</div></div>
+        </>}
+      </div></div>);
+  const pad = 8, hole = r ? { l: r.left - pad, t: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2 } : null;
+  const dim = { position: 'absolute', background: 'rgba(2,6,14,.62)', pointerEvents: 'auto', zIndex: 20 };
+  const VW = window.innerWidth, VH = window.innerHeight, BW = Math.min(420, VW - 32), side = hole && VH < 620 && VW > 700 && hole.t + hole.h > 150; // short landscape screens: bubble beside the control
+  const bubbleTop = !hole ? { top: 84 } : side ? { top: Math.max(12, Math.min(VH - 220, hole.t + hole.h / 2 - 90)) } : hole.t + hole.h / 2 > VH / 2 ? { bottom: VH - hole.t + 12 } : { top: hole.t + hole.h + 12 };
+  const bubbleLeft = !hole ? null : side ? (hole.l + hole.w / 2 > VW / 2 ? Math.max(16, hole.l - BW - 16) : Math.min(VW - BW - 16, hole.l + hole.w + 16)) : Math.max(16, Math.min(VW - BW - 16, hole.l + hole.w / 2 - BW / 2));
+  return (<>
+    {hole && <> {/* four panels around the spotlight: only the highlighted control can be pressed */}
+      <div style={{ ...dim, left: 0, top: 0, right: 0, height: Math.max(0, hole.t) }} /><div style={{ ...dim, left: 0, top: hole.t + hole.h, right: 0, bottom: 0 }} />
+      <div style={{ ...dim, left: 0, top: hole.t, width: Math.max(0, hole.l), height: hole.h }} /><div style={{ ...dim, left: hole.l + hole.w, top: hole.t, right: 0, height: hole.h }} />
+      <div style={{ position: 'absolute', zIndex: 20, left: hole.l, top: hole.t, width: hole.w, height: hole.h, borderRadius: 14, border: '2px solid ' + C.warn, boxShadow: '0 0 18px rgba(255,195,90,.7)', pointerEvents: 'none', animation: 'tutpulse 1.2s ease-in-out infinite' }} /></>}
+    {!hole && s.area && <div style={{ position: 'absolute', zIndex: 19, top: 0, bottom: 0, width: '50%', [s.area === 'left' ? 'left' : 'right']: 0, border: '2px dashed rgba(255,195,90,.55)', background: 'rgba(255,195,90,.05)', pointerEvents: 'none' }} />}
+    <div style={{ ...box, ...bubbleTop, ...(bubbleLeft !== null ? { left: bubbleLeft } : { left: '50%', transform: 'translateX(-50%)' }) }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 6 }}><span style={{ fontSize: 17, color: C.acc, flex: 1 }}>{s.t}</span><span style={{ fontSize: 11, color: C.dim }}>{i} / {S.length - 2}</span></div>
+      <div>{s.b}</div>
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: 12, gap: 10 }}>{skip}<span style={{ flex: 1 }} />
+        {s.ok ? <div onClick={next} style={btnS(true)}>{s.ok.toUpperCase()}</div> : <span style={{ fontSize: 11, color: C.warn, letterSpacing: 1 }}>{hole ? 'TAP THE HIGHLIGHTED BUTTON' : 'DO IT TO CONTINUE'}</span>}</div>
+    </div>
+    <style>{'@keyframes tutpulse{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
+  </>);
+}
 function Overlay({ eng }) {
-  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [find, setFind] = useState(null);
+  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
   useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); eng.galaxyClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
@@ -2021,7 +2098,7 @@ function Overlay({ eng }) {
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
       {/* target chip + menu (top right) */}
       <div style={{ position: 'absolute', top: 12, right: 12, display: mapOut ? 'none' : 'flex', gap: 8, alignItems: 'stretch' }}>
-        <div {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
+        <div data-tut="target" {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
           <span style={{ color: C.acc }}><Ico n="tgt" s={22} /></span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
             <span style={{ fontSize: 10, color: C.dim }}>TARGET  ▾</span>
@@ -2029,16 +2106,17 @@ function Overlay({ eng }) {
             <span style={{ fontSize: 11, color: C.dim, letterSpacing: 0 }}>{fmtD(ui.dist)}</span>
           </span>
         </div>
-        <div {...tap(() => { eng.unlockMouse(); setMenu(false); setList(null); setFind(null); setTours(!tours); })} style={btn({ width: 56, minHeight: 48, fontSize: 10, ...(ui.tour ? { borderColor: C.warn, color: C.warn } : {}) })} title="Guided tours"><Ico n="tour" s={22} />TOURS</div>
-        <div {...tap(openFind)} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="Search places (/)"><Ico n="find" s={22} />FIND</div>
-        <div {...tap(() => { eng.unlockMouse(); setList(null); setMenu(false); setFind(null); eng.mapOpen(); })} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="System map (N)"><Ico n="map" s={22} />MAP</div>
-        <div {...tap(() => { eng.unlockMouse(); setList(null); setFind(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
+        <div data-tut="tours" {...tap(() => { eng.unlockMouse(); setMenu(false); setList(null); setFind(null); setTours(!tours); })} style={btn({ width: 56, minHeight: 48, fontSize: 10, ...(ui.tour ? { borderColor: C.warn, color: C.warn } : {}) })} title="Guided tours"><Ico n="tour" s={22} />TOURS</div>
+        <div data-tut="find" {...tap(openFind)} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="Search places (/)"><Ico n="find" s={22} />FIND</div>
+        <div data-tut="map" {...tap(() => { eng.unlockMouse(); setList(null); setMenu(false); setFind(null); eng.mapOpen(); })} style={btn({ width: 56, minHeight: 48, fontSize: 10 })} title="System map (N)"><Ico n="map" s={22} />MAP</div>
+        <div data-tut="menu" {...tap(() => { eng.unlockMouse(); setList(null); setFind(null); setMenu(!menu); })} style={btn({ width: 52, minHeight: 48 })} title="Menu"><Ico n={menu ? 'close' : 'menu'} /></div>
       </div>
       {/* menu */}
       {menu && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 230, padding: 6 }}>
         {item(ui.sound ? 'snd' : 'mute', ui.sound ? 'Sound: on' : 'Sound: off', ui.sound, () => eng.act('KeyM'))}
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
+        {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spaceroam.html'; a.download = 'spaceroam.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
@@ -2053,7 +2131,7 @@ function Overlay({ eng }) {
           <span style={{ flex: 1, letterSpacing: 1 }}>CHOOSE TARGET</span><span {...tap(() => setList(null))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
         <div style={{ overflowY: 'auto', padding: 6, WebkitOverflowScrolling: 'touch' }}>
           {order.map((b) => { const on = b.id === ui.target; return (
-            <div key={b.id} {...tap(() => { eng.setTarget(b.id); setList(null); })} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px 10px ' + (10 + depth(b) * 18) + 'px', borderRadius: 10, cursor: 'pointer', background: on ? 'rgba(80,255,190,.12)' : 'transparent', border: on ? '1px solid rgba(125,255,200,.5)' : '1px solid transparent' }}>
+            <div key={b.id} data-tut={'body-' + b.id} {...tap(() => { eng.setTarget(b.id); setList(null); })} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px 10px ' + (10 + depth(b) * 18) + 'px', borderRadius: 10, cursor: 'pointer', background: on ? 'rgba(80,255,190,.12)' : 'transparent', border: on ? '1px solid rgba(125,255,200,.5)' : '1px solid transparent' }}>
               {dot(b)}
               <span style={{ flex: 1, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
                 <span style={{ color: on ? C.acc : C.fg, fontSize: depth(b) > 1 ? 13 : 15 }}>{b.name}{!b.found && <span style={{ color: C.warn, fontSize: 10, marginLeft: 6 }}>UNCHARTED</span>}</span>
@@ -2099,6 +2177,7 @@ function Overlay({ eng }) {
           <div {...tap(() => eng.tourStep(1))} style={{ ...panel, cursor: 'pointer', padding: '8px 14px', fontSize: 12, letterSpacing: 1, borderColor: C.warn, color: C.warn }}>{ui.tour.i + 1 < ui.tour.n ? 'NEXT STOP' : 'FINISH'}</div>
           <span style={{ flex: 1 }} /><div {...tap(() => eng.tourStop())} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1 }}>EXIT TOUR</div>
         </div></div>}
+      {tut && <Tutorial ui={ui} st={{ list: !!list, find: find !== null, tours, menu }} eng={eng} onClose={() => setTut(false)} setTours={setTours} setMenu={setMenu} />}
       {ui.auto && !mapOut && <div style={{ ...panel, position: 'absolute', left: '50%', top: 72, transform: 'translateX(-50%)', padding: '8px 14px', fontSize: 12, color: C.warn, borderColor: C.warn, whiteSpace: 'nowrap' }}>AUTOPILOT › {ui.auto}<span style={{ color: C.dim }}> · thrust to take over</span></div>}
       {ui.wsel && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 4, left: '50%', bottom: ui.touch ? 130 : 16, transform: 'translateX(-50%)', width: 'min(440px, calc(100% - 24px))', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}><span style={{ fontSize: 20, color: C.warn }}>{ui.wsel.name}</span><span style={{ color: C.dim, fontSize: 12 }}>Star</span><span style={{ flex: 1 }} /><span style={{ color: C.dim, fontSize: 13 }}>{ui.wsel.ly.toFixed(1)} light-years</span></div>
@@ -2115,7 +2194,7 @@ function Overlay({ eng }) {
       {ui.galaxy && <GalaxyUI eng={eng} gv={ui.galaxy} wsel={ui.wsel} />}
       {/* touch action cluster */}
       {ui.touch && !mapOut && <>
-        <div {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
+        <div data-tut="cruise" {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
           <Ico n={ui.cruise || ui.charging ? 'stop' : 'cruise'} s={30} />{cruiseLbl}</div>
         <div {...hold('ShiftLeft')} style={round(70, false, { position: 'absolute', right: 128, bottom: 18 })}><Ico n="boost" s={26} />BOOST</div>
         <div {...hold('Space')} style={round(60, false, { position: 'absolute', right: 34, bottom: 196 })}><Ico n="up" s={28} />UP</div>
