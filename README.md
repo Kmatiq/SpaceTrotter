@@ -60,6 +60,9 @@ renders at your screen's full resolution.*
   hyperspace jump with streaks and a light tunnel. There are generated star systems (real exoplanets where they
   exist, such as TRAPPIST-1, Proxima b and 51 Pegasi b), a **galaxy view** of the Milky Way and the Local
   Group, and intergalactic jumps to Andromeda.
+- **Real 3D city (beta):** Helsinki's real buildings (the city's open LOD2 3D model), streamed live and
+  placed on the 1/5-scale Earth, with window façades and lit windows at night. Open the game with `?city`
+  (https://kmatiq.github.io/SpaceTrotter/?city) and fly to Helsinki.
 - **Photo mode:** hides everything and saves a PNG.
 - **Exploration log:** discover bodies by flying close; progress is saved in the browser.
 
@@ -99,6 +102,7 @@ and ☰.
 | Moon | low-precision lunar theory | real phase and position |
 | Stars | [HYG database v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA) | every star brighter than mag 4.5, with distance |
 | Galaxies | galactic coordinates, distances, position angles | Milky Way frame tied to the ecliptic |
+| Helsinki buildings (beta) | [City of Helsinki 3D city model](https://www.hel.fi/en/decision-making/information-on-helsinki/maps-and-geospatial-data/helsinki-3d), LOD2 3D Tiles | **CC BY 4.0**, streamed from kartta.hel.fi; scaled 1/5 like the Earth |
 
 **Deliberate compromises, for playability:**
 - **Distances:** orbit distances are compressed. Directions are exact; distance follows `au^0.55`.
@@ -229,6 +233,7 @@ Planned work, roughly in order of priority:
   System.
 - **And more:**
   - A date & time control for watching eclipses and alignments.
-  - City buildings from OpenStreetMap, plus hand-made models of famous landmarks.
+  - More real 3D cities (Helsinki is in beta), OpenStreetMap buildings elsewhere, plus hand-made models of
+    famous landmarks.
   - More real moons (Io, Europa, Ganymede, Callisto, Titan, Enceladus, Phobos, Deimos).
   - A custom domain at spacetrotter.app.

@@ -278,6 +278,7 @@ struct Hud{a:vec4f,c:vec4f,b:vec4f};
 @group(0)@binding(5) var smp:sampler;
 @group(0)@binding(6) var<storage,read> TH:array<vec2u>;// tile hash: key -> layer
 @group(0)@binding(7) var TA:texture_2d_array<f32>;// streamed map tiles (256x256)
+@group(0)@binding(8) var<storage,read> TLB:array<vec4f>;// city tiles: anchor (body frame), KS | anchor (cam-rel), body slot
 struct PB{i:vec4f,o:vec4f};
 @group(2)@binding(0) var<storage,read_write> PRB:PB;
 @group(1)@binding(0) var scn:texture_2d<f32>;
@@ -515,12 +516,38 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  let H=b[11].x;var tA=vec2f(1e30,-1e30);if(H>0.){tA=isph(ro,rd,1.+H);}
  let atm=tA.y>0.&&tA.x<tA.y;let t0=max(tA.x,0.);let t1=select(tA.y,min(tA.y,tS),tS>0.);
  if(rC.a>0.&&atm&&tR>(t0+t1)*.5){acc=rC+(1.-rC.a)*acc;rC=vec4f(0.);tD=min(tD,tR);}
- if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));tD=min(tD,t0);}// daylit sky drowns out the stars
+ if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));if(t0>1e-6){tD=min(tD,t0);}}// daylit sky drowns out the stars; inside the air the depth stays at the ground, so buildings in front are not hidden
  if(rC.a>0.){acc=rC+(1.-rC.a)*acc;tD=min(tD,tR);}
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
  return FO(acc,zdep(max(tD,1e-9)*R,rdw));}
 // exact ground height under the ship for collision (same terrain function as the raymarch)
 @compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),select(max(b[4].w,1e-4)*.08,1e-5,b[12].w>.5));PRB.o=vec4f(r.h,r.f,r.m,1.);}
+// ================= 3D CITY (real buildings, rasterised; base sits on the same terrain the ground raymarch draws) =================
+struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@location(2) q:vec4f,@location(3) @interpolate(flat) c:vec4f,@location(4) @interpolate(flat) L:vec3f,@location(5) @interpolate(flat) E:vec3f,@location(6) w:vec3f,@location(7) @interpolate(flat) sl:u32};
+@vertex fn vsC(@location(0) o:vec3f,@location(1) hr:f32,@location(2) nr:vec4f,@location(3) cl:vec4f,@builtin(instance_index) i:u32)->CV{
+ let A=TLB[i*2u];let C=TLB[i*2u+1u];let sl=u32(C.w);let b=BD[sl].d;let R=b[0].w;let n=normalize(A.xyz+o);
+ let hm=max(b[4].w+b[8].x*.3/max(b[8].y,1.),select(0.,select(.013,.017,b[12].w>2.5),b[12].w>1.5));
+ OCM=mix(5.,7.,g.fx.z);let h=terr(b,n,hm*.08).h*R;
+ let wp=C.xyz+qr(b[2],o+n*(h+hr));let L=normalize(qr(qc(b[2]),g.sun.xyz-b[0].xyz));
+ return CV(g.vp*vec4f(wp,1.),nr.xyz,n,vec4f(o/A.w,hr/A.w),cl,L,g.sc.rgb*b[1].z*2.,wp,sl);}
+@fragment fn fsC(v:CV)->@location(0) vec4f{
+ let b=BD[v.sl].d;let R=b[0].w;let up=normalize(v.u);let N0=normalize(v.n);let N=select(N0,-N0,dot(N0,up)<-.35);let L=v.L;let E=v.E;let c=v.c;let ud=dot(N,up);
+ var al=vec3f(.72,.7,.66);var em=vec3f(0.);let tw=cross(up,N);let t=tw/max(length(tw),1e-4);let x=dot(v.q.xyz,t);let y=v.q.w;
+ let fd=1.-smoothstep(.2,.5,max(fwidth(x)/2.8,fwidth(y)/3.2));
+ if(ud>.35){al=select(select(select(vec3f(.11,.115,.12),vec3f(.24,.24,.25),c.x>.5),vec3f(.22,.11,.08),c.x>.86),vec3f(.17,.28,.24),c.x>.97)*(.85+.3*c.y);}
+ else{
+  let k=c.z;al=select(select(select(select(vec3f(.7,.68,.64),vec3f(.72,.63,.47),k>.3),vec3f(.7,.54,.32),k>.5),vec3f(.52,.52,.52),k>.68),vec3f(.46,.27,.2),k>.86);
+  al*=.85+.25*c.y;
+  if(abs(ud)<.3&&y>1.2){
+   let wx=fract(x/2.8);let wy=fract(y/3.2);let m=step(.3,wx)*step(wx,.7)*step(.35,wy)*step(wy,.82);
+   al=mix(al,vec3f(.07,.08,.1),mix(.18,m,fd)*.85);
+   let night=1.-smoothstep(-.1,.05,dot(up,L));let lit=step(.58,hf(vec3i(i32(floor(x/2.8)),i32(floor(y/3.2)),i32(c.z*65535.))));
+   em=vec3f(1.,.74,.42)*mix(.07,m*lit,fd)*night*.5;}}
+ let gdl=dot(up,L);let ndl=max(dot(N,L),0.);let sT=sunT(b,up,L);
+ let skyC=normalize(b[12].xyz+vec3f(1e-4))*.75+vec3f(.25);let hemi=mix(vec3f(.04,.05,.07),skyC,.5+.5*ud)*.09;let day=smoothstep(-.12,.25,gdl);
+ var col=al*E*ndl*smoothstep(-.03,.08,gdl)*sT+al*E*(.0025*mix(.3,1.,day)+b[12].xyz*.3*smoothstep(-.2,.3,gdl))+al*E*hemi*day*1.5+em;
+ let d=length(v.w);let f=1.-exp(-d/(R*.02));col=mix(col,E*skyC*.05*day,f*.8);
+ return vec4f(col,1.);}
 // ================= SDF UBER-SHADER (stations, asteroids, comets, ship) =================
 // Inst: a=center(cam-rel m),halfSize | q=orientation | b=type(0 rock,1 station,2 comet,3 ship,4 tail),seed,light,param
 struct VS{@builtin(position) p:vec4f,@location(0) @interpolate(flat) id:u32,@location(1) @interpolate(flat) im:f32};
@@ -790,18 +817,19 @@ async function createEngine(canvas, systemId, opts = {}) {
   const thF = new Uint32Array(8192).fill(0xffffffff), thBuf = buf(thF.byteLength, U.STORAGE | U.COPY_DST); device.queue.writeBuffer(thBuf, 0, thF);
   const probeIn = new Float32Array(8), probeBuf = buf(32, U.STORAGE | U.COPY_DST | U.COPY_SRC), probeRd = buf(32, U.MAP_READ | U.COPY_DST);
   const VFC = VF | GPUShaderStage.COMPUTE;
+  const tlF = new Float32Array(512 * 8), tlBuf = buf(tlF.byteLength, U.STORAGE | U.COPY_DST); // per-draw city tile anchors
   const bgl0 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: VFC, buffer: {} }, { binding: 1, visibility: VFC, buffer: { type: 'read-only-storage' } },
     { binding: 2, visibility: VF, buffer: { type: 'read-only-storage' } }, { binding: 3, visibility: VF, buffer: { type: 'read-only-storage' } },
     { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VFC, sampler: {} },
-    { binding: 6, visibility: VFC, buffer: { type: 'read-only-storage' } }, { binding: 7, visibility: VFC, texture: { viewDimension: '2d-array' } }] });
+    { binding: 6, visibility: VFC, buffer: { type: 'read-only-storage' } }, { binding: 7, visibility: VFC, texture: { viewDimension: '2d-array' } }, { binding: 8, visibility: VF, buffer: { type: 'read-only-storage' } }] });
   const bgl1 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
     { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } }] });
   const bg0 = device.createBindGroup({ layout: bgl0, entries: [
     { binding: 0, resource: { buffer: gBuf } }, { binding: 1, resource: { buffer: bBuf } }, { binding: 2, resource: { buffer: iBuf } },
     { binding: 3, resource: { buffer: hBuf } }, { binding: 4, resource: atlas.createView() }, { binding: 5, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
-    { binding: 6, resource: { buffer: thBuf } }, { binding: 7, resource: tileTex.createView({ dimension: '2d-array' }) }] });
+    { binding: 6, resource: { buffer: thBuf } }, { binding: 7, resource: tileTex.createView({ dimension: '2d-array' }) }, { binding: 8, resource: { buffer: tlBuf } }] });
   const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] }), pl1 = device.createPipelineLayout({ bindGroupLayouts: [bgl0, bgl1] });
 
   const PM = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
@@ -815,6 +843,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   const skyP = pipe('vsF', 'fsSky', HDR, undefined, 3), sdfP = pipe('vsS', 'fsS', HDR, undefined, 2, 'front'),
     bodyP = pipe('vsB', 'fsB', HDR, PM, 2, 'front'), tailP = pipe('vsS', 'fsT', HDR, ADD, 1, 'front'),
     postP = pipe('vsF', 'fsPost', fmt, undefined, 0, 0, pl1), hudP = pipe('vsH', 'fsH', fmt, AL, 0);
+  const cityP = device.createRenderPipeline({ layout: pl0, vertex: { module: mod, entryPoint: 'vsC', buffers: [{ arrayStride: 24, attributes: [
+    { shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32' }, { shaderLocation: 2, offset: 16, format: 'snorm8x4' }, { shaderLocation: 3, offset: 20, format: 'unorm8x4' }] }] },
+    fragment: { module: mod, entryPoint: 'fsC', targets: [{ format: HDR }] }, primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: DF, depthWriteEnabled: true, depthCompare: 'greater' } });
   const bglP = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }] });
   const probeP = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [bgl0, device.createBindGroupLayout({ entries: [] }), bglP] }), compute: { module: mod, entryPoint: 'csProbe' } });
   const bgP = device.createBindGroup({ layout: bglP, entries: [{ binding: 0, resource: { buffer: probeBuf } }] });
@@ -925,6 +956,85 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let sl = 0; sl < NTL; sl++) { const k = tKey[sl]; if (k === 0xffffffff) continue; let h = Math.imul(k, 2654435761) >>> 20;
       for (let p = 0; p < 16; p++, h++) { const e = (h & 4095) * 2; if (thF[e] === 0xffffffff) { thF[e] = k; thF[e + 1] = sl; break; } } }
     device.queue.writeBuffer(thBuf, 0, thF); }
+  // ---- 3D city: real Helsinki buildings (City of Helsinki LOD2 3D Tiles, CC BY 4.0), streamed and placed on the 1/5-scale Earth ----
+  // Tiles are plain glTF (positions + normals + feature ids). Each vertex: ECEF -> geodetic -> direction on the game sphere; height above its
+  // building's base is kept (scaled like the planet), and the vertex shader puts the base on the same terrain the ground shader draws.
+  const CITY_URL = 'https://kartta.hel.fi/3d/datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json';
+  const city = { on: typeof location !== 'undefined' && /[?&]city\b/.test(location.search), root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0 };
+  const cityNode = (j, base, T) => { const m = j.transform ? mat4mul(T, j.transform) : T, c = j.content && (j.content.uri || j.content.url);
+    return { bv: j.boundingVolume.region, ge: j.geometricError, add: j.refine === 'ADD', T: m, url: c ? new URL(c, base).href : null, kind: c ? (/\.json(\?|$)/.test(c) ? 1 : 2) : 0,
+      kids: (j.children || []).map((k) => cityNode(k, base, m)), st: 0, tile: null, ctr: null }; };
+  function mat4mul(a, b) { const r = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; r[i * 4 + j] = s; } return r; } // column-major
+  const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  function cityJson(n, url, T) { if (city.fly >= 8) return; n.st = 1; city.fly++;
+    fetch(url).then((r) => { if (!r.ok) throw 0; return r.json(); }).then((j) => { city.fly--; const r = cityNode(j.root, url, T); if (n === city) { city.root = r; } else { n.kids = [r]; n.st = 3; } })
+      .catch(() => { city.fly--; city.err++; if (n !== city) n.st = 4; else city.st = 4; }); }
+  function cityGlb(n) { if (city.fly >= 8) return; n.st = 1; city.fly++;
+    fetch(n.url).then((r) => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then((ab) => { city.fly--; n.tile = cityDecode(ab, n); n.st = n.tile ? 3 : 4; if (n.tile) { city.nT++; city.nV += n.tile.n; } })
+      .catch(() => { city.fly--; city.err++; n.st = 4; }); }
+  function cityDecode(ab, n) { // glb -> interleaved vertex buffer (anchor-relative sphere position f32x3, height above base f32, normal snorm8x4, colour unorm8x4)
+    const dv = new DataView(ab); if (dv.getUint32(0, true) !== 0x46546c67) return null; const jl = dv.getUint32(12, true), J = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 20, jl))), b0 = 20 + jl + 8;
+    const eb = sys.idx.earth; if (eb === undefined) return null; const Rg = sys.list[eb].R, KS = Rg / 6371008.8;
+    const acc = (i) => { const a = J.accessors[i], bv = J.bufferViews[a.bufferView], nc = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type]; return { o: b0 + (bv.byteOffset || 0) + (a.byteOffset || 0), s: bv.byteStride || nc * 4, n: a.count, ct: a.componentType }; };
+    const prims = []; let nv = 0;
+    for (const nd of J.nodes || []) { if (nd.mesh === undefined) continue; const M = mat4mul(n.T, nd.matrix || I4);
+      for (const p of J.meshes[nd.mesh].primitives) { if ((p.mode ?? 4) !== 4 || p.attributes.POSITION === undefined) continue; const ix = p.indices !== undefined ? acc(p.indices) : null; const cnt = ix ? ix.n : J.accessors[p.attributes.POSITION].count;
+        prims.push({ M, P: acc(p.attributes.POSITION), N: p.attributes.NORMAL !== undefined ? acc(p.attributes.NORMAL) : null, F: p.attributes._FEATURE_ID_0 !== undefined ? acc(p.attributes._FEATURE_ID_0) : null, ix, cnt }); nv += cnt; } }
+    if (!nv) return null;
+    const lat = new Float64Array(nv), lon = new Float64Array(nv), hh = new Float64Array(nv), fid = new Int32Array(nv), out = new ArrayBuffer(nv * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out);
+    const A = 6378137, E2 = 6.69437999014e-3, B = A * Math.sqrt(1 - E2), EP2 = (A * A - B * B) / (B * B); let fmax = 0, v = 0, fbase = 0;
+    for (const p of prims) { const M = p.M;
+      for (let k = 0; k < p.cnt; k++, v++) { const i = p.ix ? (p.ix.ct === 5125 ? dv.getUint32(p.ix.o + k * 4, true) : dv.getUint16(p.ix.o + k * 2, true)) : k, o = p.P.o + i * p.P.s;
+        const gx = dv.getFloat32(o, true), gy = dv.getFloat32(o + 4, true), gz = dv.getFloat32(o + 8, true), lx = gx, ly = -gz, lz = gy; // glTF y-up -> tile z-up
+        const X = M[0] * lx + M[4] * ly + M[8] * lz + M[12], Y = M[1] * lx + M[5] * ly + M[9] * lz + M[13], Z = M[2] * lx + M[6] * ly + M[10] * lz + M[14];
+        const pp = Math.hypot(X, Y), th = Math.atan2(Z * A, pp * B), st = Math.sin(th), ct = Math.cos(th), la = Math.atan2(Z + EP2 * B * st * st * st, pp - E2 * A * ct * ct * ct), sl = Math.sin(la);
+        lat[v] = la; lon[v] = Math.atan2(Y, X); hh[v] = pp / Math.cos(la) - A / Math.sqrt(1 - E2 * sl * sl);
+        const f = p.F ? fbase + Math.round(dv.getFloat32(p.F.o + i * p.F.s, true)) : fbase; fid[v] = f; if (f > fmax) fmax = f;
+        if (p.N) { const q = p.N.o + i * p.N.s; ob[v * 24 + 16] = Math.round(dv.getFloat32(q, true) * 127); ob[v * 24 + 17] = Math.round(dv.getFloat32(q + 4, true) * 127); ob[v * 24 + 18] = Math.round(dv.getFloat32(q + 8, true) * 127); } // glTF y-up axes = the game's body frame
+      } fbase = fmax + 1; }
+    const base = new Float64Array(fmax + 1).fill(1e9), cla = new Float64Array(fmax + 1), clo = new Float64Array(fmax + 1);
+    for (let i = 0; i < nv; i++) { const f = fid[i]; if (hh[i] < base[f]) { base[f] = hh[i]; cla[f] = lat[i]; clo[f] = lon[i]; } }
+    const bv = n.bv, la0 = (bv[1] + bv[3]) / 2, lo0 = (bv[0] + bv[2]) / 2, ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
+    for (let i = 0; i < nv; i++) { const cl = Math.cos(lat[i]), f = fid[i], o = i * 6; let hr = hh[i] - base[f];
+      of[o] = cl * Math.cos(lon[i]) * Rg - ax; of[o + 1] = Math.sin(lat[i]) * Rg - ay; of[o + 2] = -cl * Math.sin(lon[i]) * Rg - az;
+      of[o + 3] = hr < 0.3 ? -8 * KS : hr * KS; // walls reach 8 m below grade: no gaps where the ground is a little uneven
+      const hs = Math.imul((Math.round(cla[f] * 1e5) * 73856093) ^ (Math.round(clo[f] * 1e5) * 19349663), 2654435761) >>> 0; // stable per building (lowest corner), same in every LOD
+      ou[i * 24 + 20] = hs & 255; ou[i * 24 + 21] = (hs >>> 8) & 255; ou[i * 24 + 22] = (hs >>> 16) & 255; ou[i * 24 + 23] = 0;
+    }
+    const gb = device.createBuffer({ size: out.byteLength, usage: U.VERTEX | U.COPY_DST }); device.queue.writeBuffer(gb, 0, out);
+    return { buf: gb, n: nv, A: [ax, ay, az], use: 0 };
+  }
+  function cityRegionDist(bv, la, lo, alt) { const cla = Math.min(bv[3], Math.max(bv[1], la)), clo = Math.min(bv[2], Math.max(bv[0], lo)), R = 6371008.8;
+    const dz = alt > bv[5] ? alt - bv[5] : alt < bv[4] ? bv[4] - alt : 0; return Math.max(1, Math.hypot((la - cla) * R, (lo - clo) * R * Math.cos(la), dz)); }
+  function cityFrame(eb, dc) { // traverse the tile tree for this frame: screen-space-error refinement, frustum cull, LRU; fills city.draws
+    city.n = 0; city.vis = false; if (!city.on || eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return;
+    const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+    qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
+    const la = Math.asin(Math.max(-1, Math.min(1, t3[1]))), lo = Math.atan2(-t3[2], t3[0]), alt = (dc - R0) / KS;
+    if (alt > 40000 || Math.abs(la - 1.0503) > 0.012 || Math.abs(lo - 0.4371) > 0.024) return; // within ~70 km of Helsinki, below ~40 km (real)
+    if (!city.root) { if (!city.st) { city.st = 1; cityJson(city, CITY_URL, I4); } return; }
+    city.use++; const sseK = H / (2 * Math.tan(fov / 2)), hd = Math.atan(Math.hypot(Math.tan(fov / 2) * W / H, Math.tan(fov / 2)));
+    const visible = (n) => { if (!n.ctr) { const bv = n.bv, a = (bv[1] + bv[3]) / 2, b = (bv[0] + bv[2]) / 2, ca = Math.cos(a); n.ctr = [ca * Math.cos(b) * R0, Math.sin(a) * R0, -ca * Math.sin(b) * R0, 0.5 * Math.hypot((bv[3] - bv[1]) * R0, (bv[2] - bv[0]) * R0 * ca, (bv[5] - bv[4]) * KS) + 50]; }
+      qrot(t3, 0, bq, q, n.ctr[0], n.ctr[1], n.ctr[2]); const x = pos[o] + t3[0] - cam[0], y = pos[o + 1] + t3[1] - cam[1], z = pos[o + 2] + t3[2] - cam[2], d = Math.hypot(x, y, z), r = n.ctr[3];
+      if (d < r) return true; return Math.acos(Math.max(-1, Math.min(1, (x * fw[0] + y * fw[1] + z * fw[2]) / d))) < hd + Math.asin(Math.min(1, r / d)); };
+    const rq = city.rq || (city.rq = []); rq.length = 0; let dNow = 0;
+    const want = (n, pri) => { if (!n.st) rq.push([pri, n]); };
+    const ready = (n) => { if (n.kind === 2) { want(n, 1e7 + dNow); return n.st >= 3; } if (n.kind === 1) { want(n, 5e6 + dNow); return n.st === 4 || (n.st === 3 && n.kids.every(ready)); } return n.kids.every(ready); };
+    const draw = (n) => { if (n.st === 3 && n.tile && city.n < 512) { n.tile.use = city.use; city.draws[city.n++] = n.tile; } else want(n, dNow); };
+    const visit = (n, depth) => { if (depth > 40) return; const d = cityRegionDist(n.bv, la, lo, alt); if (d > 30000 || !visible(n)) return;
+      dNow = d; if (n.kind === 1) { if (n.st === 3) n.kids.forEach((k) => visit(k, depth + 1)); else want(n, d); return; }
+      const refine = n.kids.length > 0 && (n.kind !== 2 || (n.ge * sseK) / d > (tc.on ? 32 : 20));
+      if (!refine) { if (n.kind === 2) draw(n); return; }
+      if (n.kind === 2 && (n.add || !n.kids.every(ready))) draw(n);
+      if (n.add || n.kind !== 2 || n.kids.every(ready)) n.kids.forEach((k) => visit(k, depth + 1)); };
+    visit(city.root, 0); city.vis = city.n > 0;
+    rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && city.fly < 8; i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) cityJson(n, n.url, n.T); else cityGlb(n); }
+    if (city.nV > 3e6) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(city.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
+      for (const n of all) { if (city.nV <= 2.2e6 || n.tile.use === city.use) break; n.tile.buf.destroy(); city.nV -= n.tile.n; city.nT--; n.tile = null; n.st = 0; } }
+    for (let i = 0; i < city.n; i++) { const t = city.draws[i], e = i * 8; qrot(t3, 0, bq, q, t.A[0], t.A[1], t.A[2]);
+      tlF[e] = t.A[0]; tlF[e + 1] = t.A[1]; tlF[e + 2] = t.A[2]; tlF[e + 3] = KS; tlF[e + 4] = pos[o] + t3[0] - cam[0]; tlF[e + 5] = pos[o + 1] + t3[1] - cam[1]; tlF[e + 6] = pos[o + 2] + t3[2] - cam[2]; tlF[e + 7] = slotOf[eb]; }
+    if (city.n) device.queue.writeBuffer(tlBuf, 0, tlF, 0, city.n * 8);
+  }
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
@@ -1812,6 +1922,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     // ---- encode ----
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
+    { const eb = sys.idx.earth; cityFrame(eb, eb === undefined ? 1 : dist(eb)); }
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
     if (!prBusy) {
@@ -1828,6 +1939,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     p.setBindGroup(0, bg0);
     p.setPipeline(skyP); p.draw(3);
     if (gx.a < 1) { if (nOpaque) { p.setPipeline(sdfP); p.draw(36, nOpaque, 0, 0); }
+    if (city.n) { p.setPipeline(cityP); for (let k = 0; k < city.n; k++) { p.setVertexBuffer(0, city.draws[k].buf); p.draw(city.draws[k].n, 1, 0, k); } }
     p.setPipeline(bodyP); for (let k = 0; k < nb; k++) p.draw(36, 1, 0, order[k]); }
     if (nTail) { p.setPipeline(tailP); p.draw(36, nTail, 0, nOpaque); }
     p.end();
@@ -1866,13 +1978,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
+    get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, cityOn: (v) => { city.on = !!v; },
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, city: city.vis, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -1914,7 +2027,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       target = i; cruise = false; charge = -1; ship.ref = i; rqRef = -1; prValid = false; ship.off[0] = ux * r; ship.off[1] = uy * r; ship.off[2] = uz * r; ship.vel.fill(0); ship.w.fill(0);
       qlook(ship.q, 0, fx, fy, fz, ux, uy, uz);
     },
-    setTime: (t) => { simT = t; }, setExposure: (e) => { exposure = e; }, toggleThirdPerson: () => { thirdPerson = !thirdPerson; },
+    setTime: (t) => { simT = t; }, setDate: (iso) => { jd0 = Date.parse(iso) / 86400000 + 2440587.5 - simT * TS; }, setExposure: (e) => { exposure = e; }, toggleThirdPerson: () => { thirdPerson = !thirdPerson; },
     destroy() {
       dead = true; cancelAnimationFrame(raf);
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('mousemove', mm);
@@ -2092,7 +2205,7 @@ function Overlay({ eng }) {
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
     const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spacetrotter-' + Date.now() + '.png'; a.click(); });
-    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>
+    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Buildings: City of Helsinki 3D model, CC BY 4.0</div>}
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
         <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
@@ -2106,6 +2219,7 @@ function Overlay({ eng }) {
   const item = (icon, label, on, fn) => <div {...tap(fn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', color: on ? C.acc : C.fg, background: on ? 'rgba(80,255,190,.08)' : 'transparent' }}><Ico n={icon} s={20} /><span>{label}</span></div>;
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
+      {ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Buildings: City of Helsinki 3D model, CC BY 4.0</div>}
       {/* target chip + menu (top right) */}
       <div style={{ position: 'absolute', top: 12, right: 12, display: mapOut ? 'none' : 'flex', gap: 8, alignItems: 'stretch' }}>
         <div data-tut="target" {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
