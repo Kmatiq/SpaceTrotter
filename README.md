@@ -49,9 +49,13 @@ renders at your screen's full resolution.*
 - **Fly anywhere:** 6-degrees-of-freedom flight with no gimbal lock. Supercruise between planets, then
   re-enter the atmosphere (with a plasma sheath) and fly low over the ground with the same free controls and an
   afterburner. You can land.
-- **Real places:** about 190 landmarks: European capitals and big cities, famous mountains, oceans and seas,
-  the Apollo sites, lunar craters, Olympus Mons and the Mars rover sites. **FIND** searches them, plus every
-  planet and star, and **GO** flies you there by autopilot.
+- **Real places:** about 200 landmarks: European capitals and big cities, famous mountains, oceans and seas,
+  dark-sky sites, the Apollo sites, lunar craters, Olympus Mons and the Mars rover sites. **FIND** lets you browse by
+  category (Solar System, Earth by region, the Moon, Mars, stars, galaxies, night sky) or search everything,
+  and **GO** flies you there by autopilot.
+- **Night-sky trips:** pick a constellation under FIND → Night sky and the game takes you to a famous dark-sky
+  site (Abisko, La Palma, Mauna Kea, Atacama, Lake Tekapo) on the night it stands highest, facing it.
+  **BACK TO TODAY** restores the date.
 - **Guided tours:** five tours: Capitals of Europe, Roof of the World, Footsteps on the Moon, The Red Planet
   and Grand Tour. The ship flies itself, circles each stop, lights night-side stops and tells you the story.
 - **Live system map:** the camera flies out of the ship to a 3D overview of the Solar System with today's
