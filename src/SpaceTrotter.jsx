@@ -1054,7 +1054,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   // Tiles are plain glTF (positions + normals + feature ids). Each vertex: ECEF -> geodetic -> direction on the game sphere; height above its
   // building's base is kept (scaled like the planet), and the vertex shader puts the base on the same terrain the ground shader draws.
   const CITY_URL = 'https://kartta.hel.fi/3d/datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json';
-  const city = { on: (() => { if (typeof location === 'undefined' || /[?&]nocity\b/.test(location.search)) return false; if (/[?&]city\b/.test(location.search)) return true; try { return localStorage.getItem('spacetrotter.buildings') !== '0'; } catch (e) { return true; } })(), // real 3D buildings: on by default (menu / ?nocity) root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0 };
+  // real 3D buildings: on by default (menu switch, remembered; ?nocity turns them off, ?city forces them on)
+  const city = { on: (() => { if (typeof location === 'undefined' || /[?&]nocity\b/.test(location.search)) return false; if (/[?&]city\b/.test(location.search)) return true; try { return localStorage.getItem('spacetrotter.buildings') !== '0'; } catch (e) { return true; } })(), root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0 };
   const cityNode = (j, base, T) => { const m = j.transform ? mat4mul(T, j.transform) : T, c = j.content && (j.content.uri || j.content.url);
     return { bv: j.boundingVolume.region, ge: j.geometricError, add: j.refine === 'ADD', T: m, url: c ? new URL(c, base).href : null, kind: c ? (/\.json(\?|$)/.test(c) ? 1 : 2) : 0,
       kids: (j.children || []).map((k) => cityNode(k, base, m)), st: 0, tile: null, ctr: null }; };
