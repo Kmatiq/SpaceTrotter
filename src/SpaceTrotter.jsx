@@ -1700,36 +1700,34 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.95, 4 * s); }
       ts('CHARGING SUPERCRUISE'); tout(cx, cy + 70 * s, 19 * s, 1, 0.8, 0.3, 0.95, 0.5); }
     // event banner (atmosphere entry/exit, surface approach, touchdown)
-    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * (tr.k >= 0 ? 0.34 : tc.on ? 0.41 : 0.72), bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
-      seg(cx - bw, by, cx + bw, by, 0.02, 0.03, 0.05, 0.5 * a, 46 * s); seg(cx - bw, by - 23 * s, cx + bw, by - 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s); seg(cx - bw, by + 23 * s, cx + bw, by + 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s);
-      ts(bannerS); tout(cx, by - 12 * s, 24 * s, bannerHot ? 1 : 0.7, bannerHot ? 0.75 : 1, bannerHot ? 0.45 : 0.85, a, 0.5); }
+    if (bannerT > 0) { const s2 = s * (tc.on ? 0.68 : 1); const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * (tr.k >= 0 ? 0.34 : tc.on ? 0.41 : 0.72), bw = Math.min(W * 0.5 - 10 * s2, (bannerS.length * 15 + 60) * s);
+      seg(cx - bw, by, cx + bw, by, 0.02, 0.03, 0.05, 0.5 * a, 46 * s2); seg(cx - bw, by - 23 * s2, cx + bw, by - 23 * s2, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s2); seg(cx - bw, by + 23 * s2, cx + bw, by + 23 * s2, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s2);
+      ts(bannerS); tout(cx, by - 12 * s2, 24 * s2, bannerHot ? 1 : 0.7, bannerHot ? 0.75 : 1, bannerHot ? 0.45 : 0.85, a, 0.5); }
     // discovery toast
-    if (toastT > 0 && toastI >= 0) { const tb2 = sys.list[toastI], a = Math.min(1, toastT, (5 - toastT) * 4), ty0 = Math.max(H * 0.2, 185 * s), bw = Math.min(W * 0.5 - 10 * s, 400 * s);
-      seg(cx - bw, ty0 + 52 * s, cx + bw, ty0 + 52 * s, 0.01, 0.02, 0.05, 0.6 * a, 135 * s); seg(cx - bw, ty0 - 15 * s, cx + bw, ty0 - 15 * s, 1, 0.75, 0.3, 0.8 * a, 2 * s);
-      ts(toastAll ? 'SYSTEM SURVEYED - EVERY BODY LOGGED' : 'NEW DISCOVERY'); tout(cx, ty0, 18 * s, 1, 0.75, 0.3, a, 0.5);
-      ts(tb2.name); tout(cx, ty0 + 25 * s, 40 * s, 1, 1, 1, a, 0.5);
-      if (tb2.def && tb2.def.fact) { const fz = Math.min(19 * s, (bw * 2 - 20 * s) / (tb2.def.fact.length * 0.6)); ts(tb2.def.fact); tout(cx, ty0 + 74 * s, fz, 0.75, 0.9, 1, a * 0.95, 0.5); }
-      ts('LOG '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); tout(cx, ty0 + 100 * s, 16 * s, 1, 0.75, 0.3, a * 0.85, 0.5); }
+    if (toastT > 0 && toastI >= 0) { const s2 = s * (tc.on ? 0.68 : 1); const tb2 = sys.list[toastI], a = Math.min(1, toastT, (5 - toastT) * 4), ty0 = Math.max(H * 0.2, 185 * s2), bw = Math.min(W * 0.5 - 10 * s2, 400 * s2);
+      seg(cx - bw, ty0 + 52 * s2, cx + bw, ty0 + 52 * s2, 0.01, 0.02, 0.05, 0.6 * a, 135 * s2); seg(cx - bw, ty0 - 15 * s2, cx + bw, ty0 - 15 * s2, 1, 0.75, 0.3, 0.8 * a, 2 * s2);
+      ts(toastAll ? 'SYSTEM SURVEYED - EVERY BODY LOGGED' : 'NEW DISCOVERY'); tout(cx, ty0, 18 * s2, 1, 0.75, 0.3, a, 0.5);
+      ts(tb2.name); tout(cx, ty0 + 25 * s2, 40 * s2, 1, 1, 1, a, 0.5);
+      if (tb2.def && tb2.def.fact) { const fz = Math.min(19 * s2, (bw * 2 - 20 * s2) / (tb2.def.fact.length * 0.6)); ts(tb2.def.fact); tout(cx, ty0 + 74 * s2, fz, 0.75, 0.9, 1, a * 0.95, 0.5); }
+      ts('LOG '); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); tout(cx, ty0 + 100 * s2, 16 * s2, 1, 0.75, 0.3, a * 0.85, 0.5); }
     // reticle + velocity vector
     const rr = 11 * s; seg(cx - 2.4 * rr, cy, cx - rr, cy, 0.75, 0.92, 1, 0.75, 2 * s); seg(cx + rr, cy, cx + 2.4 * rr, cy, 0.75, 0.92, 1, 0.75, 2 * s); seg(cx, cy + rr, cx, cy + 2 * rr, 0.75, 0.92, 1, 0.75, 2 * s);
     circ(cx, cy, 2 * s, 0, 0.75, 0.92, 1, 0.8);
     if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 9 * s; circ(x, y, k * 0.6, 2 * s, 1, 0.8, 0.3, 0.85); seg(x - k * 1.6, y, x - k * 0.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x + k * 0.6, y, x + k * 1.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x, y - k * 0.6, x, y - k * 1.4, 1, 0.8, 0.3, 0.85, 2 * s); }
     // telemetry panel (top-left): dim labels, bright values, on a translucent backing
-    const L = 18 * s, T = (tc.on ? 96 : 16) * s, F = 19 * s, LH = 27 * s, VX = L + 16 * s + 84 * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6;
-    const ride = anc !== ship.ref && !cruise; let rows = 3 + (ride ? 1 : 0) + (md ? 1 : 0) + (al ? 1 : 0) + (al && prValid && !landed ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
-    const PW = (bench.res ? 560 : 330) * s, PH = 46 * s + rows * LH; seg(L, T + PH / 2, L + PW, T + PH / 2, 0.01, 0.025, 0.05, 0.42, PH); seg(L, T, L, T + PH, 0.45, 0.85, 1, 0.85, 2.5 * s);
-    let Y = T + 12 * s; const X = L + 16 * s;
-    ts(sys.def.name); ts(' SYSTEM'); tout(X, Y, 14 * s, 0.5, 0.75, 0.95, 0.75, 0); Y += 24 * s;
-    lab('SPEED', X, Y); tdist(spd); ts('/s'); tout(VX, Y - 4 * s, 25 * s, 0.85, 0.95, 1, 1, 0); Y += LH + 6 * s;
+    const z = tc.on ? 0.72 : 1, L = 18 * s, T = (tc.on ? 92 : 16) * s, F = 19 * s * z, LH = 27 * s * z, VX = L + (14 + 84 * z) * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6 && prValid; // compact on phones
+    const lab = (txt, x, y) => { ts(txt); tout(x, y + 3 * s * z, 14 * s * z, 0.5, 0.72, 0.9, 0.8, 0); };
+    const ride = anc !== ship.ref && !cruise; let rows = 1 + (ride ? 1 : 0) + (md ? 1 : 0) + (al ? 1 : 0) + (al && !landed ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
+    const PW = (bench.res ? 560 : tc.on ? 230 : 300) * s, PH = 18 * s * z + rows * LH + 6 * s * z; seg(L, T + PH / 2, L + PW, T + PH / 2, 0.01, 0.025, 0.05, 0.32, PH); seg(L, T, L, T + PH, 0.45, 0.85, 1, 0.7, 2 * s);
+    let Y = T + 12 * s * z; const X = L + 14 * s;
+    lab('SPEED', X, Y); tdist(spd); ts('/s'); tout(VX, Y - 3 * s * z, 22 * s * z, 0.85, 0.95, 1, 1, 0); Y += LH + 4 * s * z;
     if (md) { lab('MODE', X, Y); ts(bench.on ? 'BENCHMARK' : cruise ? 'SUPERCRUISE' : 'CHARGING'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
-    if (al) { lab('ALTITUDE', X, Y); if (landed) ts('LANDED'); else tdist(Math.max(0, altT - clr)); tout(VX, Y, F, 0.55, 1, 0.65, 1, 0); Y += LH; }
-    if (al && prValid && !landed) { const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), vr = (ship.vel[0] * (cam[0] - pos[o]) + ship.vel[1] * (cam[1] - pos[o + 1]) + ship.vel[2] * (cam[2] - pos[o + 2])) / d, dn = vr < -150 && altT < 3000;
-      lab('CLIMB', X, Y); if (vr > 0) ts('+'); tdist(vr); ts('/s'); tout(VX, Y, F, dn ? 1 : 0.55, dn ? 0.45 : 1, dn ? 0.35 : 0.65, 1, 0); Y += LH; }
-    if (ride) { lab('RIDING', X, Y); ts(sys.list[ship.ref].name); ts('  '); tdist(Math.hypot(fv[0], fv[1], fv[2])); ts('/s'); tout(VX, Y, F, 0.6, 0.85, 1, 1, 0); Y += LH; }
-    lab('TARGET', X, Y); ts(tbdy.name); ts('  '); tdist(td - tbdy.R); tout(VX, Y, F, 0.65, 1, 0.85, 1, 0); Y += LH;
     if (cruise) { lab('ETA', X, Y); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
+    if (al) { lab('ALTITUDE', X, Y); if (landed) ts('LANDED'); else tdist(Math.max(0, altT - clr)); tout(VX, Y, F, 0.55, 1, 0.65, 1, 0); Y += LH; }
+    if (al && !landed) { const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), vr = (ship.vel[0] * (cam[0] - pos[o]) + ship.vel[1] * (cam[1] - pos[o + 1]) + ship.vel[2] * (cam[2] - pos[o + 2])) / d, dn = vr < -150 && altT < 3000;
+      lab('CLIMB', X, Y); if (vr > 0) ts('+'); tdist(vr); ts('/s'); tout(VX, Y, F, dn ? 1 : 0.55, dn ? 0.45 : 1, dn ? 0.35 : 0.65, 1, 0); Y += LH; }
+    if (ride) { lab('RIDING', X, Y); ts(sys.list[ship.ref].name); tout(VX, Y, F, 0.6, 0.85, 1, 1, 0); Y += LH; }
     if (bench.on) { lab('BENCH', X, Y); tn(60 - bench.t, 1); ts(' s left'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
-    lab('LOG', X, Y); tn(nDisc, 0); ts(' / '); tn(sys.n, 0); ts(' found'); tout(VX, Y, F, 1, 0.75, 0.3, 1, 0); Y += LH;
     if (showStats) {
       lab('FRAME', X, Y); ts(sys.list[ship.ref].name); tout(VX, Y, F, 0.85, 0.95, 1, 0.8, 0); Y += LH;
       lab('CPU', X, Y); tn(avgDt * 1000, 2); ts(' ms'); tout(VX, Y, F, 0.85, 0.95, 1, 0.8, 0); Y += LH;
@@ -1746,7 +1744,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       const R = 64 * s, jx = tc.jid >= 0 ? tc.jox : 104 * s, jy = tc.jid >= 0 ? tc.joy : H - 112 * s;
       circ(jx, jy, R, 0, 0.02, 0.05, 0.1, tc.jid >= 0 ? 0.3 : 0.18); circ(jx, jy, R, 2.5 * s, 0.55, 0.85, 1, tc.jid >= 0 ? 0.7 : 0.35);
       circ(jx + tc.jx * R, jy + tc.jy * R, 30 * s, 0, 0.55, 0.85, 1, tc.jid >= 0 ? 0.5 : 0.25);
-      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG ANYWHERE ELSE TO LOOK'); tout(cx, H * 0.6, 14 * s, 0.75, 0.9, 1, 0.55, 0.5); }
+      if (showHelp && tc.jid < 0 && (tutLook < 1.5 || tutMove < 1.5)) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG ANYWHERE ELSE TO LOOK'); tout(cx, H * 0.6, 14 * s, 0.75, 0.9, 1, 0.55, 0.5); }
     } else if (showHelp) {
       const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'CLICK or T target   TAB next   F supercruise   V camera   M sound   B bench   J system   P photo   G stats   H help';
       const fz = Math.min(17 * s, (W - 40 * s) / (l2.length * 0.6)), by = H - 30 * s - fz * 2.6, bw = (l2.length * 0.6 * fz) / 2 + 20 * s;
