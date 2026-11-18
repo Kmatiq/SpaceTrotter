@@ -63,6 +63,8 @@ renders at your screen's full resolution.*
 - **Real 3D city (beta):** Helsinki's real buildings (the city's open LOD2 3D model), streamed live and
   placed on the 1/5-scale Earth, with window façades and lit windows at night. Open the game with `?city`
   (https://kmatiq.github.io/SpaceTrotter/?city) and fly to Helsinki.
+- **Constellations:** in Earth's atmosphere at dusk and night, the 34 best-known constellations are drawn
+  over the real stars, with names and a fact for the one you look at. `C` or the menu: auto / always / off.
 - **Photo mode:** hides everything and saves a PNG.
 - **Exploration log:** discover bodies by flying close; progress is saved in the browser.
 
@@ -85,6 +87,7 @@ and ☰.
 | `N` | system map |
 | `V` | chase camera |
 | `P` | photo mode |
+| `C` | constellations: auto (night sky) / always / off |
 | `M` | sound |
 | `G` | performance stats |
 | `B` | 60 s GPU benchmark |
@@ -100,6 +103,7 @@ and ☰.
 | Mars imagery / heights | [NASA Mars Trek](https://trek.nasa.gov/mars/): Viking MDIM 2.1 / MOLA 128+64 merge | heights to zoom 5 |
 | Planet positions | NASA/JPL "Approximate Positions of the Planets" (Standish) | today's date, ~0.1° accuracy 1800–2050 |
 | Moon | low-precision lunar theory | real phase and position |
+| Constellation lines | [d3-celestial](https://github.com/ofrohn/d3-celestial) by Olaf Frohn (BSD-3-Clause) | 34 famous constellations |
 | Stars | [HYG database v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA) | every star brighter than mag 4.5, with distance |
 | Galaxies | galactic coordinates, distances, position angles | Milky Way frame tied to the ecliptic |
 | Helsinki aerial photo | City of Helsinki orthophoto 2025, via the [kartta.hel.fi](https://kartta.hel.fi) open-data WMS | zoom 14–18 (to ~0.3 m/px), **CC BY 4.0** |
