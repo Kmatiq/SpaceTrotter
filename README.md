@@ -102,7 +102,7 @@ and ☰.
 | Moon | low-precision lunar theory | real phase and position |
 | Stars | [HYG database v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA) | every star brighter than mag 4.5, with distance |
 | Galaxies | galactic coordinates, distances, position angles | Milky Way frame tied to the ecliptic |
-| Helsinki aerial photo | [City of Helsinki orthophoto 2025](https://hri.fi/data/en_GB/dataset/helsingin-ortoilmakuvat) via kartta.hel.fi WMS | zoom 14–18 (to ~0.3 m/px), **CC BY 4.0** |
+| Helsinki aerial photo | City of Helsinki orthophoto 2025, via the [kartta.hel.fi](https://kartta.hel.fi) open-data WMS | zoom 14–18 (to ~0.3 m/px), **CC BY 4.0** |
 | Helsinki buildings (beta) | [City of Helsinki 3D city model](https://www.hel.fi/en/decision-making/information-on-helsinki/maps-and-geospatial-data/helsinki-3d), LOD2 3D Tiles | **CC BY 4.0**, streamed from kartta.hel.fi; scaled 1/5 like the Earth |
 
 **Deliberate compromises, for playability:**
