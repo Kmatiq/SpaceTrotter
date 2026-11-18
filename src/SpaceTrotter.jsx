@@ -1369,18 +1369,29 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   // ---- input ----
   function setTgt(i) { if (i === target || i < 0) return; target = i; tgtT = 0; blip(880, 1320, 0.12, 'sine', 0.06); blip(1320, 1320, 0.15, 'sine', 0.05, 0.09); }
-  function pick(x, y, rad) { // select the body whose marker/disc is closest to a screen point
-    let bi = -1, bd = rad * rad;
+  function pick(x, y, rad) { // select a body: a tap on a visible disc picks that body (nearest one in front); else the closest marker; stars only when really visible
+    let bi = -1, bd = rad * rad, di = -1, dd = Infinity;
     for (let i = 0; i < sys.n; i++) {
       const o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2]) || hidden(i)) continue;
       const b = sys.list[i], pr = (b.R / scr[2]) / tanY() * H * 0.5, dx = scr[0] - x, dy = scr[1] - y, d2 = dx * dx + dy * dy;
+      if (b.sphere && pr > 6 && d2 < pr * pr && dist(i) < dd) { dd = dist(i); di = i; } // on the disc itself
       const loc = ship.ref > 0 ? (sys.list[ship.ref].parent > 0 ? sys.list[ship.ref].parent : ship.ref) : -1; // same visibility rules as the HUD markers
       if (pr < 8 && ((b.type === 'station' && dist(i) > 2e8) || (b.type === 'moon' && b.parent !== loc && b.parent !== ship.ref))) continue;
-      const k = pr > 8 && d2 < pr * pr ? d2 * 0.25 : d2; // inside a visible disc counts as a strong hit
-      if (k < bd) { bd = k; bi = i; }
+      if (d2 < bd) { bd = d2; bi = i; }
     }
+    if (bi >= 0 && di >= 0 && dist(bi) > dist(di)) bi = di; // a marker behind the disc you tapped does not win
+    if (bi < 0) bi = di;
     if (bi >= 0) { setTgt(bi); return true; }
-    let si = -1, sd = rad * rad; for (let k = 0; k < STARS.length; k++) { if (k === here || STARS[k].gal || STARS[here].gal) continue; starDir(k, sd3); if (!project(sd3[0] * 1e13, sd3[1] * 1e13, sd3[2] * 1e13)) continue; const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < sd) { sd = d2; si = k; } }
+    if (STARS[here].gal) return false;
+    if (inAtm >= 0) { const o = inAtm * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), c = Math.hypot(cam[0], cam[1], cam[2]) || 1; // daylit sky: no stars to tap
+      if (((cam[0] - pos[o]) * -cam[0] + (cam[1] - pos[o + 1]) * -cam[1] + (cam[2] - pos[o + 2]) * -cam[2]) / (d * c) > -0.1) return false; }
+    let si = -1, sd = (rad * 0.6) ** 2;
+    for (let k = 0; k < STARS.length; k++) { if (k === here || STARS[k].gal) continue; const st = STARS[k], dl = starDir(k, sd3); if (!project(sd3[0] * 1e13, sd3[1] * 1e13, sd3[2] * 1e13)) continue;
+      const d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 >= sd) continue;
+      const lum = Math.log10(st.rad * st.rad * ({ O: 30, B: 12, A: 3, F: 1.5, G: 1, K: 0.5, M: 0.15 })[st.cls] + 1e-3) - 2 * Math.log10(Math.max(dl, 1)); if (lum < -3.2) continue; // only stars you can see
+      let occ = false; for (let i = 0; i < sys.n && !occ; i++) { const b = sys.list[i]; if (!b.sphere) continue; const o = i * 3, qx = pos[o] - cam[0], qy = pos[o + 1] - cam[1], qz = pos[o + 2] - cam[2], tt = qx * sd3[0] + qy * sd3[1] + qz * sd3[2];
+        occ = tt > 0 && qx * qx + qy * qy + qz * qz - tt * tt < b.R * b.R * 1.1; } if (occ) continue;
+      sd = d2; si = k; }
     if (si >= 0) { wsel = si; blip(660, 990, 0.12, 'sine', 0.05); } return si >= 0;
   }
   const act = (code, back) => { // discrete actions shared by keyboard and touch buttons
@@ -1416,7 +1427,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (mp.on) { e.preventDefault(); pc(e); mp.ptrs.set(e.pointerId, [scr[0], scr[1]]); mp.moved = 0; mp.t0 = performance.now(); if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
       if (mp.ptrs.size === 2) { const [a, b] = mp.ptrs.values(); mp.pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } return; }
     if (e.pointerType === 'mouse') { // click: select what's under the cursor (or under the crosshair while flying with a locked mouse)
-      if (document.pointerLockElement === canvas) pick(W / 2, H / 2, 70 * hs); else { pc(e); pick(scr[0], scr[1], 40 * hs); if (canvas.requestPointerLock) canvas.requestPointerLock(); }
+      if (document.pointerLockElement === canvas) pick(W / 2, H / 2, 70 * hs); else if (canvas.requestPointerLock) canvas.requestPointerLock(); else { pc(e); pick(scr[0], scr[1], 40 * hs); } // the first click only captures the mouse
       return; }
     e.preventDefault(); tc.on = true; pc(e); const x = scr[0], y = scr[1], id = e.pointerId;
     if (canvas.setPointerCapture) canvas.setPointerCapture(id); tc.tid = id; tc.tx = x; tc.ty = y; tc.tt = performance.now(); tc.tm = 0;
@@ -1430,7 +1441,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (mp.on) { const o = mp.ptrs.get(e.pointerId); if (!o) return; pc(e); const x = scr[0], y = scr[1];
       if (mp.ptrs.size === 1) { mp.yaw -= ((x - o[0]) * 0.006) / hs; mp.pitch += ((y - o[1]) * 0.006) / hs; mp.moved += Math.abs(x - o[0]) + Math.abs(y - o[1]); o[0] = x; o[1] = y; }
       else { o[0] = x; o[1] = y; const [a, b] = mp.ptrs.values(), d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (mp.pinch > 0 && d > 0) mp.zoom *= mp.pinch / d; mp.pinch = d; mp.moved += 99; } return; }
-    if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 74 * hs;
+    if (e.pointerType === 'mouse') return; pc(e); const id = e.pointerId, R = 64 * hs;
     if (id === tc.tid) tc.tm = Math.max(tc.tm, Math.abs(scr[0] - tc.tx) + Math.abs(scr[1] - tc.ty));
     if (id === tc.jid) { tc.jx = Math.max(-1, Math.min(1, (scr[0] - tc.jox) / R)); tc.jy = Math.max(-1, Math.min(1, (scr[1] - tc.joy) / R)); }
     else if (id === tc.lid) { const k = 3.2 / W / 0.0022; mdx += (scr[0] - tc.lx) * k; mdy += (scr[1] - tc.ly) * k; tc.lx = scr[0]; tc.ly = scr[1]; }
@@ -1662,7 +1673,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       ts(tbdy.name); tout(lx, ly, 22 * s, 0.65, 1, 0.85, 1, 0);
       tdist(td - tbdy.R); ts('   '); tdist(closing); ts('/s'); tout(lx, ly + 27 * s, 17 * s, 0.65, 1, 0.85, 0.85, 0);
       if (!disc[target]) { ts('UNCHARTED - fly close to log'); tout(lx, ly + 50 * s, 16 * s, 1, 0.72, 0.3, 0.9, 0); }
-    } else if (!vis) {
+    } else if (!vis && !(prValid && prBody === target)) {
       let ax = tx * rt[0] + ty * rt[1] + tz * rt[2], ay = -(tx * up[0] + ty * up[1] + tz * up[2]); const l = Math.hypot(ax, ay) || 1; ax /= l; ay /= l;
       const R = Math.min(W, H) * 0.4, x = cx + ax * R, y = cy + ay * R, k = 18 * s;
       seg(x, y, x - ax * k - ay * k * 0.6, y - ay * k + ax * k * 0.6, 0.5, 1, 0.8, 0.95, 3 * s); seg(x, y, x - ax * k + ay * k * 0.6, y - ay * k - ax * k * 0.6, 0.5, 1, 0.8, 0.95, 3 * s);
@@ -1681,37 +1692,14 @@ async function createEngine(canvas, systemId, opts = {}) {
         const a = fa * 0.85 * (1 - r) * (1 - r); seg(ax, ay, scr[0], scr[1], 0.75, 0.85, 1, a, 1.4 * s);
       }
     }
-    // flight HUD near a surface: artificial horizon + pitch ladder (local vertical), big ALT / V-SPEED / SPEED readouts
-    if (prValid && !bench.on) {
-      const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]);
-      const nx = (cam[0] - pos[o]) / d, ny = (cam[1] - pos[o + 1]) / d, nz = (cam[2] - pos[o + 2]) / d, fa = Math.min(1, (0.05 - altT / sys.list[prBody].R) * 60);
-      const pitch = Math.asin(Math.max(-1, Math.min(1, nx * fw[0] + ny * fw[1] + nz * fw[2]))) / D2R;
-      let ux = nx * rt[0] + ny * rt[1] + nz * rt[2], uy = -(nx * up[0] + ny * up[1] + nz * up[2]); const ul = Math.hypot(ux, uy);
-      if (ul > 0.03 && fa > 0) { ux /= ul; uy /= ul; const fpx = (H * 0.5) / tanY(), px = -uy, py = ux;
-        for (let p = -80; p <= 80; p += 10) {
-          const dp = pitch - p; if (Math.abs(dp) > 26) continue; const off = Math.tan(dp * D2R) * fpx, mx = cx - ux * off, my = cy - uy * off;
-          const hz = p === 0, half = hz ? Math.min(W * 0.3, 420 * s) : 80 * s, gap = hz ? 110 * s : 34 * s, a = fa * (hz ? 0.75 : 0.5) * (1 - smooth(18, 26, Math.abs(dp)));
-          const nd = p < 0 ? 3 : 1, sl = (half - gap) / nd; // below-horizon rungs are dashed
-          for (let k = 0; k < nd; k++) { const g0 = gap + k * sl, g1 = gap + (k + (nd > 1 ? 0.6 : 1)) * sl;
-            seg(mx - px * g1, my - py * g1, mx - px * g0, my - py * g0, 0.55, 1, 0.7, a, (hz ? 2.4 : 1.6) * s); seg(mx + px * g0, my + py * g0, mx + px * g1, my + py * g1, 0.55, 1, 0.7, a, (hz ? 2.4 : 1.6) * s); }
-          if (!hz) { const tk = (p > 0 ? 9 : -9) * s; seg(mx - px * half, my - py * half, mx - px * half + ux * tk, my - py * half + uy * tk, 0.55, 1, 0.7, a, 1.6 * s); seg(mx + px * half, my + py * half, mx + px * half + ux * tk, my + py * half + uy * tk, 0.55, 1, 0.7, a, 1.6 * s);
-            tn(Math.abs(p), 0); tout(mx + px * (half + 24 * s), my + py * (half + 24 * s) - 8 * s, 16 * s, 0.55, 1, 0.7, a, 0.5); }
-        }
-      }
-      const vr = ship.vel[0] * nx + ship.vel[1] * ny + ship.vel[2] * nz, rx = cx + 150 * s, lx2 = cx - 150 * s;
-      ts(landed ? 'LANDED' : 'ALT'); tout(rx, cy - 44 * s, 15 * s, 0.55, 1, 0.7, 0.75 * fa, 0);
-      if (!landed) { tdist(Math.max(0, altT - clr)); tout(rx, cy - 22 * s, 26 * s, 0.75, 1, 0.8, fa, 0); }
-      ts('V/S '); if (vr > 0) ts('+'); tn(Math.abs(vr) < 1e4 ? vr : vr / 1e3, 0); ts(Math.abs(vr) < 1e4 ? ' m/s' : ' km/s'); tout(rx, cy + 14 * s, 17 * s, vr < -150 && altT < 3000 ? 1 : 0.55, vr < -150 && altT < 3000 ? 0.45 : 1, vr < -150 && altT < 3000 ? 0.35 : 0.7, 0.9 * fa, 0);
-      ts('SPD'); tout(lx2, cy - 44 * s, 15 * s, 0.55, 1, 0.7, 0.75 * fa, 1); tdist(spd); ts('/s'); tout(lx2, cy - 22 * s, 26 * s, 0.75, 1, 0.8, fa, 1);
-      ts('PITCH '); tn(pitch, 0); tout(lx2, cy + 14 * s, 17 * s, 0.55, 1, 0.7, 0.9 * fa, 1);
-    }
+    // (no pitch ladder or centre readouts near the surface: altitude and vertical speed live in the telemetry panel)
     // supercruise charge ring
     if (charge >= 0) { const k = 1 - charge / 1.2, R = 50 * s, N = Math.max(1, Math.floor(40 * k));
       circ(cx, cy, R, 1.2 * s, 1, 0.8, 0.3, 0.25);
       for (let i = 0; i < N; i++) { const a0 = -1.5708 + (i / 40) * 6.2832, a1 = -1.5708 + ((i + 1) / 40) * 6.2832; seg(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, 1, 0.8, 0.3, 0.95, 4 * s); }
       ts('CHARGING SUPERCRUISE'); tout(cx, cy + 70 * s, 19 * s, 1, 0.8, 0.3, 0.95, 0.5); }
     // event banner (atmosphere entry/exit, surface approach, touchdown)
-    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * (tr.k >= 0 ? 0.34 : 0.72), bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
+    if (bannerT > 0) { const a = Math.min(1, bannerT * 1.5, (3.2 - bannerT) * 5), by = H * (tr.k >= 0 ? 0.34 : tc.on ? 0.41 : 0.72), bw = Math.min(W * 0.5 - 10 * s, (bannerS.length * 15 + 60) * s);
       seg(cx - bw, by, cx + bw, by, 0.02, 0.03, 0.05, 0.5 * a, 46 * s); seg(cx - bw, by - 23 * s, cx + bw, by - 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s); seg(cx - bw, by + 23 * s, cx + bw, by + 23 * s, bannerHot ? 1 : 0.5, bannerHot ? 0.55 : 1, bannerHot ? 0.2 : 0.8, 0.8 * a, 2 * s);
       ts(bannerS); tout(cx, by - 12 * s, 24 * s, bannerHot ? 1 : 0.7, bannerHot ? 0.75 : 1, bannerHot ? 0.45 : 0.85, a, 0.5); }
     // discovery toast
@@ -1726,14 +1714,16 @@ async function createEngine(canvas, systemId, opts = {}) {
     circ(cx, cy, 2 * s, 0, 0.75, 0.92, 1, 0.8);
     if (spd > 1 && !cruise && project(ship.vel[0], ship.vel[1], ship.vel[2])) { const x = scr[0], y = scr[1], k = 9 * s; circ(x, y, k * 0.6, 2 * s, 1, 0.8, 0.3, 0.85); seg(x - k * 1.6, y, x - k * 0.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x + k * 0.6, y, x + k * 1.6, y, 1, 0.8, 0.3, 0.85, 2 * s); seg(x, y - k * 0.6, x, y - k * 1.4, 1, 0.8, 0.3, 0.85, 2 * s); }
     // telemetry panel (top-left): dim labels, bright values, on a translucent backing
-    const L = 18 * s, T = 16 * s, F = 19 * s, LH = 27 * s, VX = L + 16 * s + 84 * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6;
-    const ride = anc !== ship.ref && !cruise; let rows = 3 + (ride ? 1 : 0) + (md ? 1 : 0) + (al ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
+    const L = 18 * s, T = (tc.on ? 96 : 16) * s, F = 19 * s, LH = 27 * s, VX = L + 16 * s + 84 * s, md = bench.on || cruise || charge >= 0, al = altT < 2e6;
+    const ride = anc !== ship.ref && !cruise; let rows = 3 + (ride ? 1 : 0) + (md ? 1 : 0) + (al ? 1 : 0) + (al && prValid && !landed ? 1 : 0) + (cruise || bench.on ? 1 : 0) + (showStats ? (hasTS ? 3 : 2) : 0) + (bench.res ? 3.5 : 0);
     const PW = (bench.res ? 560 : 330) * s, PH = 46 * s + rows * LH; seg(L, T + PH / 2, L + PW, T + PH / 2, 0.01, 0.025, 0.05, 0.42, PH); seg(L, T, L, T + PH, 0.45, 0.85, 1, 0.85, 2.5 * s);
     let Y = T + 12 * s; const X = L + 16 * s;
     ts(sys.def.name); ts(' SYSTEM'); tout(X, Y, 14 * s, 0.5, 0.75, 0.95, 0.75, 0); Y += 24 * s;
     lab('SPEED', X, Y); tdist(spd); ts('/s'); tout(VX, Y - 4 * s, 25 * s, 0.85, 0.95, 1, 1, 0); Y += LH + 6 * s;
     if (md) { lab('MODE', X, Y); ts(bench.on ? 'BENCHMARK' : cruise ? 'SUPERCRUISE' : 'CHARGING'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
     if (al) { lab('ALTITUDE', X, Y); if (landed) ts('LANDED'); else tdist(Math.max(0, altT - clr)); tout(VX, Y, F, 0.55, 1, 0.65, 1, 0); Y += LH; }
+    if (al && prValid && !landed) { const o = prBody * 3, d = Math.hypot(cam[0] - pos[o], cam[1] - pos[o + 1], cam[2] - pos[o + 2]), vr = (ship.vel[0] * (cam[0] - pos[o]) + ship.vel[1] * (cam[1] - pos[o + 1]) + ship.vel[2] * (cam[2] - pos[o + 2])) / d, dn = vr < -150 && altT < 3000;
+      lab('CLIMB', X, Y); if (vr > 0) ts('+'); tdist(vr); ts('/s'); tout(VX, Y, F, dn ? 1 : 0.55, dn ? 0.45 : 1, dn ? 0.35 : 0.65, 1, 0); Y += LH; }
     if (ride) { lab('RIDING', X, Y); ts(sys.list[ship.ref].name); ts('  '); tdist(Math.hypot(fv[0], fv[1], fv[2])); ts('/s'); tout(VX, Y, F, 0.6, 0.85, 1, 1, 0); Y += LH; }
     lab('TARGET', X, Y); ts(tbdy.name); ts('  '); tdist(td - tbdy.R); tout(VX, Y, F, 0.65, 1, 0.85, 1, 0); Y += LH;
     if (cruise) { lab('ETA', X, Y); tn(Math.log(Math.max(td - tbdy.arrive, 1) / tbdy.arrive + 1) / 1.4 + 0.5, 1); ts(' s'); tout(VX, Y, F, 1, 0.8, 0.3, 1, 0); Y += LH; }
@@ -1752,10 +1742,10 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     let creditY = H - 12 * s;
     if (tc.on) { // on-screen controls: translucent filled discs with outline rings
-      const R = 74 * s, jx = tc.jid >= 0 ? tc.jox : 130 * s, jy = tc.jid >= 0 ? tc.joy : H - 130 * s;
+      const R = 64 * s, jx = tc.jid >= 0 ? tc.jox : 104 * s, jy = tc.jid >= 0 ? tc.joy : H - 112 * s;
       circ(jx, jy, R, 0, 0.02, 0.05, 0.1, tc.jid >= 0 ? 0.3 : 0.18); circ(jx, jy, R, 2.5 * s, 0.55, 0.85, 1, tc.jid >= 0 ? 0.7 : 0.35);
       circ(jx + tc.jx * R, jy + tc.jy * R, 30 * s, 0, 0.55, 0.85, 1, tc.jid >= 0 ? 0.5 : 0.25);
-      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG RIGHT SIDE TO LOOK'); tout(W * 0.6, H - 34 * s, 16 * s, 0.75, 0.9, 1, 0.75, 0.5); }
+      if (showHelp && tc.jid < 0) { ts('MOVE'); tout(jx, jy - 9 * s, 16 * s, 0.85, 0.95, 1, 0.8, 0.5); ts('DRAG ANYWHERE ELSE TO LOOK'); tout(cx, H * 0.6, 14 * s, 0.75, 0.9, 1, 0.55, 0.5); }
     } else if (showHelp) {
       const l1 = 'W/S thrust   A/D strafe   SPACE/X up/down   Q/E roll   MOUSE look (click)   SHIFT boost', l2 = 'CLICK or T target   TAB next   F supercruise   V camera   M sound   B bench   J system   P photo   G stats   H help';
       const fz = Math.min(17 * s, (W - 40 * s) / (l2.length * 0.6)), by = H - 30 * s - fz * 2.6, bw = (l2.length * 0.6 * fz) / 2 + 20 * s;
@@ -1764,7 +1754,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       creditY = H - 10 * s;
     }
     if (tilesSeen && altT < 3e6) { const mk = sys.list[prBody].def.surface.maps; ts(mk === 'moon' ? 'Imagery: NASA/GSFC/ASU LRO WAC (Moon Trek)' : mk === 'mars' ? 'Imagery: NASA/USGS Viking MDIM 2.1 (Mars Trek)' : 'Sentinel-2 cloudless by EOX (Copernicus Sentinel data 2023) - Elevation: AWS Terrain Tiles');
-      tout(L, T + PH + 10 * s, 12 * s, 0.75, 0.85, 0.95, 0.7, 0); }
+      tout(L, T + PH + 8 * s, 10 * s, 0.7, 0.8, 0.9, 0.4, 0); }
   }
 
   // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
@@ -1946,8 +1936,13 @@ async function createEngine(canvas, systemId, opts = {}) {
     let sm = 0, nx = 0, ny = 1, nz = 0; // surface-flight blend (0 = free 6DoF in space, 1 = plane-like near the ground) and local vertical
     if (prValid && !cruise && !bench.on && !ap.on) { const o = prBody * 3, d = dist(prBody); nx = (abs[0] - pos[o]) / d; ny = (abs[1] - pos[o + 1]) / d; nz = (abs[2] - pos[o + 2]) / d; sm = smooth(0.045, 0.02, altT / sys.list[prBody].R); }
     if (!cruise && !bench.on) {
-      const yl = ship.w[1], l2 = Math.hypot(ship.w[0], yl, ship.w[2]); // same free 6DoF steering everywhere (no plane mode)
-      if (l2 > 1e-9) { qaxis(dq, 0, ship.w[0] / l2, yl / l2, ship.w[2] / l2, l2 * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
+      // free 6DoF everywhere; near the ground (sm -> 1) left/right turns about the local vertical so the horizon stays level, and roll eases back to level when you don't roll
+      let ax = ship.w[0], ay = ship.w[1], az = ship.w[2];
+      if (sm > 0) { tq[0] = -ship.q[0]; tq[1] = -ship.q[1]; tq[2] = -ship.q[2]; tq[3] = ship.q[3]; qrot(t3, 0, tq, 0, nx, ny, nz); const ux = t3[0], uy = t3[1], uz = t3[2]; // local vertical in the ship's frame
+        const yx = ux * sm, yy = 1 - sm + uy * sm, yz = uz * sm, yn = Math.hypot(yx, yy, yz) || 1; ax = ship.w[0] + ship.w[1] * yx / yn; ay = ship.w[1] * yy / yn; az = ship.w[2] + ship.w[1] * yz / yn;
+        if (!K.KeyQ && !K.KeyE) { const lv = Math.hypot(ux, uy); az += -Math.atan2(ux, uy) * 1.4 * sm * Math.min(1, lv * 2.5); } } // roll error = sideways tilt of the vertical
+      const l2 = Math.hypot(ax, ay, az);
+      if (l2 > 1e-9) { qaxis(dq, 0, ax / l2, ay / l2, az / l2, l2 * dt); qmul(sq, 0, ship.q, 0, dq, 0); ship.q.set(sq); }
       qnorm(ship.q, 0);
     }
     qrot(fw, 0, ship.q, 0, 0, 0, -1);
@@ -2547,7 +2542,7 @@ function Overlay({ eng }) {
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
     const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spacetrotter-' + Date.now() + '.png'; a.click(); });
-    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
+    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
         <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
@@ -2564,7 +2559,7 @@ function Overlay({ eng }) {
   const item = (icon, label, on, fn) => <div {...tap(fn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', color: on ? C.acc : C.fg, background: on ? 'rgba(80,255,190,.08)' : 'transparent' }}><Ico n={icon} s={20} /><span>{label}</span></div>;
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
-      {ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
+      {ui.city && <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
       {/* target chip + menu (top right) */}
       <div style={{ position: 'absolute', top: 12, right: 12, display: mapOut ? 'none' : 'flex', gap: 8, alignItems: 'stretch' }}>
         <div data-tut="target" {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
@@ -2653,13 +2648,13 @@ function Overlay({ eng }) {
       {ui.galaxy && <GalaxyUI eng={eng} gv={ui.galaxy} wsel={ui.wsel} />}
       {/* touch action cluster */}
       {ui.touch && !mapOut && <>
-        <div data-tut="cruise" {...tap(() => eng.act('KeyF'))} style={round(96, ui.cruise || ui.charging, { position: 'absolute', right: 18, bottom: 22, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 12 })}>
-          <Ico n={ui.cruise || ui.charging ? 'stop' : 'cruise'} s={30} />{cruiseLbl}</div>
-        <div {...hold('ShiftLeft')} style={round(70, false, { position: 'absolute', right: 128, bottom: 18 })}><Ico n="boost" s={26} />BOOST</div>
-        <div {...hold('Space')} style={round(60, false, { position: 'absolute', right: 34, bottom: 196 })}><Ico n="up" s={28} />UP</div>
-        <div {...hold('KeyX')} style={round(60, false, { position: 'absolute', right: 34, bottom: 128 })}><Ico n="down" s={28} />DOWN</div>
-        <div {...hold('KeyQ')} style={round(56, false, { position: 'absolute', left: 'calc(40% - 64px)', bottom: 16 })}><Ico n="rl" s={24} />ROLL</div>
-        <div {...hold('KeyE')} style={round(56, false, { position: 'absolute', left: 'calc(40% + 8px)', bottom: 16 })}><Ico n="rr" s={24} />ROLL</div>
+        <div data-tut="cruise" {...tap(() => eng.act('KeyF'))} style={round(80, ui.cruise || ui.charging, { position: 'absolute', right: 16, bottom: 20, opacity: ui.canCruise || ui.cruise || ui.charging ? 1 : 0.45, fontSize: 11 })}>
+          <Ico n={ui.cruise || ui.charging ? 'stop' : 'cruise'} s={26} />{cruiseLbl}</div>
+        <div {...hold('ShiftLeft')} style={round(58, false, { position: 'absolute', right: 108, bottom: 22, fontSize: 9 })}><Ico n="boost" s={22} />BOOST</div>
+        <div {...hold('Space')} style={round(52, false, { position: 'absolute', right: 30, bottom: 178, fontSize: 9 })}><Ico n="up" s={22} />UP</div>
+        <div {...hold('KeyX')} style={round(52, false, { position: 'absolute', right: 30, bottom: 116, fontSize: 9 })}><Ico n="down" s={22} />DOWN</div>
+        <div {...hold('KeyQ')} style={round(44, false, { position: 'absolute', left: 18, bottom: 196, fontSize: 9 })}><Ico n="rl" s={20} /></div>
+        <div {...hold('KeyE')} style={round(44, false, { position: 'absolute', left: 146, bottom: 196, fontSize: 9 })}><Ico n="rr" s={20} /></div>
       </>}
     </div>);
 }
