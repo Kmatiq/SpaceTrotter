@@ -2274,26 +2274,28 @@ async function createEngine(canvas, systemId, opts = {}) {
     ['andromeda', 'Intergalactic', 'Reach the Andromeda Galaxy', () => !!pass.stars.m31],
   ];
   function passBadges() { for (const [id, name, , ok] of BADGES) if (!pass.badges[id] && ok()) { pass.badges[id] = Date.now(); passSave(); banner('BADGE EARNED - ' + name.toUpperCase(), false); chime(true); passNew = { t: 'badge', name }; return; } }
-  let passNew = null, passTk = 0;
+  let passNew = null, passTk = 0, passNear = -1, passDwell = 0, passLast = 0; const STAMP_K = 'cmxldnh'; // seas, oceans and regions give no stamp
   function passStamp(kind, key, label) { const m = pass[kind]; if (m[key]) return false; m[key] = Date.now(); passSave(); banner('PASSPORT STAMP - ' + (label || key).toUpperCase(), false); chime(false); passNew = { t: kind, name: label || key }; passBadges(); return true; }
   function passTick() { // ~3 times a second: nearby landmarks, landings, stars visited
     if (bench.on || !sys) return; const tn = performance.now(); if (tn - passTk < 300) return; passTk = tn;
-    if (sys.def.id === 'sol') { for (const m of sys.lm) pass.kinds[m.name] = m.kind + '|' + sys.list[m.bi].id; pass.totals = { lm: sys.lm.length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length }; }
+    if (sys.def.id === 'sol') { for (const m of sys.lm) if (STAMP_K.includes(m.kind)) pass.kinds[m.name] = m.kind + '|' + sys.list[m.bi].id; else delete pass.kinds[m.name]; pass.totals = { lm: sys.lm.filter((m) => STAMP_K.includes(m.kind)).length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length }; }
     if (STARS[here] && !pass.stars[STARS[here].id]) { pass.stars[STARS[here].id] = Date.now(); passSave(); passBadges(); }
     if (landed && !pass.landed) { pass.landed = 1; passSave(); passBadges(); }
     if (!prValid || cruise || wp.on) return; const b = sys.list[prBody], o = prBody * 3, q = prBody * 4, d = dist(prBody), alt = altT;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / d, (cam[1] - pos[o + 1]) / d, (cam[2] - pos[o + 2]) / d);
-    for (const m of sys.lm) { if (m.bi !== prBody || pass.lm[m.name]) continue; const big = m.kind === 's' || m.kind === 'o', gd = Math.acos(Math.max(-1, Math.min(1, t3[0] * m.dir[0] + t3[1] * m.dir[1] + t3[2] * m.dir[2]))) * b.R;
-      if (gd < (big ? 0.05 : 0.02) * b.R && alt < (big ? 0.05 : 0.012) * b.R) { passStamp('lm', m.name); if (m.name === 'Helsinki' && city.on && city.vis) { pass.realcity = 1; passSave(); passBadges(); } break; } }
+    let near = -1; for (let k = 0; k < sys.lm.length; k++) { const m = sys.lm[k]; if (m.bi !== prBody || pass.lm[m.name] || !STAMP_K.includes(m.kind)) continue; // close, low, and a few seconds there
+      const gd = Math.acos(Math.max(-1, Math.min(1, t3[0] * m.dir[0] + t3[1] * m.dir[1] + t3[2] * m.dir[2]))) * b.R; const v = VIEW[m.kind] || [0, 0]; if (gd < Math.max(0.0011 * b.R, v[0] * 1.4) && alt < Math.max(0.004 * b.R, v[1] * 1.6 + m.elev * 3.1e-7 * b.R)) { near = k; break; } }
+    if (near !== passNear) { passNear = near; passDwell = 0; } else if (near >= 0) { passDwell += Math.min(0.5, (tn - passLast) / 1000); if (passDwell > 3) { const m = sys.lm[near]; passStamp('lm', m.name); passNear = -1; if (m.name === 'Helsinki' && city.on && city.vis) { pass.realcity = 1; passSave(); passBadges(); } } }
+    passLast = tn;
     if (!pass.realcity && city.on && city.vis && alt < 0.002 * b.R) { pass.realcity = 1; passSave(); passBadges(); }
   }
   function passport() { const d = solDisc(), T = pass.totals.lm ? pass.totals : { lm: sys.lm.length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length };
-    const got = Object.keys(pass.lm).length + Object.keys(pass.con).length + d.length + Object.keys(pass.tours).length, tot = T.lm + T.con + T.bodies + T.tours, f = tot ? got / tot : 0;
+    const lmGot = Object.keys(pass.lm).filter((n) => pass.kinds[n]).length; const got = lmGot + Object.keys(pass.con).length + d.length + Object.keys(pass.tours).length, tot = T.lm + T.con + T.bodies + T.tours, f = tot ? got / tot : 0;
     let r = 0; for (let i = 0; i < RANKS.length; i++) if (f >= RANKS[i][0]) r = i;
     const byBody = {}; for (const n in pass.kinds) { const [k, bid] = pass.kinds[n].split('|'); const e = byBody[bid] || (byBody[bid] = { got: 0, tot: 0 }); e.tot++; if (pass.lm[n]) e.got++; }
-    return { got, tot, frac: f, rank: RANKS[r][1], next: RANKS[r + 1] ? { name: RANKS[r + 1][1], need: Math.ceil(RANKS[r + 1][0] * tot) - got } : null, places: { got: Object.keys(pass.lm).length, tot: T.lm }, byBody,
+    return { got, tot, frac: f, rank: RANKS[r][1], next: RANKS[r + 1] ? { name: RANKS[r + 1][1], need: Math.ceil(RANKS[r + 1][0] * tot) - got } : null, places: { got: lmGot, tot: T.lm }, byBody,
       con: { got: Object.keys(pass.con).length, tot: T.con }, bodies: { got: d.length, tot: T.bodies }, tours: { got: Object.keys(pass.tours).length, tot: T.tours },
-      badges: BADGES.map(([id, name, desc]) => ({ id, name, desc, got: !!pass.badges[id] })), recent: Object.entries(pass.lm).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n]) => n) }; }
+      badges: BADGES.map(([id, name, desc]) => ({ id, name, desc, got: !!pass.badges[id] })), recent: Object.entries(pass.lm).filter(([n]) => pass.kinds[n]).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n]) => n) }; }
   const api = {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
