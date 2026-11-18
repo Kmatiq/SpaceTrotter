@@ -289,6 +289,7 @@ export const TOURS = [
     { p: 'Pyramids of Giza', t: 'The Great Pyramid was the tallest building on Earth for about 3,800 years, and the only ancient wonder still standing.' },
     { p: 'Petra', t: 'A city carved into rose-red cliffs by the Nabataeans more than 2,000 years ago.' },
     { p: 'Colosseum', t: 'Rome\'s great amphitheatre, opened in 80 AD, held around 50,000 spectators.' },
+    { p: 'Eiffel Tower', t: 'Gustave Eiffel\'s iron tower, 330 m tall, is held together by about 2.5 million rivets.' },
     { p: 'Taj Mahal', t: 'A white marble mausoleum built by the emperor Shah Jahan for his wife Mumtaz Mahal, finished around 1653.' },
     { p: 'Great Wall of China', t: 'Walls and watchtowers more than 20,000 km long in total. Despite the myth, it cannot be seen from the Moon.' },
     { p: 'Machu Picchu', t: 'An Inca citadel from the 1400s, on a ridge 2,430 m up in the Andes.' },
@@ -333,38 +334,38 @@ const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 47
 const LMG = (r, n, rot = 0) => Array.from({ length: n }, (_, i) => { const a = rot + (i * 2 * Math.PI) / n; return [Math.cos(a) * (Array.isArray(r) ? r[0] : r), Math.sin(a) * (Array.isArray(r) ? r[1] : r)]; });
 const LSQ = (w, d = w) => [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
 export const LANDMARKS3D = [
-  { name: 'Eiffel Tower', lat: 48.85826, lon: 2.2945, head: 43, build(M) { const c = [0.45, 0.36, 0.28];
+  { name: 'Eiffel Tower', lat: 48.85826, lon: 2.2945, head: 43, build(M) { const c = [0.45, 0.36, 0.28, 254], p = [0.4, 0.32, 0.25];
     for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) M.loft(LSQ(26), [sx * 50, sy * 50], 0, LSQ(19), [sx * 31, sy * 31], 57, c, false); // four legs leaning in: the great arches
-    M.prism(LSQ(76), [0, 0], 57, 64, c); M.loft(LSQ(60), [0, 0], 64, LSQ(36), [0, 0], 115, c); M.prism(LSQ(42), [0, 0], 115, 121, c);
-    M.loft(LSQ(30), [0, 0], 121, LSQ(9), [0, 0], 276, c); M.prism(LSQ(13), [0, 0], 276, 283, c); M.taper(LSQ(4), [0, 0], 283, 330, 0.15, c); } },
-  { name: 'Pyramids of Giza', lat: 29.97917, lon: 31.13417, build(M) { const s = [0.8, 0.68, 0.48];
-    M.loft(LSQ(230), [0, 0], 0, LSQ(0.4), [0, 0], 139, s); M.loft(LSQ(215), [-328, -345], 0, LSQ(0.4), [-328, -345], 136, [0.78, 0.66, 0.47]); M.loft(LSQ(103), [-569, -746], 0, LSQ(0.4), [-569, -746], 65, [0.76, 0.63, 0.45]); } },
-  { name: 'Colosseum', lat: 41.89021, lon: 12.49223, head: -20, build(M) { const c = [0.78, 0.72, 0.62], n = 48, O = LMG([94, 78], n), I = LMG([43, 27], n);
+    M.prism(LSQ(76), [0, 0], 57, 64, p); M.loft(LSQ(60), [0, 0], 64, LSQ(36), [0, 0], 115, c); M.prism(LSQ(42), [0, 0], 115, 121, p);
+    M.loft(LSQ(30), [0, 0], 121, LSQ(9), [0, 0], 276, c); M.prism(LSQ(13), [0, 0], 276, 283, p); M.taper(LSQ(4), [0, 0], 283, 330, 0.15, c); } },
+  { name: 'Pyramids of Giza', lat: 29.97917, lon: 31.13417, build(M) { const s = [0.8, 0.68, 0.48, 247];
+    M.loft(LSQ(230), [0, 0], 0, LSQ(0.4), [0, 0], 139, s); M.loft(LSQ(215), [-328, -345], 0, LSQ(0.4), [-328, -345], 136, [0.78, 0.66, 0.47, 247]); M.loft(LSQ(103), [-569, -746], 0, LSQ(0.4), [-569, -746], 65, [0.76, 0.63, 0.45, 247]); } },
+  { name: 'Colosseum', lat: 41.89021, lon: 12.49223, head: -20, build(M) { const c = [0.78, 0.72, 0.62, 252], n = 48, O = LMG([94, 78], n), I = LMG([43, 27], n);
     for (let i = 0; i < n; i++) { const j = (i + 1) % n, o0 = O[i], o1 = O[j], i0 = I[i], i1 = I[j];
       M.quad([o0[0], o0[1], 0], [o1[0], o1[1], 0], [o1[0], o1[1], 48], [o0[0], o0[1], 48], c, [0, 0, 24]); // outer wall
       M.quad([o0[0], o0[1], 48], [o1[0], o1[1], 48], [i1[0], i1[1], 10], [i0[0], i0[1], 10], c, [(o0[0] + i0[0]) / 2, (o0[1] + i0[1]) / 2, -50]); // seating slope
-      M.quad([i0[0], i0[1], 10], [i1[0], i1[1], 10], [i1[0], i1[1], 0], [i0[0], i0[1], 0], [0.7, 0.64, 0.55], [i0[0] * 3, i0[1] * 3, 5]); } } }, // arena wall
-  { name: 'Statue of Liberty', lat: 40.68925, lon: -74.0445, build(M) { const g = [0.6, 0.58, 0.55], cu = [0.36, 0.58, 0.5];
-    M.prism(LMG(46, 11), [0, 0], 0, 10, g); M.loft(LSQ(28), [0, 0], 10, LSQ(19), [0, 0], 47, [0.7, 0.67, 0.6]);
+      M.quad([i0[0], i0[1], 10], [i1[0], i1[1], 10], [i1[0], i1[1], 0], [i0[0], i0[1], 0], [0.7, 0.64, 0.55, 253], [i0[0] * 3, i0[1] * 3, 5]); } } }, // arena wall
+  { name: 'Statue of Liberty', lat: 40.68925, lon: -74.0445, build(M) { const g = [0.6, 0.58, 0.55, 253], cu = [0.36, 0.58, 0.5, 248];
+    M.prism(LMG(46, 11), [0, 0], 0, 10, g); M.loft(LSQ(28), [0, 0], 10, LSQ(19), [0, 0], 47, [0.7, 0.67, 0.6, 253]);
     M.stack([[47, 8], [62, 6.5], [75, 5], [80, 5.4], [81, 3], [86, 2.4], [88, 0.6]], 12, [0, 0], cu);
     M.beam([3.6, 0, 78], [5.2, 0, 93], 2.4, cu); M.prism(LSQ(3), [5.3, 0], 93, 96, [0.82, 0.66, 0.3]); M.beam([-3, 1.5, 70], [-4, 3, 76], 2.2, cu); } },
-  { name: 'Big Ben', lat: 51.50073, lon: -0.12463, build(M) { const s = [0.74, 0.64, 0.46], d = [0.36, 0.34, 0.31];
+  { name: 'Big Ben', lat: 51.50073, lon: -0.12463, build(M) { const s = [0.74, 0.64, 0.46, 246], d = [0.36, 0.34, 0.31];
     M.prism(LSQ(12), [0, 0], 0, 55, s); M.prism(LSQ(13.5), [0, 0], 55, 70, s); M.prism(LSQ(11), [0, 0], 70, 78, s); M.taper(LSQ(11), [0, 0], 78, 96, 0.04, d);
     M.prism(LSQ(62, 265), [-28, -138], 0, 27, s); M.loft(LSQ(62, 265), [-28, -138], 27, LSQ(40, 250), [-28, -138], 33, d);
     M.prism(LSQ(23), [-14, -268], 0, 88, s); M.taper(LSQ(23), [-14, -268], 88, 98, 0.5, d); M.prism(LMG(9, 8), [-28, -128], 0, 75, s); M.taper(LMG(9, 8), [-28, -128], 75, 91, 0.05, d); } },
-  { name: 'Taj Mahal', lat: 27.1751, lon: 78.04215, build(M) { const w = [0.93, 0.91, 0.87];
-    M.prism(LSQ(95), [0, 0], 0, 7, [0.86, 0.8, 0.74]); M.prism(LMG(40, 8, Math.PI / 8), [0, 0], 7, 35, w); M.prism(LMG(14, 16), [0, 0], 35, 44, w);
+  { name: 'Taj Mahal', lat: 27.1751, lon: 78.04215, build(M) { const w = [0.93, 0.91, 0.87, 250];
+    M.prism(LSQ(95), [0, 0], 0, 7, [0.72, 0.45, 0.36, 253]); M.prism(LMG(40, 8, Math.PI / 8), [0, 0], 7, 35, w); M.prism(LMG(14, 16), [0, 0], 35, 44, w);
     M.stack([[44, 17], [50, 18.5], [56, 17.5], [62, 14], [67, 9], [71, 3.5], [73, 0.6], [76, 0.2]], 16, [0, 0], w);
     for (const [x, y] of [[42, 42], [42, -42], [-42, 42], [-42, -42]]) { M.prism(LMG(2.8, 10), [x, y], 7, 47, w); M.stack([[47, 3.4], [49, 3.4], [51, 2], [52.5, 0.2]], 10, [x, y], w); } } },
-  { name: 'Burj Khalifa', lat: 25.1972, lon: 55.2744, build(M) { M.stack([[0, 42], [150, 33], [300, 26], [450, 18], [585, 11], [640, 6.5], [700, 3], [828, 0.5]], 6, [0, 0], [0.62, 0.68, 0.75], Math.PI / 6); } },
+  { name: 'Burj Khalifa', lat: 25.1972, lon: 55.2744, build(M) { M.stack([[0, 42], [150, 33], [300, 26], [450, 18], [585, 11], [640, 6.5], [700, 3], [828, 0.5]], 6, [0, 0], [0.62, 0.68, 0.75, 249], Math.PI / 6); } },
   { name: 'Golden Gate Bridge', lat: 37.81993, lon: -122.47826, head: -4, build(M) { const o = [0.75, 0.27, 0.13];
     for (const ty of [640, -640]) { for (const sx of [-14, 14]) M.prism(LSQ(10, 11), [sx, ty], 0, 227, o); for (const z of [150, 195, 222]) M.beam([-14, ty, z], [14, ty, z], 5, o); }
     M.prism(LSQ(27, 1960), [0, 0], 64, 70, [0.6, 0.24, 0.13]);
     const cz = (y) => (Math.abs(y) <= 640 ? 72 + (227 - 72) * (y / 640) ** 2 : 227 - (227 - 76) * (Math.abs(y) - 640) / 340);
     for (const sx of [-14, 14]) for (let y = -980; y < 980; y += 40) { M.beam([sx, y, cz(y)], [sx, y + 40, cz(y + 40)], 1.6, o); if (Math.abs(y) % 80 === 0 && cz(y) > 74) M.beam([sx, y, 70], [sx, y, cz(y)], 0.5, o); } } },
-  { name: 'Christ the Redeemer', lat: -22.95192, lon: -43.21049, head: 140, build(M) { const c = [0.86, 0.85, 0.8];
+  { name: 'Christ the Redeemer', lat: -22.95192, lon: -43.21049, head: 140, build(M) { const c = [0.86, 0.85, 0.8, 248];
     M.prism(LSQ(9), [0, 0], 0, 8, [0.75, 0.74, 0.7]); M.loft(LSQ(7, 5), [0, 0], 8, LSQ(4.5, 3.4), [0, 0], 32, c); M.taper(LSQ(3.2), [0, 0], 32, 36, 0.6, c); M.beam([-14, 0, 29.5], [14, 0, 29.5], 2.4, c); } },
-  { name: 'Stockholm City Hall', lat: 59.3275, lon: 18.0543, build(M) { const b = [0.55, 0.27, 0.2], g = [0.35, 0.55, 0.48];
+  { name: 'Stockholm City Hall', lat: 59.3275, lon: 18.0543, build(M) { const b = [0.55, 0.27, 0.2, 251], g = [0.35, 0.55, 0.48, 248];
     M.prism(LSQ(75, 112), [0, 0], 0, 26, b); M.prism(LSQ(15), [30, -50], 0, 86, b); M.prism(LSQ(12), [30, -50], 86, 100, g); M.taper(LSQ(4), [30, -50], 100, 106, 0.1, [0.85, 0.7, 0.3]); } },
 ];
 /* ============================== WGSL (single module, all entry points) ============================== */
@@ -656,9 +657,26 @@ struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@
 @fragment fn fsC(v:CV)->@location(0) vec4f{
  let b=BD[v.sl].d;let R=b[0].w;let up=normalize(v.u);let N0=normalize(v.n);let N=select(N0,-N0,dot(N0,up)<-.35);let L=v.L;let E=v.E;let c=v.c;let ud=dot(N,up);
  var al=vec3f(.72,.7,.66);var em=vec3f(0.);let tw=cross(up,N);let t=tw/max(length(tw),1e-4);let x=dot(v.q.xyz,t);let y=v.q.w;
- let fd=1.-smoothstep(.2,.5,max(fwidth(x)/2.8,fwidth(y)/3.2));
+ let fd=1.-smoothstep(.2,.5,max(fwidth(x)/2.8,fwidth(y)/3.2));let fw=max(fwidth(x),fwidth(y));
  let fixed=c.w>.5;
- if(fixed){al=pow(c.rgb,vec3f(2.2));em=al*vec3f(1.,.82,.58)*.07*(1.-smoothstep(-.1,.05,dot(up,L)));}
+ if(fixed){al=pow(c.rgb,vec3f(2.2));let mt=u32(round(c.w*255.));let side=abs(ud)<.5;let nt=1.-smoothstep(-.1,.05,dot(up,L));let pf=vec4f(1.)-smoothstep(vec4f(.3),vec4f(.75),vec4f(fw)/vec4f(1.4,2.6,6.8,12.));
+  if(mt==254u&&side){let a=abs(fract((x+y)/7.)-.5);let b=abs(fract((x-y)/7.)-.5);let hz=abs(fract(y/14.)-.5);let st=max(max(step(.41,a),step(.41,b)),step(.45,hz));
+   if(st<.5&&pf.z>.6){discard;}al*=mix(.72,mix(.5,1.,st),pf.z);}
+  if(mt==247u){let rw=floor(y/1.5);al*=mix(1.,(.84+.24*hf(vec3i(i32(rw),3,7)))*(1.-.35*step(.82,fract(y/1.5))),pf.x)*(.9+.2*hf(vec3i(i32(floor(y/9.)),i32(floor(x/12.)),17)));}
+  if(mt==253u||(mt==252u&&!side)){let rw=floor(y/1.2);let off=select(0.,1.3,fract(rw*.5)>.25);let jt=max(step(.88,fract(y/1.2)),step(.93,fract((x+off)/2.6)));
+   al*=mix(1.,(1.-.28*jt)*(.88+.24*hf(vec3i(i32(rw),i32(floor((x+off)/2.6)),5))),pf.y)*(.92+.16*hf(vec3i(i32(floor(y/8.)),i32(floor(x/10.)),19)));if(mt==252u){al*=1.-.18*step(.7,fract(y/.9))*pf.x;}}
+  if(mt==252u&&side){let tr=floor(y/10.5);let ly=y-tr*10.5;if(tr<3.){let lx=fract(x/6.8)*6.8-3.4;let sp=6.2;let hw=2.15;
+    let ins=abs(lx)<hw&&ly>.7&&(ly<sp||lx*lx+(ly-sp)*(ly-sp)<hw*hw);if(ins){al*=mix(1.,.16,pf.z);}al*=1.-.3*step(.9,fract(y/10.5))*pf.z;}
+   else{let wx=fract(x/14.);let wy=fract((y-33.)/15.);if(wx>.45&&wx<.55&&wy>.4&&wy<.6){al*=mix(1.,.25,pf.w);}}}
+  if(mt==251u){al*=mix(1.,.86+.28*hf(vec3i(i32(floor(x/1.1)),i32(floor(y/.6)),9)),pf.x*.6);
+   if(side&&y>2.){let wx=fract(x/3.6);let wy=fract(y/4.2);if(wx>.3&&wx<.7&&wy>.3&&wy<.8){al=mix(al,vec3f(.05,.06,.08),.8*pf.y);em+=vec3f(1.,.75,.45)*.35*nt*pf.y*step(.55,hf(vec3i(i32(floor(x/3.6)),i32(floor(y/4.2)),11)));}}}
+  if(mt==250u){al*=.93+.09*vn(v.q.xyz*.35).x;if(side&&y>9.&&y<34.){let lx=fract(x/9.)*9.-4.5;let ly=fract((y-9.)/13.)*13.;let sp=8.5;let hw=2.3;
+    if(abs(lx)<hw&&ly>1.&&(ly<sp||lx*lx+(ly-sp)*(ly-sp)<hw*hw)){al*=mix(1.,.72,pf.w);}}}
+  if(mt==249u){let mu=max(step(.84,fract(y/4.2)),step(.9,fract(x/1.7)));al=mix(al,mix(vec3f(.025,.04,.065),vec3f(.42,.45,.5),mu),pf.y);em+=vec3f(1.,.85,.6)*.25*nt*(1.-mu)*pf.y*step(.7,hf(vec3i(i32(floor(x/1.7)),i32(floor(y/4.2)),13)));}
+  if(mt==248u){al*=.82+.32*vn(v.q.xyz*.9+vec3f(y*.15)).x*.5+.1;}
+  if(mt==246u){let rb=step(.88,fract(x/2.3));al*=1.-.3*rb*pf.y;if(side){let wx=fract(x/2.3);let wy=fract(y/9.);if(wx>.3&&wx<.62&&wy>.18&&wy<.82){al*=mix(1.,.35,pf.y);}
+    if(y>55.&&y<70.&&abs(x)<6.5){let d=length(vec2f(x,y-62.5));if(d<3.6){al=mix(al,vec3f(.85,.82,.66),pf.z);em+=vec3f(1.,.9,.6)*.8*nt*pf.z;}}}}
+  em+=al*vec3f(1.,.82,.58)*.07*nt;}
  else if(ud>.35){al=select(select(select(vec3f(.11,.115,.12),vec3f(.24,.24,.25),c.x>.5),vec3f(.22,.11,.08),c.x>.86),vec3f(.17,.28,.24),c.x>.97)*(.85+.3*c.y);}
  else{
   let k=c.z;al=select(select(select(select(vec3f(.7,.68,.64),vec3f(.72,.63,.47),k>.3),vec3f(.7,.54,.32),k>.5),vec3f(.52,.52,.52),k>.68),vec3f(.46,.27,.2),k>.86);
@@ -1208,7 +1226,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (const p of [a, b, c]) { const la = la0 + p[1] / RE, lo = lo0 + p[0] / (RE * Math.cos(la0)), cl = Math.cos(la), o = v * 6, k = v * 24;
         of[o] = cl * Math.cos(lo) * Rg - ax; of[o + 1] = Math.sin(la) * Rg - ay; of[o + 2] = -cl * Math.sin(lo) * Rg - az; of[o + 3] = p[2] < 0.01 ? -8 * KS : p[2] * KS;
         ob[k + 16] = Math.round((E[0] * nx + N[0] * ny + UP[0] * nz) * 127); ob[k + 17] = Math.round((E[1] * nx + N[1] * ny + UP[1] * nz) * 127); ob[k + 18] = Math.round((E[2] * nx + N[2] * ny + UP[2] * nz) * 127);
-        ou[k + 20] = Math.round(col[0] * 255); ou[k + 21] = Math.round(col[1] * 255); ou[k + 22] = Math.round(col[2] * 255); ou[k + 23] = 255; v++; } } // alpha 255: fixed colour, no city facade
+        ou[k + 20] = Math.round(col[0] * 255); ou[k + 21] = Math.round(col[1] * 255); ou[k + 22] = Math.round(col[2] * 255); ou[k + 23] = col[3] || 255; v++; } } // alpha 200..255: fixed colour + surface pattern id (255 plain), no city facade
     const gb = device.createBuffer({ size: out.byteLength, usage: U.VERTEX | U.COPY_DST }); device.queue.writeBuffer(gb, 0, out); return { buf: gb, n: nv, A: [ax, ay, az] }; }
   const lmTiles = [];
   function lmFrame(eb, dc) { if (eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return; const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; if ((dc - R0) / KS > 40000) return;
@@ -1751,7 +1769,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
   const ap = { on: false, pend: false, k: -1, t: 0, a0: 1, a1: 1, ang: 0, d0: new Float64Array(3), d1: new Float64Array(3), ax: new Float64Array(3) };
-  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400], n: [5000, 2200], h: [700, 180] }; // [stand-off distance, height] in game metres
+  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400], n: [5000, 2200], h: [300, 80] }; // [stand-off distance, height] in game metres
   function apStart() {
     const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
