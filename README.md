@@ -56,8 +56,10 @@ renders at your screen's full resolution.*
 - **Night-sky trips:** pick a constellation under FIND → Night sky. The autopilot flies you to a famous dark-sky
   site (Abisko, La Palma, Mauna Kea, Atacama, Lake Tekapo) on the night it stands highest; on arrival night falls,
   the view turns up to it and photo mode shows just the sky. **BACK TO TODAY** restores the date.
-- **Guided tours:** five tours: Capitals of Europe, Roof of the World, Footsteps on the Moon, The Red Planet
-  and Grand Tour. The ship flies itself, circles each stop, lights night-side stops and tells you the story.
+- **Guided tours:** eleven tours: Capitals of Europe, Nordic Capitals (with Helsinki in 3D), Nordic Nature,
+  Roof of the World, Natural Wonders, Wonders Built by People, Fire Mountains (Earth, Mars and Io), Footsteps on
+  the Moon, The Red Planet, Moons of the Giants and Grand Tour. The ship flies itself, circles each stop, lights
+  night-side stops and tells you the story.
 - **Live system map:** the camera flies out of the ship to a 3D overview of the Solar System with today's
   real planet positions. Tap a planet to cruise there.
 - **Stars and galaxies:** 911 real stars (the real constellations), tap any star to **warp**: a ~13 s
@@ -233,7 +235,7 @@ Planned work, roughly in order of priority:
 - **Reworked flight controls:** a better flight feel overall, including a smoother atmospheric entry. Some
   jerkiness remains; suspects are the re-entry camera shake, hard braking from the altitude speed cap and
   field-of-view changes during boost.
-- **More guided tours:** more tours with richer information at every stop: history, science and fun facts.
+- **More guided tours:** six new tours are in; next, richer information at every stop: history, science and fun facts.
 - **Quizzes and games:** quizzes about the places you visit, photo challenges, a travel journal with stamps
   and achievements.
 - **Reworked galaxies:** a more detailed Milky Way with its real arm structure, more star systems to visit, and

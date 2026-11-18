@@ -96,6 +96,8 @@ export const PLACES = {
     'Sao Paulo|-23.55|-46.63|c|1;Rio de Janeiro|-22.91|-43.17|c|1;Buenos Aires|-34.6|-58.38|c|1;Cairo|30.04|31.24|c|1;Lagos|6.52|3.38|c|1;Nairobi|-1.29|36.82|c|2;Johannesburg|-26.2|28.05|c|1;Cape Town|-33.92|18.42|c|2;Dubai|25.2|55.27|c|1;Tehran|35.69|51.39|c|2;' +
     'Delhi|28.61|77.21|c|1;Mumbai|19.08|72.88|c|1;Beijing|39.9|116.41|c|1;Shanghai|31.23|121.47|c|1;Hong Kong|22.32|114.17|c|2;Tokyo|35.68|139.69|c|1;Seoul|37.57|126.98|c|1;Bangkok|13.76|100.5|c|2;Singapore|1.35|103.82|c|1;Jakarta|-6.21|106.85|c|2;' +
     'Sydney|-33.87|151.21|c|1;Melbourne|-37.81|144.96|c|2;Auckland|-36.85|174.76|c|2;' +
+    'Lofoten Islands|68.2|13.9|n|2|400;Geirangerfjord|62.11|7.09|n|2;Thingvellir|64.26|-21.13|n|2|100;Iguazu Falls|-25.69|-54.44|n|1|200;Victoria Falls|-17.92|25.86|n|1|900;Uluru|-25.345|131.036|n|1|860;Great Barrier Reef|-18.29|147.7|x|1;Ha Long Bay|20.91|107.18|n|2;' +
+    'Pyramids of Giza|29.979|31.134|h|1|60;Petra|30.329|35.444|h|2|900;Taj Mahal|27.175|78.042|h|1|170;Great Wall of China|40.359|116.02|h|1|800;Colosseum|41.89|12.492|h|1|30;Machu Picchu|-13.163|-72.545|h|1|2430;Chichen Itza|20.683|-88.569|h|2|30;Christ the Redeemer|-22.952|-43.211|h|2|700;' +
     'Abisko|68.35|18.82|d|3|400;La Palma Observatory|28.76|-17.89|d|2|2400;Mauna Kea|19.82|-155.47|d|2|4207;Atacama Desert|-24.63|-70.4|d|2|2600;Lake Tekapo|-44|170.48|d|3|710;' +
     'Mont Blanc|45.83|6.86|m|1|4806;Matterhorn|45.98|7.66|m|1|4478;Kebnekaise|67.9|18.52|m|2|2097;Galdhopiggen|61.64|8.31|m|2|2469;Ben Nevis|56.8|-5|m|2|1345;Etna|37.75|14.99|m|1|3357;Vesuvius|40.82|14.43|m|2|1281;Mount Olympus|40.09|22.36|m|2|2917;' +
     'Elbrus|43.35|42.44|m|1|5642;Zugspitze|47.42|10.99|m|2|2962;Grossglockner|47.07|12.69|m|2|3798;Teide|28.27|-16.64|m|2|3715;Mount Everest|27.99|86.93|m|1|8849;K2|35.88|76.51|m|1|8611;Kilimanjaro|-3.07|37.35|m|1|5895;Denali|63.07|-151.01|m|1|6190;' +
@@ -262,6 +264,49 @@ export const TOURS = [
     { p: 'Valles Marineris', t: 'A canyon system 4,000 km long and up to 7 km deep. It would span the United States.' },
     { p: 'Gale Crater (Curiosity)', t: 'The Curiosity rover has been exploring this old lake bed since 2012.' },
     { p: 'Jezero (Perseverance)', t: 'An ancient river delta, where Perseverance collects rock samples in search of past life.' }] },
+  { name: 'Nordic Capitals', desc: 'Five capitals of the North.', stops: [
+    { p: 'Stockholm', t: 'Sweden\'s capital spreads over 14 islands. The old town, Gamla Stan, dates from the 1200s.' },
+    { p: 'Oslo', t: 'Norway\'s capital sits at the head of the Oslofjord, a 100 km long inlet of the sea.' },
+    { p: 'Copenhagen', t: 'Denmark\'s capital on the Oresund strait. The Oresund Bridge links it to Malmo in Sweden.' },
+    { p: 'Helsinki', city: 1, t: 'Finland\'s capital, on a peninsula with some 300 islands, here in real 3D from the city\'s own open model.' },
+    { p: 'Reykjavik', t: 'The northernmost capital of a sovereign state, heated by water from deep under the volcanic ground.' }] },
+  { name: 'Nordic Nature', desc: 'Fjords, Arctic islands and the highest peaks of the North.', stops: [
+    { p: 'Geirangerfjord', t: 'A 15 km arm of the sea carved by glaciers, with waterfalls like the Seven Sisters. A UNESCO World Heritage site.' },
+    { p: 'Galdhopiggen', t: 'At 2,469 m, the highest mountain in Norway and in all of northern Europe.' },
+    { p: 'Lofoten Islands', t: 'Steep peaks rise straight out of the sea above the Arctic Circle. The Gulf Stream keeps the harbours free of ice.' },
+    { p: 'Kebnekaise', t: 'Sweden\'s highest mountain. Its ice-capped south peak has melted down below the rocky north peak.' },
+    { p: 'Thingvellir', t: 'Iceland sits on the Mid-Atlantic Ridge: here the North American and Eurasian plates drift apart about 2 cm a year.' }] },
+  { name: 'Natural Wonders', desc: 'Canyons, waterfalls, reefs and sacred rock.', stops: [
+    { p: 'Grand Canyon', t: 'Carved by the Colorado River: 446 km long and up to 1.8 km deep, showing almost two billion years of rock.' },
+    { p: 'Iguazu Falls', t: 'About 275 waterfalls on the border of Argentina and Brazil, almost 3 km wide.' },
+    { p: 'Amazon Rainforest', t: 'The largest rainforest on Earth, home to around one in ten of all known species.' },
+    { p: 'Victoria Falls', t: 'The Zambezi drops about 108 m into a narrow gorge. Its local name, Mosi-oa-Tunya, means the smoke that thunders.' },
+    { p: 'Uluru', t: 'A sandstone monolith rising 348 m above the Australian outback, sacred to the Anangu people.' },
+    { p: 'Great Barrier Reef', t: 'The largest coral reef system on Earth, about 2,300 km long.' },
+    { p: 'Ha Long Bay', t: 'Nearly 2,000 limestone islands and islets rise from the emerald water of northern Vietnam.' }] },
+  { name: 'Wonders Built by People', desc: 'Pyramids, temples and walls.', stops: [
+    { p: 'Pyramids of Giza', t: 'The Great Pyramid was the tallest building on Earth for about 3,800 years, and the only ancient wonder still standing.' },
+    { p: 'Petra', t: 'A city carved into rose-red cliffs by the Nabataeans more than 2,000 years ago.' },
+    { p: 'Colosseum', t: 'Rome\'s great amphitheatre, opened in 80 AD, held around 50,000 spectators.' },
+    { p: 'Taj Mahal', t: 'A white marble mausoleum built by the emperor Shah Jahan for his wife Mumtaz Mahal, finished around 1653.' },
+    { p: 'Great Wall of China', t: 'Walls and watchtowers more than 20,000 km long in total. Despite the myth, it cannot be seen from the Moon.' },
+    { p: 'Machu Picchu', t: 'An Inca citadel from the 1400s, on a ridge 2,430 m up in the Andes.' },
+    { p: 'Chichen Itza', t: 'A great Maya city. At the equinoxes the sun casts a serpent of shadow down the steps of El Castillo.' },
+    { p: 'Christ the Redeemer', t: 'A 30 m statue on Corcovado mountain, looking out over Rio de Janeiro since 1931.' }] },
+  { name: 'Fire Mountains', desc: 'Volcanoes on Earth, Mars and Io.', stops: [
+    { p: 'Vesuvius', t: 'In 79 AD it buried Pompeii and Herculaneum under ash. It is still active.' },
+    { p: 'Etna', t: 'Europe\'s highest active volcano, about 3,350 m, erupts every few years.' },
+    { p: 'Teide', t: 'Spain\'s highest peak, a volcano on Tenerife: 3,715 m above the sea and more than 7,500 m from the sea floor.' },
+    { p: 'Mount Fuji', t: 'Japan\'s sacred volcano last erupted in 1707. On clear days its cone can be seen from Tokyo.' },
+    { p: 'Olympus Mons', t: 'On Mars volcanoes grow huge: Olympus Mons is about 22 km high, two and a half times Everest.' },
+    { b: 'io', t: 'Jupiter\'s moon Io is the most volcanic world known, with plumes up to 400 km high.' }] },
+  { name: 'Moons of the Giants', desc: 'Ice, fire and hidden oceans in the outer Solar System.', stops: [
+    { b: 'jupiter', t: 'The largest planet: more than twice the mass of all the other planets put together.' },
+    { b: 'io', t: 'Squeezed by Jupiter\'s tides, Io has hundreds of active volcanoes.' },
+    { b: 'europa', t: 'Under its ice shell lies a salty ocean holding more water than all of Earth\'s oceans.' },
+    { b: 'ganymede', t: 'The largest moon in the Solar System, bigger than the planet Mercury.' },
+    { b: 'titan', t: 'Saturn\'s largest moon has a thick orange sky and lakes of liquid methane.' },
+    { b: 'triton', t: 'Neptune\'s moon orbits backwards, probably a captured world from the Kuiper Belt. It has nitrogen geysers.' }] },
   { name: 'Grand Tour', desc: 'From the Sun to Neptune in one trip.', stops: [
     { b: 'sun', t: 'The Sun holds 99.8% of the Solar System\'s mass. Its light takes 8 minutes to reach Earth.' },
     { b: 'earth', t: 'Home. The only world known to have life.' },
@@ -269,7 +314,7 @@ export const TOURS = [
     { b: 'saturn', t: 'The rings are mostly water ice, 280,000 km wide but often only tens of metres thick.' },
     { b: 'neptune', t: 'The outermost planet, with the fastest winds in the Solar System: over 2,000 km/h.' }] },
 ];
-const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site', d: 'Dark-sky site' };
+const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site', d: 'Dark-sky site', n: 'Natural wonder', h: 'World wonder' };
 // Helsinki aerial photo (City of Helsinki orthophoto 2025, CC BY 4.0): Web-Mercator tiles 14..18 inside this box, keyed by local tile x/y
 const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 4730 }; // origin = a zoom-14 tile corner, so every zoom 14..18 shares it
 /* ============================== WGSL (single module, all entry points) ============================== */
@@ -1390,7 +1435,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < sys.n; i++) { if (!inMap(i)) continue; const o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) continue;
       const r = mapR(i, (sys.list[i].R / scr[2]) / tanY() * H * 0.5, hs), d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < Math.max(bd, r * r)) { bd = d2; bi = i; } }
     return bi; }
-  const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25], d: [0, 0.1, 0.1, 0.1] }, LMIN = { s: 0.015, o: 0.1 };
+  const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25], d: [0, 0.1, 0.1, 0.1], n: [0, 0.2, 0.1, 0.1], h: [0, 0.12, 0.06, 0.06] }, LMIN = { s: 0.015, o: 0.1 };
   function lmHud(s) { // landmark labels on the body you are near: rank-gated by altitude, horizon-culled, decluttered
     let nl = 0; const lh = 15 * s;
     for (let k = 0; k < sys.lm.length; k++) {
@@ -1620,7 +1665,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
   const ap = { on: false, pend: false, k: -1, t: 0, a0: 1, a1: 1, ang: 0, d0: new Float64Array(3), d1: new Float64Array(3), ax: new Float64Array(3) };
-  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400] }; // [stand-off distance, height] in game metres
+  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400], n: [5000, 2200], h: [1800, 700] }; // [stand-off distance, height] in game metres
   function apStart() {
     const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
@@ -1657,7 +1702,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (st.p) { const k = sys.lm.findIndex((m) => m.name === st.p); if (k < 0) return; const m = sys.lm[k], o = m.bi * 3;
       if (sys.list[m.bi].id === 'earth') { qrot(t3, 0, bq, m.bi * 4, m.dir[0], m.dir[1], m.dir[2]); const l = Math.hypot(pos[o], pos[o + 1], pos[o + 2]);
         if (-(t3[0] * pos[o] + t3[1] * pos[o + 1] + t3[2] * pos[o + 2]) / l < 0.35) { sunOver(m.lon * D2R); rqRef = -1; flash = 0.4; } }
-      goPlace(k); }
+      if (st.city) city.on = true; goPlace(k); }
     else { const i = sys.idx[st.b]; if (i === undefined) return; ap.on = ap.pend = false; setTgt(i); if (dist(i) > sys.list[i].arrive * 1.2 && !cruise && charge < 0) { charge = 1.2; cruiseV = 0; } }
   }
   const tourArrived = () => { const st = TOURS[tr.k].stops[tr.i]; if (cruise || charge >= 0 || ap.on || ap.pend) return false; if (st.p) return true; const i = sys.idx[st.b]; return i !== undefined && dist(i) < sys.list[i].arrive * 1.3; };
@@ -2198,11 +2243,12 @@ function findTree(eng, ui) {
     node(ui.inSol ? 'Solar System' : ui.system + ' system', 'the star, planets, moons, stations', [
       node(ui.inSol ? 'The Sun' : 'The star', null, B.filter((b) => b.type === 'star').map((b) => bo(b, 0))), node('Planets & moons', null, planets),
       node('Stations', null, B.filter((b) => b.type === 'station').map((b) => bo(b, 0))), node('Comets', null, B.filter((b) => b.type === 'comet').map((b) => bo(b, 0)))]),
-    node('Earth', 'cities, mountains, seas, dark-sky sites', [
+    node('Earth', 'cities, wonders, mountains, seas, dark-sky sites', [
       node('Cities', 'by region', REGIONS.map((r) => node(r, null, on('earth', (p) => p.kc === 'c' && region(p) === r)))),
       hel ? node('3D cities', 'real buildings', [{ name: 'Helsinki', sub: 'Real 3D buildings and aerial photo', go: () => { eng.cityOn(true); eng.goPlace(hel.k); } }]) : null,
       node('Mountains', null, on('earth', (p) => p.kc === 'm' && !DARK.includes(p.name))), node('Oceans & seas', null, on('earth', (p) => p.kc === 'o' || (p.kc === 's' && SEAS.test(p.name)))),
-      node('Landscapes', null, on('earth', (p) => (p.kc === 'x' || p.kc === 's') && !DARK.includes(p.name) && !SEAS.test(p.name))), node('Dark-sky sites', 'stargazing spots', on('earth', (p) => DARK.includes(p.name)))]),
+      node('Natural wonders', null, on('earth', (p) => p.kc === 'n' || (p.kc === 'x' && !DARK.includes(p.name)))), node('Wonders built by people', null, on('earth', (p) => p.kc === 'h')),
+      node('Landscapes', null, on('earth', (p) => p.kc === 's' && !SEAS.test(p.name))), node('Dark-sky sites', 'stargazing spots', on('earth', (p) => DARK.includes(p.name)))]),
     node('The Moon', 'Apollo sites, craters, seas', [node('Apollo landing sites', null, on('luna', (p) => p.kc === 'l')), node('Craters & mountains', null, on('luna', (p) => p.kc === 'x' || p.kc === 'm')), node('Seas (maria)', null, on('luna', (p) => p.kc === 's'))]),
     node('Mars', 'volcanoes, canyons, rovers', [node('Volcanoes & canyons', null, on('mars', (p) => p.kc === 'x' || p.kc === 'm')), node('Regions', null, on('mars', (p) => p.kc === 's')), node('Rover & lander sites', null, on('mars', (p) => p.kc === 'l'))]),
     node('Stars', 'warp to another star', [node('Famous stars', null, FAMOUS.map((n) => S.find((x) => x.name === n && !x.here)).filter(Boolean).map(st)),
