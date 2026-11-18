@@ -264,9 +264,11 @@ export const TOURS = [
     { b: 'neptune', t: 'The outermost planet, with the fastest winds in the Solar System: over 2,000 km/h.' }] },
 ];
 const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
+// Helsinki aerial photo (City of Helsinki orthophoto 2025, CC BY 4.0): Web-Mercator tiles 14..18 inside this box, keyed by local tile x/y
+const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 4730 }; // origin = a zoom-14 tile corner, so every zoom 14..18 shares it
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
-struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f,wv:vec4f,gx:vec4f};
+struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f,wv:vec4f,gx:vec4f,hA:vec4f,hE:vec4f,hN:vec4f,hU:vec4f,hT:vec4f};
 struct Body{d:array<vec4f,16>};
 struct Inst{a:vec4f,q:vec4f,b:vec4f};
 struct Hud{a:vec4f,c:vec4f,b:vec4f};
@@ -364,7 +366,20 @@ fn elev(n:vec3f,fp:f32)->vec2f{let r=tsel(1u,tuv(n,false),log2(6.2832/(256.*fp))
  let L=i32(r.x);let q=r.yz-.5;let i=vec2i(floor(q));let f=q-floor(q);let c0=clamp(i,vec2i(0),vec2i(255));let c1=clamp(i+1,vec2i(0),vec2i(255));
  let a=dec(textureLoad(TA,c0,L,0));let bb=dec(textureLoad(TA,vec2i(c1.x,c0.y),L,0));let c=dec(textureLoad(TA,vec2i(c0.x,c1.y),L,0));let d=dec(textureLoad(TA,c1,L,0));
  return vec2f(mix(mix(a,bb,f.x),mix(c,d,f.x),f.y),1.);}
-fn albedo(mm:f32,n:vec3f,fp:f32)->vec4f{let eq=mm>1.5;let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq,0u);
+// Helsinki photo texel at zoom 18 (origin-relative), computed from the offset to the camera's ground point: exact in f32 even at 0.3 m/px
+fn hrel(pr:vec3f)->vec2f{let xe=dot(pr,g.hE.xyz);let xn=dot(pr,g.hN.xyz);let xu=dot(pr,g.hU.xyz);let sA=g.hE.w;let cA=g.hN.w;
+ let r1=(1.+xu)*cA-xn*sA;let Z=(1.+xu)*sA+xn*cA;let H=sqrt(r1*r1+xe*xe);let dl=atan2(xn-sA*xe*xe/(H+r1),H*cA+Z*sA);let dlo=atan2(xe,r1);
+ let K=10680707.43;let sc=g.hT.z;let tn=g.hT.w;return g.hT.xy+vec2f(K*dlo,-K*sc*dl*(1.+dl*(.5*tn+dl*(1.+2.*tn*tn)/6.)));}
+fn hsel(T18:vec2f,zd:f32)->vec4f{var z=min(i32(zd),i32(g.hA.w));
+ loop{if(z<14){break;}let T=T18/f32(1u<<u32(18-z));if(T.x>=0.&&T.y>=0.){let ix=u32(T.x/256.);let iy=u32(T.y/256.);
+  let k=(select(0u,1u,z>=16)<<30u)|(select(u32(z),u32(z-3),z>=16)<<26u)|(iy<<13u)|ix;let L=tfind(k);if(L>=0){return vec4f(f32(L),T-vec2f(f32(ix),f32(iy))*256.,f32(z));}}z-=1;}
+ return vec4f(-1.);}
+fn albedo(mm:f32,n:vec3f,fp:f32,pr:vec3f)->vec4f{let eq=mm>1.5;
+ if(!eq&&g.hA.w>0.){let zd=log2(6.2832/(256.*fp));let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
+  if(zd>=13.5&&lo>${(HOR.w*Math.PI/180).toFixed(6)}&&lo<${(HOR.e*Math.PI/180).toFixed(6)}&&la>${(HOR.s*Math.PI/180).toFixed(6)}&&la<${(HOR.n*Math.PI/180).toFixed(6)}){let h=hsel(hrel(pr),zd);
+   if(h.x>=0.){let o=textureSampleLevel(TA,smp,clamp(h.yz/256.,vec2f(.002),vec2f(.998)),i32(h.x),0.);if(o.a>.99){return vec4f(pow(o.rgb,vec3f(2.2)),2.);}
+    let r=tsel(0u,tuv(n,false),zd,13,false,0u);var c=o.rgb;if(r.x>=0.){c=mix(textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb,o.rgb,o.a);}return vec4f(pow(c,vec3f(2.2)),1.+o.a);}}}
+ let r=tsel(select(0u,select(2u,3u,mm>2.5),eq),tuv(n,eq),log2(select(6.2832,3.1416,eq)/(256.*fp)),select(13,select(8,7,mm>2.5),eq),eq,0u);
  if(r.x<0.){return vec4f(0.);}let c=textureSampleLevel(TA,smp,clamp(r.yz/256.,vec2f(.003),vec2f(.997)),i32(r.x),0.).rgb;return vec4f(pow(c,vec3f(2.2)),1.);}
 // colour-shaded altimetry (LOLA / MOLA): hue runs blue (low) -> cyan -> green -> yellow -> red / white (high); hillshading only changes brightness
 fn d16(c:vec4f)->f32{return (c.r*65280.+c.g*255.)/65535.;}// relief tiles: height pre-decoded on the CPU
@@ -474,8 +489,8 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
   if(gas){col=gasCol(b,n,fpS);}else{
    let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));let mm=b[12].w;
    let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=select(b[3].w,0.,T.m>.5&&mm<1.5);let hr=T.h/max(b[4].w,1e-6);
-   var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS);}
-   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=select(mix(vec3f(dot(A.rgb,vec3f(.3,.55,.15))),A.rgb,1.25)*.85,A.rgb*select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.));// ground grain where the photo runs out of pixels
+   var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS,g.hA.xyz+rd*tS);}
+   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=select(mix(vec3f(dot(A.rgb,vec3f(.3,.55,.15))),A.rgb,1.25)*.85,A.rgb*select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.)*select(1.,.1,A.w>1.9));// ground grain where the photo runs out of pixels
    if(wat&&mm<1.5){spec=b[14].w;}else{wat=false;}}
    else if(wat){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;}
    else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
@@ -800,9 +815,9 @@ async function createEngine(canvas, systemId, opts = {}) {
   const U = GPUBufferUsage, T = GPUTextureUsage, VF = GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT;
 
   // ---- preallocated CPU mirrors + GPU buffers ----
-  const gF = new Float32Array(64), bodyF = new Float32Array(MAXB * BSTR), instF = new Float32Array(MAXI * ISTR), hudF = new Float32Array(MAXH * HSTR);
+  const gF = new Float32Array(84), bodyF = new Float32Array(MAXB * BSTR), instF = new Float32Array(MAXI * ISTR), hudF = new Float32Array(MAXH * HSTR);
   const buf = (size, usage) => device.createBuffer({ size, usage });
-  const gBuf = buf(256, U.UNIFORM | U.COPY_DST), bBuf = buf(bodyF.byteLength, U.STORAGE | U.COPY_DST);
+  const gBuf = buf(336, U.UNIFORM | U.COPY_DST), bBuf = buf(bodyF.byteLength, U.STORAGE | U.COPY_DST);
   const iBuf = buf(instF.byteLength, U.STORAGE | U.COPY_DST), hBuf = buf(hudF.byteLength, U.STORAGE | U.COPY_DST);
 
   // ---- glyph atlas (procedural: system monospace font rasterised once) ----
@@ -897,8 +912,10 @@ async function createEngine(canvas, systemId, opts = {}) {
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/${z}/${y}/${x}.jpg`,
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_LOLA_DEM_Global_128ppd_v04/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // LOLA DEM, 8-bit grey: -9100..10800 m
-    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/mola128_mola64_merge_90Nto90S_SimpleC_clon0/1.0.0/default/default028mm/${z}/${y}/${x}.png`]; // MOLA DEM, 8-bit grey: -8200..21200 m
-  const TZM = [13, 12, 8, 7, 5, 5], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+    (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/mola128_mola64_merge_90Nto90S_SimpleC_clon0/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // MOLA DEM, 8-bit grey: -8200..21200 m
+    (z, x, y) => { const s = 40075016.686 / (1 << z), x0 = -20037508.343 + x * s, y1 = 20037508.343 - y * s; // Helsinki orthophoto via WMS (transparent outside the city)
+      return `https://kartta.hel.fi/ws/geoserver/avoindata/wms?service=WMS&version=1.1.1&request=GetMap&layers=avoindata:Ortoilmakuva_2025_5cm&styles=&srs=EPSG:3857&bbox=${x0.toFixed(3)},${(y1 - s).toFixed(3)},${(x0 + s).toFixed(3)},${y1.toFixed(3)}&width=256&height=256&format=image/vnd.jpeg-png&transparent=true`; }];
+  const TZM = [13, 12, 8, 7, 5, 5, 16], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -909,7 +926,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         if (sl < 0 || (tKey[sl] !== 0xffffffff && frame - tUse[sl] < 4)) { bm.close(); tmap.delete(k); return; } // cache full of visible tiles: drop this one, ask again later
         if (tKey[sl] !== 0xffffffff) { tmap.delete(tKey[sl]); tKey[sl] = 0xffffffff; hashRebuild(); } // unlink the old tile BEFORE its slot is overwritten
         tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); tilesSeen = true;
-        if (kind >= 4) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
+        if (kind === 4 || kind === 5) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
       }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
   };
   // relief tiles (LOLA / MOLA colour-shaded altimetry): decode hue -> height once on the CPU, fill shadowed pixels, smooth JPEG blocks, upload as 16-bit (R,G)
@@ -930,6 +947,22 @@ async function createEngine(canvas, systemId, opts = {}) {
     device.queue.writeTexture({ texture: tileTex, origin: [0, 0, sl] }, rbuf, { bytesPerRow: 1024, rowsPerImage: 256 }, [256, 256, 1]);
   }
   const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  const wantH = (z, x, y) => { const lx = x - (HOR.x14 << (z - 14)), ly = y - (HOR.y14 << (z - 14)); if (lx < 0 || ly < 0) return; // Helsinki photo tiles share the hash: z 14/15 -> kind 0 slots 14/15, z 16..18 -> kind 1 slots 13..15
+    const k = (((z >= 16 ? 1 : 0) << 30) | ((z >= 16 ? z - 3 : z) << 26) | (ly << 13) | lx) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, 6, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  const helZmax = () => tc.on ? 17 : 18;
+  function helTiles(lat, lon, an) { const la = lat / D2R, lo = lon / D2R; if (la < HOR.s - 0.01 || la > HOR.n + 0.01 || lo < HOR.w - 0.02 || lo > HOR.e + 0.02) return;
+    const zt = Math.min(helZmax(), Math.floor(Math.log2((2 * Math.PI) / (256 * an * gF[43] * 1.5))));
+    for (let z = 14; z <= zt; z++) { const n = 1 << z, u = ((lon + Math.PI) / (2 * Math.PI)) * n, v = ((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * n;
+      const xa = Math.floor(((HOR.w + 180) / 360) * n), xb = Math.floor(((HOR.e + 180) / 360) * n), ya = HOR.y14 << (z - 14), yb = Math.floor(((1 - Math.log(Math.tan(HOR.s * D2R) + 1 / Math.cos(HOR.s * D2R)) / Math.PI) / 2) * n);
+      const r = z === zt ? 2 : 1; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = Math.floor(u) + dx, y = Math.floor(v) + dy; if (x >= xa && x <= xb && y >= ya && y <= yb) wantH(z, x, y); } } }
+  function helFrame() { // camera ground point on Earth -> uniforms for the precise photo lookup (hrel in the shader)
+    gF[67] = 0; const eb = sys.idx.earth; if (eb === undefined) return; const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, dc = dist(eb); if (dc - R0 > R0 * 0.02) return;
+    tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
+    const la = Math.asin(Math.max(-1, Math.min(1, t3[1]))), lo = Math.atan2(-t3[2], t3[0]); if (la / D2R < HOR.s - 0.05 || la / D2R > HOR.n + 0.05 || lo / D2R < HOR.w - 0.1 || lo / D2R > HOR.e + 0.1) return;
+    const sa = Math.sin(la), ca = Math.cos(la), so = Math.sin(lo), co = Math.cos(lo), h = dc / R0 - 1;
+    gF[64] = t3[0] * h; gF[65] = t3[1] * h; gF[66] = t3[2] * h; gF[67] = helZmax(); gF[68] = -so; gF[69] = 0; gF[70] = -co; gF[71] = sa; gF[72] = -sa * co; gF[73] = ca; gF[74] = sa * so; gF[75] = ca;
+    gF[76] = t3[0]; gF[77] = t3[1]; gF[78] = t3[2]; gF[79] = 0; const Z = 1 << 18;
+    gF[80] = (((lo + Math.PI) / (2 * Math.PI)) * Z - (HOR.x14 << 4)) * 256; gF[81] = (((1 - Math.log(Math.tan(la) + 1 / ca) / Math.PI) / 2) * Z - (HOR.y14 << 4)) * 256; gF[82] = 1 / ca; gF[83] = sa / ca; }
   function tiles() { // LOD request set: whole globe at low zoom + 3x3 window per level around the sub-camera point
     let near = -1, nd = Infinity; for (let i = 0; i < sys.n; i++) { const b = sys.list[i]; if (b.def && b.def.surface && b.def.surface.maps && dist(i) / b.R < nd) { nd = dist(i) / b.R; near = i; } }
     for (let pass = 0; pass < 2; pass++) for (let i = 0; i < sys.n; i++) { // nearest mapped body first
@@ -949,6 +982,7 @@ async function createEngine(canvas, systemId, opts = {}) {
           else { const la = Math.max(-1.4844, Math.min(1.4844, lat)); u = ((lon + Math.PI) / (2 * Math.PI)) * n; v = ((1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2) * n; }
           const rr = z > zt - 3 ? 1 : 0; for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const y = Math.floor(v) + dy; if (y >= 0 && y < n) want(kind, z, (((Math.floor(u) + dx) % w) + w) % w, y); }
         }
+        if (!eq && kind === 0) helTiles(lat, lon, an);
       }
     }
   }
@@ -1917,7 +1951,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
     buildHud(dt, spd);
     const Q = device.queue;
-    Q.writeBuffer(gBuf, 0, gF); Q.writeBuffer(bBuf, 0, bodyF, 0, sys.nSph * BSTR);
+    helFrame(); Q.writeBuffer(gBuf, 0, gF); Q.writeBuffer(bBuf, 0, bodyF, 0, sys.nSph * BSTR);
     if (ni) Q.writeBuffer(iBuf, 0, instF, 0, ni * ISTR); if (hn) Q.writeBuffer(hBuf, 0, hudF, 0, hn * HSTR);
     // ---- encode ----
     if (frame % 2 === 0) tiles();
