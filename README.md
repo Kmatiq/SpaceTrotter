@@ -53,10 +53,14 @@ renders at your screen's full resolution.*
   dark-sky sites, the Apollo sites, lunar craters, Olympus Mons and the Mars rover sites. **FIND** lets you browse by
   category (Solar System, Earth by region, the Moon, Mars, stars, galaxies, night sky) or search everything,
   and **GO** flies you there by autopilot.
+- **Famous landmarks in 3D:** the Eiffel Tower, the Giza pyramids, the Colosseum, Big Ben and Westminster, the
+  Statue of Liberty, the Taj Mahal, Burj Khalifa, the Golden Gate Bridge, Christ the Redeemer and Stockholm City
+  Hall: simplified models at real size (1/5 like the planet), floodlit at night. The **Icons in 3D** tour visits
+  them all.
 - **Night-sky trips:** pick a constellation under FIND → Night sky. The autopilot flies you to a famous dark-sky
   site (Abisko, La Palma, Mauna Kea, Atacama, Lake Tekapo) on the night it stands highest; on arrival night falls,
   the view turns up to it and photo mode shows just the sky. **BACK TO TODAY** restores the date.
-- **Guided tours:** eleven tours: Capitals of Europe, Nordic Capitals (with Helsinki in 3D), Nordic Nature,
+- **Guided tours:** twelve tours: Icons in 3D, Capitals of Europe, Nordic Capitals (with Helsinki in 3D), Nordic Nature,
   Roof of the World, Natural Wonders, Wonders Built by People, Fire Mountains (Earth, Mars and Io), Footsteps on
   the Moon, The Red Planet, Moons of the Giants and Grand Tour. The ship flies itself, circles each stop, lights
   night-side stops and tells you the story.

@@ -97,6 +97,7 @@ export const PLACES = {
     'Delhi|28.61|77.21|c|1;Mumbai|19.08|72.88|c|1;Beijing|39.9|116.41|c|1;Shanghai|31.23|121.47|c|1;Hong Kong|22.32|114.17|c|2;Tokyo|35.68|139.69|c|1;Seoul|37.57|126.98|c|1;Bangkok|13.76|100.5|c|2;Singapore|1.35|103.82|c|1;Jakarta|-6.21|106.85|c|2;' +
     'Sydney|-33.87|151.21|c|1;Melbourne|-37.81|144.96|c|2;Auckland|-36.85|174.76|c|2;' +
     'Lofoten Islands|68.2|13.9|n|2|400;Geirangerfjord|62.11|7.09|n|2;Thingvellir|64.26|-21.13|n|2|100;Iguazu Falls|-25.69|-54.44|n|1|200;Victoria Falls|-17.92|25.86|n|1|900;Uluru|-25.345|131.036|n|1|860;Great Barrier Reef|-18.29|147.7|x|1;Ha Long Bay|20.91|107.18|n|2;' +
+    'Eiffel Tower|48.8583|2.2945|h|1|35;Statue of Liberty|40.6892|-74.0445|h|1;Big Ben|51.5007|-0.1246|h|1;Burj Khalifa|25.1972|55.2744|h|1;Golden Gate Bridge|37.8199|-122.4783|h|1;Stockholm City Hall|59.3275|18.0543|h|2;' +
     'Pyramids of Giza|29.979|31.134|h|1|60;Petra|30.329|35.444|h|2|900;Taj Mahal|27.175|78.042|h|1|170;Great Wall of China|40.359|116.02|h|1|800;Colosseum|41.89|12.492|h|1|30;Machu Picchu|-13.163|-72.545|h|1|2430;Chichen Itza|20.683|-88.569|h|2|30;Christ the Redeemer|-22.952|-43.211|h|2|700;' +
     'Abisko|68.35|18.82|d|3|400;La Palma Observatory|28.76|-17.89|d|2|2400;Mauna Kea|19.82|-155.47|d|2|4207;Atacama Desert|-24.63|-70.4|d|2|2600;Lake Tekapo|-44|170.48|d|3|710;' +
     'Mont Blanc|45.83|6.86|m|1|4806;Matterhorn|45.98|7.66|m|1|4478;Kebnekaise|67.9|18.52|m|2|2097;Galdhopiggen|61.64|8.31|m|2|2469;Ben Nevis|56.8|-5|m|2|1345;Etna|37.75|14.99|m|1|3357;Vesuvius|40.82|14.43|m|2|1281;Mount Olympus|40.09|22.36|m|2|2917;' +
@@ -293,6 +294,17 @@ export const TOURS = [
     { p: 'Machu Picchu', t: 'An Inca citadel from the 1400s, on a ridge 2,430 m up in the Andes.' },
     { p: 'Chichen Itza', t: 'A great Maya city. At the equinoxes the sun casts a serpent of shadow down the steps of El Castillo.' },
     { p: 'Christ the Redeemer', t: 'A 30 m statue on Corcovado mountain, looking out over Rio de Janeiro since 1931.' }] },
+  { name: 'Icons in 3D', desc: 'Ten famous landmarks as 3D models.', stops: [
+    { p: 'Eiffel Tower', t: 'Built for the 1889 World\'s Fair, 330 m tall. It was the tallest structure in the world for 41 years.' },
+    { p: 'Big Ben', t: 'Big Ben is the great bell. The 96 m clock tower beside Parliament was renamed Elizabeth Tower in 2012.' },
+    { p: 'Stockholm City Hall', t: 'Finished in 1923 with eight million bricks. The Nobel Prize banquet is held here every December.' },
+    { p: 'Colosseum', t: 'Opened in 80 AD for games and gladiator fights. About a third of it still stands.' },
+    { p: 'Pyramids of Giza', t: 'Khufu, Khafre and Menkaure: tombs of three pharaohs, built about 4,500 years ago.' },
+    { p: 'Burj Khalifa', t: 'The tallest building on Earth: 828 m, opened in 2010.' },
+    { p: 'Taj Mahal', t: 'Its marble changes colour through the day, from pink at dawn to gold in the evening.' },
+    { p: 'Statue of Liberty', t: 'A gift from France, dedicated in 1886. Her copper skin turned green as it weathered.' },
+    { p: 'Golden Gate Bridge', t: 'Opened in 1937. Its 1,280 m main span was the longest in the world until 1964.' },
+    { p: 'Christ the Redeemer', t: 'Standing on Corcovado mountain, 700 m above Rio de Janeiro, with arms 28 m wide.' }] },
   { name: 'Fire Mountains', desc: 'Volcanoes on Earth, Mars and Io.', stops: [
     { p: 'Vesuvius', t: 'In 79 AD it buried Pompeii and Herculaneum under ash. It is still active.' },
     { p: 'Etna', t: 'Europe\'s highest active volcano, about 3,350 m, erupts every few years.' },
@@ -317,6 +329,44 @@ export const TOURS = [
 const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site', d: 'Dark-sky site', n: 'Natural wonder', h: 'World wonder' };
 // Helsinki aerial photo (City of Helsinki orthophoto 2025, CC BY 4.0): Web-Mercator tiles 14..18 inside this box, keyed by local tile x/y
 const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 4730 }; // origin = a zoom-14 tile corner, so every zoom 14..18 shares it
+// ---- famous landmarks in 3D (real size in metres, x east / y north / z up; heading turns the model clockwise). Simplified shapes, built at first approach.
+const LMG = (r, n, rot = 0) => Array.from({ length: n }, (_, i) => { const a = rot + (i * 2 * Math.PI) / n; return [Math.cos(a) * (Array.isArray(r) ? r[0] : r), Math.sin(a) * (Array.isArray(r) ? r[1] : r)]; });
+const LSQ = (w, d = w) => [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
+export const LANDMARKS3D = [
+  { name: 'Eiffel Tower', lat: 48.85826, lon: 2.2945, head: 43, build(M) { const c = [0.45, 0.36, 0.28];
+    for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) M.loft(LSQ(26), [sx * 50, sy * 50], 0, LSQ(19), [sx * 31, sy * 31], 57, c, false); // four legs leaning in: the great arches
+    M.prism(LSQ(76), [0, 0], 57, 64, c); M.loft(LSQ(60), [0, 0], 64, LSQ(36), [0, 0], 115, c); M.prism(LSQ(42), [0, 0], 115, 121, c);
+    M.loft(LSQ(30), [0, 0], 121, LSQ(9), [0, 0], 276, c); M.prism(LSQ(13), [0, 0], 276, 283, c); M.taper(LSQ(4), [0, 0], 283, 330, 0.15, c); } },
+  { name: 'Pyramids of Giza', lat: 29.97917, lon: 31.13417, build(M) { const s = [0.8, 0.68, 0.48];
+    M.loft(LSQ(230), [0, 0], 0, LSQ(0.4), [0, 0], 139, s); M.loft(LSQ(215), [-328, -345], 0, LSQ(0.4), [-328, -345], 136, [0.78, 0.66, 0.47]); M.loft(LSQ(103), [-569, -746], 0, LSQ(0.4), [-569, -746], 65, [0.76, 0.63, 0.45]); } },
+  { name: 'Colosseum', lat: 41.89021, lon: 12.49223, head: -20, build(M) { const c = [0.78, 0.72, 0.62], n = 48, O = LMG([94, 78], n), I = LMG([43, 27], n);
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, o0 = O[i], o1 = O[j], i0 = I[i], i1 = I[j];
+      M.quad([o0[0], o0[1], 0], [o1[0], o1[1], 0], [o1[0], o1[1], 48], [o0[0], o0[1], 48], c, [0, 0, 24]); // outer wall
+      M.quad([o0[0], o0[1], 48], [o1[0], o1[1], 48], [i1[0], i1[1], 10], [i0[0], i0[1], 10], c, [(o0[0] + i0[0]) / 2, (o0[1] + i0[1]) / 2, -50]); // seating slope
+      M.quad([i0[0], i0[1], 10], [i1[0], i1[1], 10], [i1[0], i1[1], 0], [i0[0], i0[1], 0], [0.7, 0.64, 0.55], [i0[0] * 3, i0[1] * 3, 5]); } } }, // arena wall
+  { name: 'Statue of Liberty', lat: 40.68925, lon: -74.0445, build(M) { const g = [0.6, 0.58, 0.55], cu = [0.36, 0.58, 0.5];
+    M.prism(LMG(46, 11), [0, 0], 0, 10, g); M.loft(LSQ(28), [0, 0], 10, LSQ(19), [0, 0], 47, [0.7, 0.67, 0.6]);
+    M.stack([[47, 8], [62, 6.5], [75, 5], [80, 5.4], [81, 3], [86, 2.4], [88, 0.6]], 12, [0, 0], cu);
+    M.beam([3.6, 0, 78], [5.2, 0, 93], 2.4, cu); M.prism(LSQ(3), [5.3, 0], 93, 96, [0.82, 0.66, 0.3]); M.beam([-3, 1.5, 70], [-4, 3, 76], 2.2, cu); } },
+  { name: 'Big Ben', lat: 51.50073, lon: -0.12463, build(M) { const s = [0.74, 0.64, 0.46], d = [0.36, 0.34, 0.31];
+    M.prism(LSQ(12), [0, 0], 0, 55, s); M.prism(LSQ(13.5), [0, 0], 55, 70, s); M.prism(LSQ(11), [0, 0], 70, 78, s); M.taper(LSQ(11), [0, 0], 78, 96, 0.04, d);
+    M.prism(LSQ(62, 265), [-28, -138], 0, 27, s); M.loft(LSQ(62, 265), [-28, -138], 27, LSQ(40, 250), [-28, -138], 33, d);
+    M.prism(LSQ(23), [-14, -268], 0, 88, s); M.taper(LSQ(23), [-14, -268], 88, 98, 0.5, d); M.prism(LMG(9, 8), [-28, -128], 0, 75, s); M.taper(LMG(9, 8), [-28, -128], 75, 91, 0.05, d); } },
+  { name: 'Taj Mahal', lat: 27.1751, lon: 78.04215, build(M) { const w = [0.93, 0.91, 0.87];
+    M.prism(LSQ(95), [0, 0], 0, 7, [0.86, 0.8, 0.74]); M.prism(LMG(40, 8, Math.PI / 8), [0, 0], 7, 35, w); M.prism(LMG(14, 16), [0, 0], 35, 44, w);
+    M.stack([[44, 17], [50, 18.5], [56, 17.5], [62, 14], [67, 9], [71, 3.5], [73, 0.6], [76, 0.2]], 16, [0, 0], w);
+    for (const [x, y] of [[42, 42], [42, -42], [-42, 42], [-42, -42]]) { M.prism(LMG(2.8, 10), [x, y], 7, 47, w); M.stack([[47, 3.4], [49, 3.4], [51, 2], [52.5, 0.2]], 10, [x, y], w); } } },
+  { name: 'Burj Khalifa', lat: 25.1972, lon: 55.2744, build(M) { M.stack([[0, 42], [150, 33], [300, 26], [450, 18], [585, 11], [640, 6.5], [700, 3], [828, 0.5]], 6, [0, 0], [0.62, 0.68, 0.75], Math.PI / 6); } },
+  { name: 'Golden Gate Bridge', lat: 37.81993, lon: -122.47826, head: -4, build(M) { const o = [0.75, 0.27, 0.13];
+    for (const ty of [640, -640]) { for (const sx of [-14, 14]) M.prism(LSQ(10, 11), [sx, ty], 0, 227, o); for (const z of [150, 195, 222]) M.beam([-14, ty, z], [14, ty, z], 5, o); }
+    M.prism(LSQ(27, 1960), [0, 0], 64, 70, [0.6, 0.24, 0.13]);
+    const cz = (y) => (Math.abs(y) <= 640 ? 72 + (227 - 72) * (y / 640) ** 2 : 227 - (227 - 76) * (Math.abs(y) - 640) / 340);
+    for (const sx of [-14, 14]) for (let y = -980; y < 980; y += 40) { M.beam([sx, y, cz(y)], [sx, y + 40, cz(y + 40)], 1.6, o); if (Math.abs(y) % 80 === 0 && cz(y) > 74) M.beam([sx, y, 70], [sx, y, cz(y)], 0.5, o); } } },
+  { name: 'Christ the Redeemer', lat: -22.95192, lon: -43.21049, head: 140, build(M) { const c = [0.86, 0.85, 0.8];
+    M.prism(LSQ(9), [0, 0], 0, 8, [0.75, 0.74, 0.7]); M.loft(LSQ(7, 5), [0, 0], 8, LSQ(4.5, 3.4), [0, 0], 32, c); M.taper(LSQ(3.2), [0, 0], 32, 36, 0.6, c); M.beam([-14, 0, 29.5], [14, 0, 29.5], 2.4, c); } },
+  { name: 'Stockholm City Hall', lat: 59.3275, lon: 18.0543, build(M) { const b = [0.55, 0.27, 0.2], g = [0.35, 0.55, 0.48];
+    M.prism(LSQ(75, 112), [0, 0], 0, 26, b); M.prism(LSQ(15), [30, -50], 0, 86, b); M.prism(LSQ(12), [30, -50], 86, 100, g); M.taper(LSQ(4), [30, -50], 100, 106, 0.1, [0.85, 0.7, 0.3]); } },
+];
 /* ============================== WGSL (single module, all entry points) ============================== */
 const WGSL = /*wgsl*/`
 struct G{vp:mat4x4f,rt:vec4f,up:vec4f,fw:vec4f,res:vec4f,sun:vec4f,sc:vec4f,mi:vec4f,ss:vec4f,wp:vec4f,fx:vec4f,wv:vec4f,gx:vec4f,hA:vec4f,hE:vec4f,hN:vec4f,hU:vec4f,hT:vec4f};
@@ -607,7 +657,9 @@ struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@
  let b=BD[v.sl].d;let R=b[0].w;let up=normalize(v.u);let N0=normalize(v.n);let N=select(N0,-N0,dot(N0,up)<-.35);let L=v.L;let E=v.E;let c=v.c;let ud=dot(N,up);
  var al=vec3f(.72,.7,.66);var em=vec3f(0.);let tw=cross(up,N);let t=tw/max(length(tw),1e-4);let x=dot(v.q.xyz,t);let y=v.q.w;
  let fd=1.-smoothstep(.2,.5,max(fwidth(x)/2.8,fwidth(y)/3.2));
- if(ud>.35){al=select(select(select(vec3f(.11,.115,.12),vec3f(.24,.24,.25),c.x>.5),vec3f(.22,.11,.08),c.x>.86),vec3f(.17,.28,.24),c.x>.97)*(.85+.3*c.y);}
+ let fixed=c.w>.5;
+ if(fixed){al=pow(c.rgb,vec3f(2.2));em=al*vec3f(1.,.82,.58)*.07*(1.-smoothstep(-.1,.05,dot(up,L)));}
+ else if(ud>.35){al=select(select(select(vec3f(.11,.115,.12),vec3f(.24,.24,.25),c.x>.5),vec3f(.22,.11,.08),c.x>.86),vec3f(.17,.28,.24),c.x>.97)*(.85+.3*c.y);}
  else{
   let k=c.z;al=select(select(select(select(vec3f(.7,.68,.64),vec3f(.72,.63,.47),k>.3),vec3f(.7,.54,.32),k>.5),vec3f(.52,.52,.52),k>.68),vec3f(.46,.27,.2),k>.86);
   al*=.85+.25*c.y;
@@ -1126,10 +1178,43 @@ async function createEngine(canvas, systemId, opts = {}) {
     rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && city.fly < 8; i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) cityJson(n, n.url, n.T); else cityGlb(n); }
     if (city.nV > 3e6) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(city.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
       for (const n of all) { if (city.nV <= 2.2e6 || n.tile.use === city.use) break; n.tile.buf.destroy(); city.nV -= n.tile.n; city.nT--; n.tile = null; n.st = 0; } }
+  }
+  function drawsUpload(eb) { if (!city.n || eb === undefined) return; const o = eb * 3, q = eb * 4, KS = sys.list[eb].R / 6371008.8; // per-draw anchors (city tiles + landmarks), camera-relative in f64
     for (let i = 0; i < city.n; i++) { const t = city.draws[i], e = i * 8; qrot(t3, 0, bq, q, t.A[0], t.A[1], t.A[2]);
       tlF[e] = t.A[0]; tlF[e + 1] = t.A[1]; tlF[e + 2] = t.A[2]; tlF[e + 3] = KS; tlF[e + 4] = pos[o] + t3[0] - cam[0]; tlF[e + 5] = pos[o + 1] + t3[1] - cam[1]; tlF[e + 6] = pos[o + 2] + t3[2] - cam[2]; tlF[e + 7] = slotOf[eb]; }
-    if (city.n) device.queue.writeBuffer(tlBuf, 0, tlF, 0, city.n * 8);
-  }
+    device.queue.writeBuffer(tlBuf, 0, tlF, 0, city.n * 8); }
+  // ---- famous landmarks in 3D: simple models built in code at real size (metres, x east / y north / z up), drawn through the city pipeline with their own colours
+  function lmBuild(L) { const tris = [], Rg = sys.list[sys.idx.earth].R, KS = Rg / 6371008.8, RE = 6371008.8;
+    const tri = (a, b, c, col, ctr) => tris.push([a, b, c, col, ctr]), quad = (a, b, c, d, col, ctr) => { tri(a, b, c, col, ctr); tri(a, c, d, col, ctr); };
+    const M = {
+      loft(p0, c0, z0, p1, c1, z1, col, cap = true) { const n = p0.length, ctr = [(c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2, (z0 + z1) / 2];
+        for (let i = 0; i < n; i++) { const j = (i + 1) % n; quad([c0[0] + p0[i][0], c0[1] + p0[i][1], z0], [c0[0] + p0[j][0], c0[1] + p0[j][1], z0], [c1[0] + p1[j][0], c1[1] + p1[j][1], z1], [c1[0] + p1[i][0], c1[1] + p1[i][1], z1], col, ctr); }
+        if (cap) for (let i = 1; i < n - 1; i++) tri([c1[0] + p1[0][0], c1[1] + p1[0][1], z1], [c1[0] + p1[i][0], c1[1] + p1[i][1], z1], [c1[0] + p1[i + 1][0], c1[1] + p1[i + 1][1], z1], col, [c1[0], c1[1], z1 - 1]); },
+      prism(p, c, z0, z1, col) { M.loft(p, c, z0, p, c, z1, col); },
+      taper(p, c, z0, z1, k, col) { M.loft(p, c, z0, p.map(([x, y]) => [x * k, y * k]), c, z1, col); },
+      stack(prof, n, c, col, rot = 0) { for (let i = 1; i < prof.length; i++) M.loft(LMG(prof[i - 1][1], n, rot), c, prof[i - 1][0], LMG(prof[i][1], n, rot), c, prof[i][0], col, i === prof.length - 1); }, // [z, r] profile
+      beam(a, b, w, col) { const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], dl = Math.hypot(...d); let s = [d[1], -d[0], 0]; let sl = Math.hypot(...s); if (sl < 1e-6) { s = [1, 0, 0]; sl = 1; } s = s.map((v) => (v / sl) * w / 2);
+        const u = [(d[1] * s[2] - d[2] * s[1]) / dl, (d[2] * s[0] - d[0] * s[2]) / dl, (d[0] * s[1] - d[1] * s[0]) / dl], P = (o, i, j) => [o[0] + i * s[0] + j * u[0], o[1] + i * s[1] + j * u[1], o[2] + i * s[2] + j * u[2]], ctr = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+        const k = [[-1, -1], [1, -1], [1, 1], [-1, 1]]; for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; quad(P(a, ...k[i]), P(a, ...k[j]), P(b, ...k[j]), P(b, ...k[i]), col, ctr); } },
+      quad, tri };
+    L.build(M);
+    const nv = tris.length * 3, out = new ArrayBuffer(nv * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out), la0 = L.lat * D2R, lo0 = L.lon * D2R, h = (L.head || 0) * D2R, ch = Math.cos(h), sh = Math.sin(h);
+    const ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
+    const E = [-Math.sin(lo0), 0, -Math.cos(lo0)], N = [-Math.sin(la0) * Math.cos(lo0), Math.cos(la0), Math.sin(la0) * Math.sin(lo0)], UP = [Math.cos(la0) * Math.cos(lo0), Math.sin(la0), -Math.cos(la0) * Math.sin(lo0)];
+    const rot = (p) => [p[0] * ch + p[1] * sh, -p[0] * sh + p[1] * ch, p[2]]; let v = 0; // heading: clockwise from north
+    for (const [a0, b0, c0, col, ctr0] of tris) { const a = rot(a0), b = rot(b0), c = rot(c0), ctr = rot(ctr0);
+      let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); const nl = Math.hypot(nx, ny, nz) || 1;
+      const mx = (a[0] + b[0] + c[0]) / 3 - ctr[0], my = (a[1] + b[1] + c[1]) / 3 - ctr[1], mz = (a[2] + b[2] + c[2]) / 3 - ctr[2], sg = nx * mx + ny * my + nz * mz < 0 ? -1 : 1; nx *= sg / nl; ny *= sg / nl; nz *= sg / nl; // outward from the part
+      for (const p of [a, b, c]) { const la = la0 + p[1] / RE, lo = lo0 + p[0] / (RE * Math.cos(la0)), cl = Math.cos(la), o = v * 6, k = v * 24;
+        of[o] = cl * Math.cos(lo) * Rg - ax; of[o + 1] = Math.sin(la) * Rg - ay; of[o + 2] = -cl * Math.sin(lo) * Rg - az; of[o + 3] = p[2] < 0.01 ? -8 * KS : p[2] * KS;
+        ob[k + 16] = Math.round((E[0] * nx + N[0] * ny + UP[0] * nz) * 127); ob[k + 17] = Math.round((E[1] * nx + N[1] * ny + UP[1] * nz) * 127); ob[k + 18] = Math.round((E[2] * nx + N[2] * ny + UP[2] * nz) * 127);
+        ou[k + 20] = Math.round(col[0] * 255); ou[k + 21] = Math.round(col[1] * 255); ou[k + 22] = Math.round(col[2] * 255); ou[k + 23] = 255; v++; } } // alpha 255: fixed colour, no city facade
+    const gb = device.createBuffer({ size: out.byteLength, usage: U.VERTEX | U.COPY_DST }); device.queue.writeBuffer(gb, 0, out); return { buf: gb, n: nv, A: [ax, ay, az] }; }
+  const lmTiles = [];
+  function lmFrame(eb, dc) { if (eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return; const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; if ((dc - R0) / KS > 40000) return;
+    tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
+    for (let i = 0; i < LANDMARKS3D.length; i++) { const L = LANDMARKS3D[i], la = L.lat * D2R, lo = L.lon * D2R, c = t3[0] * Math.cos(la) * Math.cos(lo) + t3[1] * Math.sin(la) - t3[2] * Math.cos(la) * Math.sin(lo);
+      if (c < Math.cos(90000 / 6371008.8) || city.n >= 512) continue; if (!lmTiles[i]) lmTiles[i] = lmBuild(L); city.draws[city.n++] = lmTiles[i]; } } // within ~90 km (real)
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
@@ -1666,7 +1751,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
   const ap = { on: false, pend: false, k: -1, t: 0, a0: 1, a1: 1, ang: 0, d0: new Float64Array(3), d1: new Float64Array(3), ax: new Float64Array(3) };
-  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400], n: [5000, 2200], h: [1800, 700] }; // [stand-off distance, height] in game metres
+  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400], n: [5000, 2200], h: [700, 180] }; // [stand-off distance, height] in game metres
   function apStart() {
     const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
@@ -2037,7 +2122,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     // ---- encode ----
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
-    { const eb = sys.idx.earth; cityFrame(eb, eb === undefined ? 1 : dist(eb)); }
+    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); cityFrame(eb, dE); lmFrame(eb, dE); drawsUpload(eb); }
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
     if (!prBusy) {
