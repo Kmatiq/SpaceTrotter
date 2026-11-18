@@ -919,7 +919,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
-    fetch(TSRC[kind](z, x, y), { mode: 'cors' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000); // a hung request must not hold a download slot forever
+    fetch(TSRC[kind](z, x, y), { mode: 'cors', signal: ac.signal }).then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); }).finally(() => clearTimeout(to))
       .then((bl) => createImageBitmap(bl, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })).then((bm) => {
         tFly--; if (dead) { bm.close(); return; } let sl = -1, old = Infinity;
         for (let i = 0; i < NTL; i++) { if (tKey[i] === 0xffffffff) { sl = i; break; } if (tUse[i] < old) { old = tUse[i]; sl = i; } }
@@ -927,7 +928,7 @@ async function createEngine(canvas, systemId, opts = {}) {
         if (tKey[sl] !== 0xffffffff) { tmap.delete(tKey[sl]); tKey[sl] = 0xffffffff; hashRebuild(); } // unlink the old tile BEFORE its slot is overwritten
         tKey[sl] = k; tUse[sl] = frame; tmap.set(k, sl); tilesSeen = true;
         if (kind === 4 || kind === 5) reliefUpload(bm, sl); else device.queue.copyExternalImageToTexture({ source: bm }, { texture: tileTex, origin: [0, 0, sl] }, [256, 256]); bm.close(); hashRebuild(); // link the new tile only after its pixels are queued
-      }).catch(() => { tFly--; tmap.set(k, -2); }); // failed/offline: never retried, procedural fallback stays
+      }).catch(() => { tFly--; if (ac.signal.aborted) tmap.delete(k); else tmap.set(k, -2); }); // timed out: asked again later; failed/offline: never retried, procedural fallback stays
   };
   // relief tiles (LOLA / MOLA colour-shaded altimetry): decode hue -> height once on the CPU, fill shadowed pixels, smooth JPEG blocks, upload as 16-bit (R,G)
   const rcv = new OffscreenCanvas(256, 256), rcx = rcv.getContext('2d', { willReadFrequently: true }), rh = new Float32Array(65536), rtmp = new Float32Array(65536), rbuf = new Uint8Array(262144);
@@ -2019,7 +2020,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, city: city.vis, galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -2239,7 +2240,7 @@ function Overlay({ eng }) {
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
     const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spacetrotter-' + Date.now() + '.png'; a.click(); });
-    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Buildings: City of Helsinki 3D model, CC BY 4.0</div>}
+    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
         <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
@@ -2253,7 +2254,7 @@ function Overlay({ eng }) {
   const item = (icon, label, on, fn) => <div {...tap(fn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', color: on ? C.acc : C.fg, background: on ? 'rgba(80,255,190,.08)' : 'transparent' }}><Ico n={icon} s={20} /><span>{label}</span></div>;
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
-      {ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Buildings: City of Helsinki 3D model, CC BY 4.0</div>}
+      {ui.city && <div style={{ position: 'absolute', left: '50%', top: 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
       {/* target chip + menu (top right) */}
       <div style={{ position: 'absolute', top: 12, right: 12, display: mapOut ? 'none' : 'flex', gap: 8, alignItems: 'stretch' }}>
         <div data-tut="target" {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
