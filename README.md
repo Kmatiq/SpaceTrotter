@@ -53,9 +53,9 @@ renders at your screen's full resolution.*
   dark-sky sites, the Apollo sites, lunar craters, Olympus Mons and the Mars rover sites. **FIND** lets you browse by
   category (Solar System, Earth by region, the Moon, Mars, stars, galaxies, night sky) or search everything,
   and **GO** flies you there by autopilot.
-- **Night-sky trips:** pick a constellation under FIND → Night sky and the game takes you to a famous dark-sky
-  site (Abisko, La Palma, Mauna Kea, Atacama, Lake Tekapo) on the night it stands highest, facing it.
-  **BACK TO TODAY** restores the date.
+- **Night-sky trips:** pick a constellation under FIND → Night sky. The autopilot flies you to a famous dark-sky
+  site (Abisko, La Palma, Mauna Kea, Atacama, Lake Tekapo) on the night it stands highest; on arrival night falls,
+  the view turns up to it and photo mode shows just the sky. **BACK TO TODAY** restores the date.
 - **Guided tours:** five tours: Capitals of Europe, Roof of the World, Footsteps on the Moon, The Red Planet
   and Grand Tour. The ship flies itself, circles each stop, lights night-side stops and tells you the story.
 - **Live system map:** the camera flies out of the ship to a 3D overview of the Solar System with today's

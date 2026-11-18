@@ -96,7 +96,7 @@ export const PLACES = {
     'Sao Paulo|-23.55|-46.63|c|1;Rio de Janeiro|-22.91|-43.17|c|1;Buenos Aires|-34.6|-58.38|c|1;Cairo|30.04|31.24|c|1;Lagos|6.52|3.38|c|1;Nairobi|-1.29|36.82|c|2;Johannesburg|-26.2|28.05|c|1;Cape Town|-33.92|18.42|c|2;Dubai|25.2|55.27|c|1;Tehran|35.69|51.39|c|2;' +
     'Delhi|28.61|77.21|c|1;Mumbai|19.08|72.88|c|1;Beijing|39.9|116.41|c|1;Shanghai|31.23|121.47|c|1;Hong Kong|22.32|114.17|c|2;Tokyo|35.68|139.69|c|1;Seoul|37.57|126.98|c|1;Bangkok|13.76|100.5|c|2;Singapore|1.35|103.82|c|1;Jakarta|-6.21|106.85|c|2;' +
     'Sydney|-33.87|151.21|c|1;Melbourne|-37.81|144.96|c|2;Auckland|-36.85|174.76|c|2;' +
-    'Abisko|68.35|18.82|x|3|400;La Palma Observatory|28.76|-17.89|x|2|2400;Mauna Kea|19.82|-155.47|m|2|4207;Atacama Desert|-24.63|-70.4|x|2|2600;Lake Tekapo|-44|170.48|x|3|710;' +
+    'Abisko|68.35|18.82|d|3|400;La Palma Observatory|28.76|-17.89|d|2|2400;Mauna Kea|19.82|-155.47|d|2|4207;Atacama Desert|-24.63|-70.4|d|2|2600;Lake Tekapo|-44|170.48|d|3|710;' +
     'Mont Blanc|45.83|6.86|m|1|4806;Matterhorn|45.98|7.66|m|1|4478;Kebnekaise|67.9|18.52|m|2|2097;Galdhopiggen|61.64|8.31|m|2|2469;Ben Nevis|56.8|-5|m|2|1345;Etna|37.75|14.99|m|1|3357;Vesuvius|40.82|14.43|m|2|1281;Mount Olympus|40.09|22.36|m|2|2917;' +
     'Elbrus|43.35|42.44|m|1|5642;Zugspitze|47.42|10.99|m|2|2962;Grossglockner|47.07|12.69|m|2|3798;Teide|28.27|-16.64|m|2|3715;Mount Everest|27.99|86.93|m|1|8849;K2|35.88|76.51|m|1|8611;Kilimanjaro|-3.07|37.35|m|1|5895;Denali|63.07|-151.01|m|1|6190;' +
     'Aconcagua|-32.65|-70.01|m|1|6961;Mount Fuji|35.36|138.73|m|1|3776;Grand Canyon|36.1|-112.1|x|1;Sahara|23|13|s|1;Amazon Rainforest|-3|-60|s|1;Himalaya|28.5|84|s|1;The Alps|46.5|9.5|s|1;' +
@@ -269,7 +269,7 @@ export const TOURS = [
     { b: 'saturn', t: 'The rings are mostly water ice, 280,000 km wide but often only tens of metres thick.' },
     { b: 'neptune', t: 'The outermost planet, with the fastest winds in the Solar System: over 2,000 km/h.' }] },
 ];
-const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site' };
+const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', l: 'Landing site', d: 'Dark-sky site' };
 // Helsinki aerial photo (City of Helsinki orthophoto 2025, CC BY 4.0): Web-Mercator tiles 14..18 inside this box, keyed by local tile x/y
 const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 4730 }; // origin = a zoom-14 tile corner, so every zoom 14..18 shares it
 /* ============================== WGSL (single module, all entry points) ============================== */
@@ -1390,7 +1390,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < sys.n; i++) { if (!inMap(i)) continue; const o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) continue;
       const r = mapR(i, (sys.list[i].R / scr[2]) / tanY() * H * 0.5, hs), d2 = (scr[0] - x) ** 2 + (scr[1] - y) ** 2; if (d2 < Math.max(bd, r * r)) { bd = d2; bi = i; } }
     return bi; }
-  const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25] }, LMIN = { s: 0.015, o: 0.1 };
+  const LMAX = { c: [0, 0.5, 0.2, 0.07], m: [0, 0.25, 0.1, 0.1], s: [0, 2.2, 0.8, 0.8], o: [0, 4, 4, 4], x: [0, 1.5, 0.5, 0.5], l: [0, 0.6, 0.25, 0.25], d: [0, 0.1, 0.1, 0.1] }, LMIN = { s: 0.015, o: 0.1 };
   function lmHud(s) { // landmark labels on the body you are near: rank-gated by altitude, horizon-culled, decluttered
     let nl = 0; const lh = 15 * s;
     for (let k = 0; k < sys.lm.length; k++) {
@@ -1474,7 +1474,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   function buildHud(dt, spd) {
     hn = 0; const ch = canvas.clientHeight || H, s = hs = (H / ch) * Math.max(0.85, Math.min(1.45, ch / 850)), cx = W / 2, cy = H / 2; // HUD scale from CSS size: readable on phones and 4K alike
-    if (photo && !mp.on) { if (!wp.on && gx.a <= 0.5 && mp.a <= 0.02) starHud(s, false); return; } // photo mode: only the real stars (part of the sky)
+    if (photo && !mp.on) { if (!wp.on && gx.a <= 0.5 && mp.a <= 0.02) { conHud(s); starHud(s, false); } return; } // photo mode: only the real stars (part of the sky)
     if (wp.on) { const st = STARS[wp.dest], rem = wp.ly * (1 - smooth(0, 1, Math.min(1, Math.max(0, (wp.t - WT1) / WT2)))), a = wp.t > WT1 + WT2 ? Math.max(0, 1 - (wp.t - WT1 - WT2) / WT3 * 2) : 1;
       ts(wp.t < WT1 ? 'SPOOLING' : wp.t < WT1 + WT2 ? 'IN WARP' : 'ARRIVING'); tout(cx, H - 120 * s, 15 * s, 0.6, 0.85, 1, 0.8 * a, 0.5);
       ts(st.name); tout(cx, H - 98 * s, 28 * s, 1, 1, 1, a, 0.5); if (rem > 1e5) { tn(rem / 1e6, 2); ts(' million ly'); } else { tn(rem, rem < 10 ? 2 : 1); ts(' ly'); } tout(cx, H - 58 * s, 20 * s, 1, 0.8, 0.4, a, 0.5);
@@ -1620,7 +1620,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
   // ---- landmark autopilot: cruise to the body if needed, then a guided descent to a viewpoint beside the place ----
   const ap = { on: false, pend: false, k: -1, t: 0, a0: 1, a1: 1, ang: 0, d0: new Float64Array(3), d1: new Float64Array(3), ax: new Float64Array(3) };
-  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500] }; // [stand-off distance, height] in game metres
+  const VIEW = { c: [2500, 1500], m: [4500, 1300], s: [60000, 110000], o: [250000, 450000], x: [30000, 17000], l: [7000, 3500], d: [1500, 400] }; // [stand-off distance, height] in game metres
   function apStart() {
     const m = sys.lm[ap.k], b = sys.list[m.bi], o = m.bi * 3, q = m.bi * 4, d = dist(m.bi), v = VIEW[m.kind], sc = b.R / 1.2e6;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(ap.d0, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d);
@@ -1757,7 +1757,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     resize();
     if (bench.on) { if (bench.n < NSLOT) bench.cpu[bench.n] = rawDt * 1000; }
-    simT += dt; tutTime(); updateOrbits(simT); tutPlace(); skyPlace();
+    simT += dt; tutTime(); skyTime(); updateOrbits(simT); tutPlace(); skyPlace();
     // reference frame (sphere of influence): deepest body whose SOI contains the ship
     const ro = ship.ref * 3; abs[0] = pos[ro] + ship.off[0]; abs[1] = pos[ro + 1] + ship.off[1]; abs[2] = pos[ro + 2] + ship.off[2];
     let nr = 0, best = Infinity;
@@ -2068,7 +2068,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   }
   // ---- night-sky trips: a famous dark-sky site and the night (next 12 months, sun below -15 degrees) when a constellation stands highest; the camera faces it
   const SKY_SITES = [['Abisko, Sweden', 68.35, 18.82, 400], ['La Palma, Canary Islands', 28.76, -17.89, 2400], ['Mauna Kea, Hawaii', 19.82, -155.47, 4207], ['Atacama Desert, Chile', -24.63, -70.4, 2600], ['Lake Tekapo, New Zealand', -44, 170.48, 710]]; // name, lat, lon, ground (m)
-  const skyT = { saved: null, place: 0, ci: -1, site: null, when: '' };
+  const skyT = { saved: null, phase: '', ci: -1, site: null, when: '', jd: 0, lmk: -1 };
   function skyBest(ra, dec) { const K = D2R, j0 = Math.floor(Date.now() / 86400000 + 2440587.5) + 0.5; let best = null;
     for (let d = 0; d < 366; d++) for (let h = 0; h < 48; h++) { const jd = j0 + d + h / 48, n = jd - 2451545, gm = 280.46061837 + 360.98564736629 * n;
       const L = (280.46 + 0.9856474 * n) * K, g = (357.528 + 0.9856003 * n) * K, lam = L + (1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * K, eps = 23.439 * K;
@@ -2078,17 +2078,30 @@ async function createEngine(canvas, systemId, opts = {}) {
         const a = Math.asin(Math.sin(la) * Math.sin(dec * K) + Math.cos(la) * Math.cos(dec * K) * Math.cos((lst - ra) * K)), sc = Math.min(a, 62 * K) - d * 2e-5; // high enough is enough: then the soonest night
         if (!best || sc > best.sc) best = { sc, jd, s, alt: a / K }; } }
     return best; }
+  const SKY_LM = ['Abisko', 'La Palma Observatory', 'Mauna Kea', 'Atacama Desert', 'Lake Tekapo']; // the landmark the autopilot flies to, per site
   function skyTrip(ci) { const C = CONSTELLATIONS[ci]; if (!C) return; const b = skyBest(C.ra, C.dec); if (!b) return; audioInit();
-    if (!skyT.saved) skyT.saved = { fast: TS !== TSR, con: conMode }; if (TS !== TSR) { jd0 += simT * (TS - TSR); TS = TSR; } if (conMode === 2) conMode = 0;
-    jd0 = b.jd - simT * TS; ap.on = false; ap.pend = false; tr.k = -1; skyT.ci = ci; skyT.site = SKY_SITES[b.s]; skyT.place = 2;
+    if (!skyT.saved) skyT.saved = { fast: TS !== TSR, con: conMode, photo }; if (TS !== TSR) { jd0 += simT * (TS - TSR); TS = TSR; } if (conMode === 2) conMode = 0;
+    skyT.ci = ci; skyT.site = SKY_SITES[b.s]; skyT.jd = b.jd; skyT.phase = 'fly'; photo = false; tr.k = -1;
+    jd0 = b.jd - 3 / 24 - simT * TS; // arrive in the evening; the last hours run fast once there
     const lt = new Date((b.jd - 2440587.5) * 86400000 + skyT.site[2] / 15 * 3600000); skyT.when = lt.toISOString().slice(0, 10) + ' ' + lt.toISOString().slice(11, 16) + ' local';
-    banner('NIGHT SKY - ' + C.name.toUpperCase(), false); }
-  function skyPlace() { if (skyT.place <= 0 || --skyT.place) return; const C = CONSTELLATIONS[skyT.ci], eb = sys.idx.earth, q = eb * 4, la = skyT.site[1] * D2R, lo = skyT.site[2] * D2R; // a frame after the date jump: Earth's spin is current
-    tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, C.lab[0], C.lab[1], C.lab[2]);
-    const U = [Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)], N = [-Math.sin(la) * Math.cos(lo), Math.cos(la), Math.sin(la) * Math.sin(lo)], E = [-Math.sin(lo), 0, -Math.cos(lo)];
-    const de = t3[0] * E[0] + t3[2] * E[2], dn = t3[0] * N[0] + t3[1] * N[1] + t3[2] * N[2], du = t3[0] * U[0] + t3[1] * U[1] + t3[2] * U[2];
-    placeAt('earth', skyT.site[1], skyT.site[2], skyT.site[3] * 3.1e-7 * sys.list[eb].R + 150, Math.max(8, Math.min(70, Math.asin(Math.max(-1, Math.min(1, du))) / D2R)), Math.atan2(de, dn) / D2R); }
-  function skyEnd() { if (!skyT.saved) return; conMode = skyT.saved.con; jd0 = Date.now() / 86400000 + 2440587.5 - simT * TS; if (skyT.saved.fast) { jd0 += simT * (TS - TSF); TS = TSF; } skyT.saved = null; skyT.place = 0; }
+    skyT.lmk = sys.lm.findIndex((m) => m.name === SKY_LM[b.s]); if (skyT.lmk >= 0) goPlace(skyT.lmk); else { skyT.phase = 'dusk0'; } }
+  const skyHP = (dx, dy, dz, la, lo) => { // world direction -> [heading, pitch] (degrees) at lat/lon on Earth
+    const q = sys.idx.earth * 4; tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, dx, dy, dz);
+    const de = -t3[0] * Math.sin(lo) - t3[2] * Math.cos(lo), dn = -t3[0] * Math.sin(la) * Math.cos(lo) + t3[1] * Math.cos(la) + t3[2] * Math.sin(la) * Math.sin(lo), du = t3[0] * Math.cos(la) * Math.cos(lo) + t3[1] * Math.sin(la) - t3[2] * Math.cos(la) * Math.sin(lo);
+    return [Math.atan2(de, dn) / D2R, Math.asin(Math.max(-1, Math.min(1, du))) / D2R]; };
+  function skyPlace() { // per frame: wait for the autopilot to arrive, then run the clock to the best moment while the view eases up to the constellation
+    if (!skyT.saved) return; const eb = sys.idx.earth;
+    if (skyT.phase === 'fly' && ((ap.k === skyT.lmk && !ap.on && !ap.pend && ap.t >= 1 && ship.ref === eb) || skyT.lmk < 0)) skyT.phase = 'dusk0';
+    if (skyT.phase === 'dusk0') { const o = eb * 3, q = eb * 4, d = dist(eb); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+      qrot(t3, 0, tq, 0, (abs[0] - pos[o]) / d, (abs[1] - pos[o + 1]) / d, (abs[2] - pos[o + 2]) / d); skyT.la = Math.asin(Math.max(-1, Math.min(1, t3[1]))); skyT.lo = Math.atan2(-t3[2], t3[0]);
+      skyT.alt = Math.max(d - sys.list[eb].R, skyT.site[3] * 3.1e-7 * sys.list[eb].R + 150); qrot(t3, 0, ship.q, 0, 0, 0, -1); skyT.hp0 = skyHP(t3[0], t3[1], t3[2], skyT.la, skyT.lo);
+      skyT.w0 = performance.now(); skyT.j0 = jdNow(); skyT.phase = 'dusk'; banner('NIGHT FALLS - ' + CONSTELLATIONS[skyT.ci].name.toUpperCase(), false); }
+    if (skyT.phase !== 'dusk') return; const C = CONSTELLATIONS[skyT.ci], s = (performance.now() - skyT.w0) / 1000, k = Math.min(1, s / 10), e = k * k * (3 - 2 * k), v = Math.min(1, s / 7), ev = v * v * (3 - 2 * v);
+    const hp = skyHP(C.lab[0], C.lab[1], C.lab[2], skyT.la, skyT.lo), dh = ((hp[0] - skyT.hp0[0] + 540) % 360) - 180, pt = Math.max(8, Math.min(70, hp[1]));
+    placeAt('earth', skyT.la / D2R, skyT.lo / D2R, skyT.alt, skyT.hp0[1] + (pt - skyT.hp0[1]) * ev, skyT.hp0[0] + dh * ev);
+    if (k >= 1) { skyT.phase = 'view'; photo = true; } }
+  function skyTime() { if (skyT.phase !== 'dusk') return; const s = (performance.now() - skyT.w0) / 1000, k = Math.min(1, s / 10), e = k * k * (3 - 2 * k); jd0 = skyT.j0 + (skyT.jd - skyT.j0) * e - simT * TS; }
+  function skyEnd() { if (!skyT.saved) return; conMode = skyT.saved.con; photo = skyT.saved.photo; skyT.phase = ''; jd0 = Date.now() / 86400000 + 2440587.5 - simT * TS; if (skyT.saved.fast) { jd0 += simT * (TS - TSF); TS = TSF; } skyT.saved = null; }
   const api = {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
@@ -2100,7 +2113,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -2388,7 +2401,10 @@ function Overlay({ eng }) {
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
         <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
-      </div></div>); }
+      </div>
+      {ui.sky && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', left: '50%', bottom: ui.touch ? 22 : 16, transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px 6px 14px', opacity: 0.8, whiteSpace: 'nowrap', maxWidth: 'calc(100% - 24px)' }}>
+        <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}><span style={{ color: C.acc }}>{ui.sky.name}</span><span style={{ color: C.dim }}> · {ui.sky.site.split(',')[0]}</span></span>
+        <div {...tap(() => eng.skyEnd())} style={{ ...panel, cursor: 'pointer', padding: '6px 10px', fontSize: 11, letterSpacing: 1 }}>BACK TO TODAY</div></div>}</div>); }
   const cruiseLbl = ui.cruise ? 'STOP' : ui.charging ? 'CANCEL' : ui.canCruise ? 'CRUISE' : 'CLOSE';
   const rows = list ? list.filter((b) => b.type !== 'star' || true) : null;
   const depth = (b) => (b.type === 'star' ? 0 : b.parent && list.find((x) => x.id === b.parent).type !== 'star' ? 2 : 1);
@@ -2447,7 +2463,7 @@ function Overlay({ eng }) {
       </div>}
       {/* place search */}
       {ui.sky && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 4, left: '50%', top: 84, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, borderColor: 'rgba(160,190,255,.6)' }}>
-        <span style={{ flex: 1, lineHeight: 1.35 }}><span style={{ color: C.acc, fontSize: 14 }}>{ui.sky.name}</span><br /><span style={{ fontSize: 11, color: C.dim }}>Night sky over {ui.sky.site} · {ui.sky.when}</span></span>
+        <span style={{ flex: 1, lineHeight: 1.35 }}><span style={{ color: C.acc, fontSize: 14 }}>{ui.sky.name}</span><br /><span style={{ fontSize: 11, color: C.dim }}>{ui.sky.phase === 'fly' ? 'Flying to ' + ui.sky.site + ' for the night of ' + ui.sky.when : 'Night sky over ' + ui.sky.site + ' · ' + ui.sky.when}</span></span>
         <div {...tap(() => eng.skyEnd())} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1, whiteSpace: 'nowrap' }}>BACK TO TODAY</div></div>}
       {find !== null && <FindPanel eng={eng} ui={ui} q={find} setQ={setFind} onClose={() => setFind(null)} cache={placesRef} />}
       {tours && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))', maxHeight: 'calc(100% - 82px)', display: 'flex', flexDirection: 'column' }}>
