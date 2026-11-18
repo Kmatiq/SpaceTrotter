@@ -374,6 +374,12 @@ fn hsel(T18:vec2f,zd:f32)->vec4f{var z=min(i32(zd),i32(g.hA.w));
  loop{if(z<14){break;}let T=T18/f32(1u<<u32(18-z));if(T.x>=0.&&T.y>=0.){let ix=u32(T.x/256.);let iy=u32(T.y/256.);
   let k=(select(0u,1u,z>=16)<<30u)|(select(u32(z),u32(z-3),z>=16)<<26u)|(iy<<13u)|ix;let L=tfind(k);if(L>=0){return vec4f(f32(L),T-vec2f(f32(ix),f32(iy))*256.,f32(z));}}z-=1;}
  return vec4f(-1.);}
+// real night lights (NASA Black Marble 2016, Web-Mercator z0..8): returns 0..1 brightness, -1 if no tile yet
+fn nlight(n:vec3f,fp:f32)->f32{let uv=tuv(n,false);var z=min(i32(max(log2(6.2832/(256.*fp)),0.)),8);
+ loop{if(z<0){break;}let s=f32(1u<<u32(z));let tt=uv*s;let ix=u32(clamp(floor(tt.x),0.,s-1.));let iy=u32(clamp(floor(tt.y),0.,s-1.));
+  let L=tfind((3u<<30u)|(select(u32(8+z),15u,z==8)<<26u)|((iy+select(0u,4096u,z==8))<<13u)|ix);
+  if(L>=0){let c=textureSampleLevel(TA,smp,clamp((tt-floor(tt)),vec2f(.002),vec2f(.998)),L,0.).rgb;return smoothstep(.05,.85,c.r*.75+c.g*.25);}z-=1;}
+ return -1.;}
 fn albedo(mm:f32,n:vec3f,fp:f32,pr:vec3f)->vec4f{let eq=mm>1.5;
  if(!eq&&g.hA.w>0.){let zd=log2(6.2832/(256.*fp));let lo=atan2(-n.z,n.x);let la=asin(clamp(n.y,-1.,1.));
   if(zd>=13.5&&lo>${(HOR.w*Math.PI/180).toFixed(6)}&&lo<${(HOR.e*Math.PI/180).toFixed(6)}&&la>${(HOR.s*Math.PI/180).toFixed(6)}&&la<${(HOR.n*Math.PI/180).toFixed(6)}){let h=hsel(hrel(pr),zd);
@@ -500,7 +506,8 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let aa=b[7].w;
    if(aa>0.){let r1=1.-abs(vn(n*b[5].w*5.+vec3f(3.3)).x);let r2=1.-abs(vn(n*b[5].w*17.+vec3f(1.1)).x);col=mix(col,b[7].xyz,clamp(aa*(pow(r1,40.)+.6*pow(r2,70.)+.25*smoothstep(.3,.7,m)),0.,1.));}
    if(aa<0.){let f=fbm(n*b[5].w*3.+vec3f(9.),5.,.55).x;col=mix(col,b[7].xyz,smoothstep(.18,.38,f)*min(-aa,1.));em+=vec3f(1.,.32,.05)*smoothstep(.46,.56,f)*3.*-aa;}
-   if(b[10].w>0.&&!wat){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,select(m,.3,A.w>.5))*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*select(smoothstep(.03,.1,T.f-ol),1.,A.w>.5);}}
+   if(b[10].w>0.&&!wat&&mm>.5&&mm<1.5){let nl=nlight(n,fpS);if(nl>=0.){let nt=smoothstep(.08,-.18,dot(n,L));let zd=log2(6.2832/(256.*fpS));let k=smoothstep(9.,13.,zd);let lu=dot(A.rgb,vec3f(.3,.55,.15));let sat=max(A.r,max(A.g,A.b))-min(A.r,min(A.g,A.b));let urb=smoothstep(.03,.12,lu)*smoothstep(.1,.03,sat);let sp=smoothstep(.55,.8,vn(n*select(2.4e5,1.2e6,zd>15.)).x*.5+.5);em+=vec3f(1.,.66,.33)*pow(nl,1.3)*mix(1.,(.05+2.6*urb)*(.12+1.7*sp),k*select(0.,1.,A.w>.5))*b[10].w*.17*nt;}}
+   if(b[10].w>0.&&!wat&&!(mm>.5&&mm<1.5&&nlight(n,fpS)>=0.)){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,select(m,.3,A.w>.5))*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*select(smoothstep(.03,.1,T.f-ol),1.,A.w>.5);}}
   var sT=sunT(b,p,L);
   if(ringOn&&abs(L.y)>1e-4){let tr=-p.y/L.y;if(tr>0.){let rq=p+L*tr;sT*=1.-ringD(b,length(rq.xz),.01)*b[13].z*.9;}}
   if(b[11].w>0.){let ch=b[15].z;sT*=1.-.7*cloud(b,normalize(p+L*(ch/max(dot(n,L),.15))),.01);}
@@ -914,8 +921,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     (z, x, y) => `https://trek.nasa.gov/tiles/Moon/EQ/LRO_LOLA_DEM_Global_128ppd_v04/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // LOLA DEM, 8-bit grey: -9100..10800 m
     (z, x, y) => `https://trek.nasa.gov/tiles/Mars/EQ/mola128_mola64_merge_90Nto90S_SimpleC_clon0/1.0.0/default/default028mm/${z}/${y}/${x}.png`, // MOLA DEM, 8-bit grey: -8200..21200 m
     (z, x, y) => { const s = 40075016.686 / (1 << z), x0 = -20037508.343 + x * s, y1 = 20037508.343 - y * s; // Helsinki orthophoto via WMS (transparent outside the city)
-      return `https://kartta.hel.fi/ws/geoserver/avoindata/wms?service=WMS&version=1.1.1&request=GetMap&layers=avoindata:Ortoilmakuva_2025_5cm&styles=&srs=EPSG:3857&bbox=${x0.toFixed(3)},${(y1 - s).toFixed(3)},${(x0 + s).toFixed(3)},${y1.toFixed(3)}&width=256&height=256&format=image/vnd.jpeg-png&transparent=true`; }];
-  const TZM = [13, 12, 8, 7, 5, 5, 16], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
+      return `https://kartta.hel.fi/ws/geoserver/avoindata/wms?service=WMS&version=1.1.1&request=GetMap&layers=avoindata:Ortoilmakuva_2025_5cm&styles=&srs=EPSG:3857&bbox=${x0.toFixed(3)},${(y1 - s).toFixed(3)},${(x0 + s).toFixed(3)},${y1.toFixed(3)}&width=256&height=256&format=image/vnd.jpeg-png&transparent=true`; },
+    (z, x, y) => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/${z}/${y}/${x}.png`];
+  const TZM = [13, 12, 8, 7, 5, 5, 16, 8], tKey = new Uint32Array(NTL).fill(0xffffffff), tUse = new Int32Array(NTL), tmap = new Map();
   let tFly = 0, thDirty = false, tilesSeen = false;
   const tileLoad = (k, kind, z, x, y) => {
     tFly++; tmap.set(k, -1);
@@ -947,7 +955,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     for (let i = 0; i < 65536; i++) { const v = Math.round(Math.min(1, Math.max(0, rh[i])) * 65535); rbuf[i * 4] = v >> 8; rbuf[i * 4 + 1] = v & 255; rbuf[i * 4 + 2] = 0; rbuf[i * 4 + 3] = 255; }
     device.queue.writeTexture({ texture: tileTex, origin: [0, 0, sl] }, rbuf, { bytesPerRow: 1024, rowsPerImage: 256 }, [256, 256, 1]);
   }
-  const want = (kind, z, x, y) => { const k = (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
+  const want = (kind, z, x, y) => { const k = kind === 7 ? ((3 << 30) | ((z < 8 ? 8 + z : 15) << 26) | ((z < 8 ? y : y + 4096) << 13) | x) >>> 0 : (kind >= 4 ? ((kind - 2) << 30) | (z << 26) | ((y + 4096) << 13) | x : (kind << 30) | (z << 26) | (y << 13) | x) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, kind, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   const wantH = (z, x, y) => { const lx = x - (HOR.x14 << (z - 14)), ly = y - (HOR.y14 << (z - 14)); if (lx < 0 || ly < 0) return; // Helsinki photo tiles share the hash: z 14/15 -> kind 0 slots 14/15, z 16..18 -> kind 1 slots 13..15
     const k = (((z >= 16 ? 1 : 0) << 30) | ((z >= 16 ? z - 3 : z) << 26) | (ly << 13) | lx) >>> 0, v = tmap.get(k); if (v === undefined) { if (tFly < 12) tileLoad(k, 6, z, x, y); } else if (v >= 0) tUse[v] = frame; };
   const helZmax = () => tc.on ? 17 : 18;
@@ -970,7 +978,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if ((pass === 0) !== (i === near)) continue;
       const b = sys.list[i], mp = b.def && b.def.surface && b.def.surface.maps; if (!mp) continue;
       const eq = mp !== 'earth', ek = mp === 'mars' ? 3 : 2, o = i * 3, d = dist(i);
-      for (let kk = 0; kk < 2; kk++) { const kind = eq ? (kk ? ek : ek + 2) : (kk ? 0 : 1); // elevation / relief first
+      for (let kk = 0; kk < (eq ? 2 : 3); kk++) { const kind = eq ? (kk ? ek : ek + 2) : (kk === 2 ? 7 : kk ? 0 : 1); // elevation / relief first, Earth: night lights last
         const zb = eq ? 1 : 2; for (let z = 0; z <= zb; z++) { const n = 1 << z; for (let y = 0; y < n; y++) for (let x = 0; x < n * (eq ? 2 : 1); x++) want(kind, z, x, y); }
         if (d > 8 * b.R) continue;
         const cx = cam[0] - pos[o], cy = cam[1] - pos[o + 1], cz = cam[2] - pos[o + 2], q = i * 4;
