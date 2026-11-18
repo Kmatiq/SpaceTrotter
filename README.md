@@ -211,15 +211,24 @@ import SpaceTrotter, { registerStarSystem, STAR_SYSTEMS } from './SpaceTrotter.j
 
 ## Roadmap
 
-- **Sound redesign:** rework most sounds (engine, boost, cruise, warp, UI beeps, atmosphere), ideally tuned by ear.
-  The cruise and warp arrival whooshes are done.
-- **Smoother atmospheric entry:** some jerkiness remains when diving into an atmosphere. Suspects to test one
-  by one: the re-entry camera shake, hard braking from the altitude speed cap, and field-of-view changes
-  during boost.
-- **Date & time control:** a picker plus pause, real-time, fast and reverse, for seeing eclipses and
-  alignments. The engine already runs from one Julian date.
-- **City buildings from open data:** OpenStreetMap outlines and heights, plus hand-made models of each city's
-  1–5 most famous landmarks.
-- **More real moons:** the Galilean moons, Titan and Enceladus, Phobos and Deimos.
-- **glTF models:** a ship made in Blender, stations and landmarks.
-- **Tourism features:** photo challenges, a travel journal and more tours.
+Planned work, roughly in order of priority:
+
+- **Reworked sound:** a full sound redesign (engine, boost, cruise, warp, interface, atmosphere), tuned by ear.
+  The cruise and warp arrival whooshes are already done.
+- **New 3D ship model:** a custom ship designed in Blender, loaded as a glTF model. The same model loader will
+  later bring stations and famous landmarks.
+- **Reworked flight controls:** a better flight feel overall, including a smoother atmospheric entry. Some
+  jerkiness remains; suspects are the re-entry camera shake, hard braking from the altitude speed cap and
+  field-of-view changes during boost.
+- **More guided tours:** more tours with richer information at every stop: history, science and fun facts.
+- **Quizzes and games:** quizzes about the places you visit, photo challenges, a travel journal with stamps
+  and achievements.
+- **Reworked galaxies:** a more detailed Milky Way with its real arm structure, more star systems to visit, and
+  better-looking galaxies of the Local Group.
+- **Alternative sci-fi universes:** fictional star systems and worlds to explore, next to the real Solar
+  System.
+- **And more:**
+  - A date & time control for watching eclipses and alignments.
+  - City buildings from OpenStreetMap, plus hand-made models of famous landmarks.
+  - More real moons (Io, Europa, Ganymede, Callisto, Titan, Enceladus, Phobos, Deimos).
+  - A custom domain at spacetrotter.app.
