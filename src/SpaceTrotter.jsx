@@ -1756,7 +1756,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     }
     resize();
     if (bench.on) { if (bench.n < NSLOT) bench.cpu[bench.n] = rawDt * 1000; }
-    simT += dt; updateOrbits(simT);
+    simT += dt; tutTime(); updateOrbits(simT); tutPlace();
     // reference frame (sphere of influence): deepest body whose SOI contains the ship
     const ro = ship.ref * 3; abs[0] = pos[ro] + ship.off[0]; abs[1] = pos[ro + 1] + ship.off[1]; abs[2] = pos[ro + 2] + ship.off[2];
     let nr = 0, best = Infinity;
@@ -2042,6 +2042,29 @@ async function createEngine(canvas, systemId, opts = {}) {
   switchStarSystem(STAR_SYSTEMS[systemId] ? systemId : 'sol');
   resize(); raf = requestAnimationFrame(tick);
 
+  function placeAt(id, lat, lon, altM, pitchDeg, headDeg) { // ship above a real location, looking along a compass heading, pitched up/down
+    const i = sys.idx[id]; if (i === undefined) return; const b = sys.list[i], la = lat * D2R, lo = lon * D2R, q = i * 4, r = b.R + altM, h = (headDeg || 0) * D2R;
+    qrot(t3, 0, bq, q, Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)); const ux = t3[0], uy = t3[1], uz = t3[2];
+    qrot(t3, 0, bq, q, -Math.sin(la) * Math.cos(lo), Math.cos(la), Math.sin(la) * Math.sin(lo)); const nx = t3[0], ny = t3[1], nz = t3[2];
+    qrot(t3, 0, bq, q, -Math.sin(lo), 0, -Math.cos(lo)); const hx = nx * Math.cos(h) + t3[0] * Math.sin(h), hy = ny * Math.cos(h) + t3[1] * Math.sin(h), hz = nz * Math.cos(h) + t3[2] * Math.sin(h);
+    const p = pitchDeg * D2R, fx = hx * Math.cos(p) + ux * Math.sin(p), fy = hy * Math.cos(p) + uy * Math.sin(p), fz = hz * Math.cos(p) + uz * Math.sin(p);
+    target = i; cruise = false; charge = -1; ship.ref = i; rqRef = -1; prValid = false; ship.off[0] = ux * r; ship.off[1] = uy * r; ship.off[2] = uz * r; ship.vel.fill(0); ship.w.fill(0);
+    qlook(ship.q, 0, fx, fy, fz, ux, uy, uz);
+  }
+  // tutorial finale: a day flyover of Helsinki in 3D, then a sped-up sunset while the view turns up to the constellations
+  const tutS = { phase: '', saved: null, t: 0, j0: 0, j1: 0, pitch: -12, alt: 70 };
+  const TUT_LAT = 60.153, TUT_LON = 24.951, TUT_DAY = '2026-09-15T08:30:00Z', TUT_NIGHT = '2026-09-15T17:50:00Z';
+  function tutHel(ph) {
+    if (ph === 'day') { if (!tutS.saved) tutS.saved = { city: city.on, fast: TS !== TSR, con: conMode }; city.on = true; if (TS !== TSR) { jd0 += simT * (TS - TSR); TS = TSR; }
+      jd0 = Date.parse(TUT_DAY) / 86400000 + 2440587.5 - simT * TS; tutS.phase = 'day'; tutS.place = 2; }
+    else if (ph === 'dusk') { if (!tutS.saved) tutHel('day'); if (conMode === 2) conMode = 0; tutS.phase = 'dusk'; tutS.t = 0; tutS.w0 = performance.now(); tutS.j0 = jdNow(); tutS.j1 = Date.parse(TUT_NIGHT) / 86400000 + 2440587.5; }
+    else if (ph === 'end' && tutS.saved) { city.on = tutS.saved.city; conMode = tutS.saved.con; jd0 = Date.now() / 86400000 + 2440587.5 - simT * TS; if (tutS.saved.fast) { jd0 += simT * (TS - TSF); TS = TSF; } tutS.saved = null; tutS.phase = ''; }
+  }
+  function tutTime() { if (tutS.phase !== 'dusk') return; tutS.t = (performance.now() - tutS.w0) / 1000; const k = Math.min(1, tutS.t / 10), e = k * k * (3 - 2 * k); jd0 = tutS.j0 + (tutS.j1 - tutS.j0) * e - simT * TS; } // sped-up sunset (wall clock: same speed on slow devices), before the orbits update
+  function tutPlace() { // after the orbits update: keep the ship over Helsinki while time runs, ease the view from the city up to the southern sky
+    if (tutS.place > 0) { tutS.place--; if (!tutS.place) placeAt('earth', TUT_LAT, TUT_LON, tutS.alt, tutS.pitch, 0); } // a frame later, so Earth's spin matches the new date
+    if (tutS.phase !== 'dusk' || tutS.t > 10.5) return; const v = Math.min(1, tutS.t / 6), ev = v * v * (3 - 2 * v); placeAt('earth', TUT_LAT, TUT_LON, tutS.alt, -12 + 47 * ev, 180 * ev);
+  }
   const api = {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
@@ -2087,14 +2110,8 @@ async function createEngine(canvas, systemId, opts = {}) {
     unlockMouse: () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); },
     teleport: (id, distRadii = 3, az, el, pitch) => { const i = sys.idx[id]; if (i !== undefined) { target = i; placeNear(i, distRadii, az, el, pitch); cruise = false; } },
     debugView: (id, dx, dy, dz, lx, ly, lz) => { const i = sys.idx[id]; if (i === undefined) return; const R = sys.list[i].R; ship.ref = i; ship.off[0] = dx * R; ship.off[1] = dy * R; ship.off[2] = dz * R; ship.vel.fill(0); ship.w.fill(0); cruise = false; qlook(ship.q, 0, lx === undefined ? -dx : lx, ly === undefined ? -dy : ly, lz === undefined ? -dz : lz, 0, 1, 0); },
-    flyTo: (id, lat, lon, altM = 5000, pitchDeg = -25) => { // place the ship above a real location (lat/lon in degrees), looking north
-      const i = sys.idx[id]; if (i === undefined) return; const b = sys.list[i], la = lat * D2R, lo = lon * D2R, q = i * 4, r = b.R + altM;
-      qrot(t3, 0, bq, q, Math.cos(la) * Math.cos(lo), Math.sin(la), -Math.cos(la) * Math.sin(lo)); const ux = t3[0], uy = t3[1], uz = t3[2];
-      qrot(t3, 0, bq, q, -Math.sin(la) * Math.cos(lo), Math.cos(la), Math.sin(la) * Math.sin(lo)); // local north
-      const p = pitchDeg * D2R, fx = t3[0] * Math.cos(p) + ux * Math.sin(p), fy = t3[1] * Math.cos(p) + uy * Math.sin(p), fz = t3[2] * Math.cos(p) + uz * Math.sin(p);
-      target = i; cruise = false; charge = -1; ship.ref = i; rqRef = -1; prValid = false; ship.off[0] = ux * r; ship.off[1] = uy * r; ship.off[2] = uz * r; ship.vel.fill(0); ship.w.fill(0);
-      qlook(ship.q, 0, fx, fy, fz, ux, uy, uz);
-    },
+    flyTo: (id, lat, lon, altM = 5000, pitchDeg = -25, headDeg = 0) => placeAt(id, lat, lon, altM, pitchDeg, headDeg), // place the ship above a real location (lat/lon in degrees); heading 0 = north
+    tutHelsinki: (ph) => tutHel(ph),
     setTime: (t) => { simT = t; }, setDate: (iso) => { jd0 = Date.parse(iso) / 86400000 + 2440587.5 - simT * TS; }, setExposure: (e) => { exposure = e; }, toggleThirdPerson: () => { thirdPerson = !thirdPerson; },
     destroy() {
       dead = true; cancelAnimationFrame(raf);
@@ -2197,14 +2214,17 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     { t: 'Pick one any time', b: 'The ship flies itself from stop to stop and tells you about each place.', ok: 'Got it', pos: 'left', after: () => setTours(false) },
     { t: 'The menu', b: 'Sound, camera, photo mode, real-time orbits, the game file download and this tutorial live here.', sel: 'menu', done: () => st.menu },
     { t: 'Photo mode', b: 'Photo mode hides everything so you can take clean pictures. Replay tutorial is at the bottom.', ok: 'Got it', pos: 'left', after: () => setMenu(false) },
+    { t: 'Real cities in 3D', b: 'Welcome to Helsinki on a sunny day. Every building is the city\'s own 3D model, standing on its real aerial photo (they take a few seconds to load). ' + (T ? 'Fly over the rooftops with the left stick' : 'Fly over the rooftops with W and the mouse') + ', then tap NEXT.', ok: 'Next', pos: 'left', enter: () => eng.tutHelsinki('day') },
+    { t: 'When the sun goes down', b: 'Time speeds up to the evening. The city lights come on, the ship looks up to the sky and the constellations appear: real star patterns with their names. Aim at one to read about it. ' + (T ? 'The menu shows them always or turns them off.' : 'Press C (or use the menu) to show them always or turn them off.'), ok: 'Got it', pos: 'left', enter: () => eng.tutHelsinki('dusk') },
     { end: true },
   ];
   const s = S[i], t0 = useRef(performance.now()), next = () => { if (s.after) s.after(); was.current = false; base.current = { ...ui.tut }; t0.current = performance.now(); setI(i + 1); };
   const stuck = !s.ok && !s.welcome && !s.end && performance.now() - t0.current > 20000; // safety net: never leave the player stuck on a step
   if (!base.current) base.current = { ...ui.tut };
   useEffect(() => { if (s.done && s.done()) next(); }); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (s.enter) s.enter(); }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const id = setInterval(() => force((x) => x + 1), 250); return () => clearInterval(id); }, []);
-  const finish = () => { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* storage unavailable */ } onClose(); };
+  const finish = () => { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* storage unavailable */ } eng.tutHelsinki('end'); onClose(); }; // back to today's date and the player's settings
   const el = s.sel ? document.querySelector('[data-tut="' + s.sel + '"]') : null;
   if (el && el.dataset.tutSeen !== String(i)) { el.dataset.tutSeen = String(i); el.scrollIntoView({ block: 'nearest' }); } // e.g. Mars further down the target list
   const r = el ? el.getBoundingClientRect() : null;
@@ -2225,7 +2245,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
             Learn as you go, and take beautiful pictures along the way.
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 'clamp(10px, 3vh, 20px)', flexWrap: 'wrap' }}>
-            <div onClick={next} style={btnS(true)}>SHOW ME HOW (2 MIN)</div><div onClick={finish} style={btnS(false)}>SKIP</div></div>
+            <div onClick={next} style={btnS(true)}>SHOW ME HOW (3 MIN)</div><div onClick={finish} style={btnS(false)}>SKIP</div></div>
         </> : <>
           <div style={{ fontSize: 24, letterSpacing: 2, color: C.acc, marginBottom: 10 }}>You're ready!</div>
           <div style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 18 }}>Have a good trip. A nice first flight: the <b>Capitals of Europe</b> tour.<br />You can replay this tutorial from the menu.</div>
