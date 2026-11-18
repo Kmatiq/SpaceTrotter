@@ -76,7 +76,9 @@ renders at your screen's full resolution.*
 - **Constellations:** in Earth's atmosphere at dusk and night, the 34 best-known constellations are drawn
   over the real stars, with names and a fact for the one you look at. `C` or the menu: auto / always / off.
 - **Photo mode:** hides everything and saves a PNG.
-- **Exploration log:** discover bodies by flying close; progress is saved in the browser.
+- **Explorer passport:** stamps for every place you fly low over, every constellation you spot at night, every
+  world you log and every tour you finish. Ranks from Cadet to Legend and 15 badges (Moonwalker, Zodiac,
+  Interstellar, Real City...). ☰ → Explorer passport; progress is saved in the browser.
 
 ## Controls
 

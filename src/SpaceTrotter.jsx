@@ -1586,6 +1586,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       const L = C.lab; cd0[0] = L[0]; cd0[1] = L[1]; cd0[2] = L[2]; if (conOcc(cd0) || !project(L[0] * 1e13, L[1] * 1e13, L[2] * 1e13)) continue; const x = scr[0], y = scr[1]; if (x < 0 || y < 0 || x > W || y > H) continue;
       ts(C.name.toUpperCase()); tout(x, y, 13 * s, 0.6, 0.78, 1, 0.55 * al, 0.5);
       const dc = Math.hypot(x / W - 0.5, (y / H - 0.5) * H / W); if (dc < bd) { bd = dc; best = c; } }
+    if (best >= 0 && al >= 0.99 && (conMode === 0 || inAtm >= 0)) passStamp('con', CONSTELLATIONS[best].id, CONSTELLATIONS[best].name);
     if (best >= 0 && !photo) { const C = CONSTELLATIONS[best]; if (project(C.lab[0] * 1e13, C.lab[1] * 1e13, C.lab[2] * 1e13)) { ts(C.fact); tout(scr[0], scr[1] + 18 * s, 13 * s, 0.85, 0.9, 1, 0.8 * al, 0.5); } } }
   function starHud(s, labels) { // catalogue stars as soft glows; named near the crosshair or when selected for warp
     if (STARS[here].gal) return; let nl = 0;
@@ -2136,6 +2137,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
     { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); cityFrame(eb, dE); lmFrame(eb, dE); drawsUpload(eb); }
+    passTick();
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
     if (!prBusy) {
@@ -2243,9 +2245,55 @@ async function createEngine(canvas, systemId, opts = {}) {
     if (skyT.phase !== 'dusk') return; const C = CONSTELLATIONS[skyT.ci], s = (performance.now() - skyT.w0) / 1000, k = Math.min(1, s / 10), e = k * k * (3 - 2 * k), v = Math.min(1, s / 7), ev = v * v * (3 - 2 * v);
     const hp = skyHP(C.lab[0], C.lab[1], C.lab[2], skyT.la, skyT.lo), dh = ((hp[0] - skyT.hp0[0] + 540) % 360) - 180, pt = Math.max(8, Math.min(70, hp[1]));
     placeAt('earth', skyT.la / D2R, skyT.lo / D2R, skyT.alt, skyT.hp0[1] + (pt - skyT.hp0[1]) * ev, skyT.hp0[0] + dh * ev);
-    if (k >= 1) { skyT.phase = 'view'; photo = true; } }
+    if (k >= 1) { skyT.phase = 'view'; photo = true; passStamp('con', C.id, C.name); } }
   function skyTime() { if (skyT.phase !== 'dusk') return; const s = (performance.now() - skyT.w0) / 1000, k = Math.min(1, s / 10), e = k * k * (3 - 2 * k); jd0 = skyT.j0 + (skyT.jd - skyT.j0) * e - simT * TS; }
   function skyEnd() { if (!skyT.saved) return; conMode = skyT.saved.con; photo = skyT.saved.photo; skyT.phase = ''; jd0 = Date.now() / 86400000 + 2440587.5 - simT * TS; if (skyT.saved.fast) { jd0 += simT * (TS - TSF); TS = TSF; } skyT.saved = null; }
+  // ---- explorer passport: stamps (places, constellations, bodies, tours), ranks and badges; saved in the browser
+  const PASSKEY = 'spacetrotter.passport', NORDIC_SET = ['Stockholm', 'Oslo', 'Copenhagen', 'Helsinki', 'Reykjavik', 'Geirangerfjord', 'Lofoten Islands', 'Kebnekaise', 'Galdhopiggen', 'Thingvellir', 'Abisko'];
+  const ZODIAC = ['Ari', 'Tau', 'Gem', 'Cnc', 'Leo', 'Vir', 'Lib', 'Sco', 'Sgr', 'Cap', 'Aqr', 'Psc'];
+  const RANKS = [[0, 'Cadet'], [0.04, 'Pilot'], [0.12, 'Navigator'], [0.25, 'Explorer'], [0.45, 'Voyager'], [0.75, 'Legend']];
+  let pass = { lm: {}, con: {}, tours: {}, badges: {}, stars: {}, kinds: {}, totals: {} }; try { const j = JSON.parse(localStorage.getItem(PASSKEY) || 'null'); if (j) pass = Object.assign(pass, j); } catch (e) { /* ignore */ }
+  const passSave = () => { try { localStorage.setItem(PASSKEY, JSON.stringify(pass)); } catch (e) { /* ignore */ } };
+  const solDisc = () => { if (sys.def.id === 'sol') return sys.list.filter((b, i) => disc[i]).map((b) => b.id); try { return (localStorage.getItem(LOGKEY + 'sol') || '').split(',').filter(Boolean); } catch (e) { return []; } };
+  const cnt = (f) => Object.keys(pass.lm).filter((n) => f(pass.kinds[n] || '')).length; // kinds: 'kind|body'
+  const BADGES = [
+    ['touchdown', 'First Touchdown', 'Land on any world', () => !!pass.landed],
+    ['moonwalker', 'Moonwalker', 'Visit all six Apollo landing sites', () => Object.keys(pass.lm).filter((n) => n.startsWith('Apollo')).length >= 6],
+    ['rover', 'Red Rover', 'Visit three landing sites on Mars', () => cnt((k) => k === 'l|mars') >= 3],
+    ['wonders', 'Wonder Seeker', 'Visit eight world wonders', () => cnt((k) => k.startsWith('h|')) >= 8],
+    ['nature', 'Nature Lover', 'Visit six natural wonders', () => cnt((k) => k.startsWith('n|')) >= 6],
+    ['globetrotter', 'Globetrotter', 'Visit twenty cities', () => cnt((k) => k === 'c|earth') >= 20],
+    ['summits', 'Summit Hunter', 'Visit eight mountains', () => cnt((k) => k === 'm|earth') >= 8],
+    ['nordic', 'Nordic Explorer', 'Visit eight Nordic places', () => NORDIC_SET.filter((n) => pass.lm[n]).length >= 8],
+    ['realcity', 'Real City', 'Fly over Helsinki in 3D', () => !!pass.realcity],
+    ['stargazer', 'Stargazer', 'Spot ten constellations at night', () => Object.keys(pass.con).length >= 10],
+    ['zodiac', 'Zodiac', 'Spot all twelve signs of the zodiac', () => ZODIAC.every((z) => pass.con[z])],
+    ['guide', 'Tour Guide', 'Finish three guided tours', () => Object.keys(pass.tours).length >= 3],
+    ['giants', 'Gas Giants', 'Log Jupiter, Saturn, Uranus and Neptune', () => { const d = solDisc(); return ['jupiter', 'saturn', 'uranus', 'neptune'].every((x) => d.includes(x)); }],
+    ['interstellar', 'Interstellar', 'Warp to another star', () => Object.keys(pass.stars).some((s) => s !== 'sol' && s !== 'm31')],
+    ['andromeda', 'Intergalactic', 'Reach the Andromeda Galaxy', () => !!pass.stars.m31],
+  ];
+  function passBadges() { for (const [id, name, , ok] of BADGES) if (!pass.badges[id] && ok()) { pass.badges[id] = Date.now(); passSave(); banner('BADGE EARNED - ' + name.toUpperCase(), false); chime(true); passNew = { t: 'badge', name }; return; } }
+  let passNew = null, passTk = 0;
+  function passStamp(kind, key, label) { const m = pass[kind]; if (m[key]) return false; m[key] = Date.now(); passSave(); banner('PASSPORT STAMP - ' + (label || key).toUpperCase(), false); chime(false); passNew = { t: kind, name: label || key }; passBadges(); return true; }
+  function passTick() { // ~3 times a second: nearby landmarks, landings, stars visited
+    if (bench.on || !sys) return; const tn = performance.now(); if (tn - passTk < 300) return; passTk = tn;
+    if (sys.def.id === 'sol') { for (const m of sys.lm) pass.kinds[m.name] = m.kind + '|' + sys.list[m.bi].id; pass.totals = { lm: sys.lm.length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length }; }
+    if (STARS[here] && !pass.stars[STARS[here].id]) { pass.stars[STARS[here].id] = Date.now(); passSave(); passBadges(); }
+    if (landed && !pass.landed) { pass.landed = 1; passSave(); passBadges(); }
+    if (!prValid || cruise || wp.on) return; const b = sys.list[prBody], o = prBody * 3, q = prBody * 4, d = dist(prBody), alt = altT;
+    tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / d, (cam[1] - pos[o + 1]) / d, (cam[2] - pos[o + 2]) / d);
+    for (const m of sys.lm) { if (m.bi !== prBody || pass.lm[m.name]) continue; const big = m.kind === 's' || m.kind === 'o', gd = Math.acos(Math.max(-1, Math.min(1, t3[0] * m.dir[0] + t3[1] * m.dir[1] + t3[2] * m.dir[2]))) * b.R;
+      if (gd < (big ? 0.05 : 0.02) * b.R && alt < (big ? 0.05 : 0.012) * b.R) { passStamp('lm', m.name); if (m.name === 'Helsinki' && city.on && city.vis) { pass.realcity = 1; passSave(); passBadges(); } break; } }
+    if (!pass.realcity && city.on && city.vis && alt < 0.002 * b.R) { pass.realcity = 1; passSave(); passBadges(); }
+  }
+  function passport() { const d = solDisc(), T = pass.totals.lm ? pass.totals : { lm: sys.lm.length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length };
+    const got = Object.keys(pass.lm).length + Object.keys(pass.con).length + d.length + Object.keys(pass.tours).length, tot = T.lm + T.con + T.bodies + T.tours, f = tot ? got / tot : 0;
+    let r = 0; for (let i = 0; i < RANKS.length; i++) if (f >= RANKS[i][0]) r = i;
+    const byBody = {}; for (const n in pass.kinds) { const [k, bid] = pass.kinds[n].split('|'); const e = byBody[bid] || (byBody[bid] = { got: 0, tot: 0 }); e.tot++; if (pass.lm[n]) e.got++; }
+    return { got, tot, frac: f, rank: RANKS[r][1], next: RANKS[r + 1] ? { name: RANKS[r + 1][1], need: Math.ceil(RANKS[r + 1][0] * tot) - got } : null, places: { got: Object.keys(pass.lm).length, tot: T.lm }, byBody,
+      con: { got: Object.keys(pass.con).length, tot: T.con }, bodies: { got: d.length, tot: T.bodies }, tours: { got: Object.keys(pass.tours).length, tot: T.tours },
+      badges: BADGES.map(([id, name, desc]) => ({ id, name, desc, got: !!pass.badges[id] })), recent: Object.entries(pass.lm).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n]) => n) }; }
   const api = {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
@@ -2271,8 +2319,9 @@ async function createEngine(canvas, systemId, opts = {}) {
     screenPos: (id) => { const i = sys.idx[id], o = i * 3; if (!project(pos[o] - cam[0], pos[o + 1] - cam[1], pos[o + 2] - cam[2])) return null; const k = canvas.clientWidth / W; return [scr[0] * k, scr[1] * k]; },
     get audioLevel() { if (!au.an) return -1; au.an.getFloatTimeDomainData(au.ab); let e = 0; for (let i = 0; i < 1024; i++) e += au.ab[i] * au.ab[i]; return Math.sqrt(e / 1024); },
     tours: () => TOURS.map((T, k) => ({ k, name: T.name, desc: T.desc, n: T.stops.length })),
+    passport: () => passport(), get passNew() { const p = passNew; passNew = null; return p; },
     tourStart: (k) => { if (sys.def.id !== 'sol' || bench.on || wp.on || !TOURS[k]) return false; mp.on = false; gx.on = false; tr.k = k; tr.i = 0; tourGo(); return true; },
-    tourStep: (d) => { if (tr.k < 0) return; const n = TOURS[tr.k].stops.length, i = tr.i + d; if (i >= n) { tr.k = -1; ap.on = ap.pend = false; chime(true); return; } tr.i = Math.max(0, i); tourGo(); },
+    tourStep: (d) => { if (tr.k < 0) return; const n = TOURS[tr.k].stops.length, i = tr.i + d; if (i >= n) { passStamp('tours', TOURS[tr.k].name, 'Tour: ' + TOURS[tr.k].name); tr.k = -1; ap.on = ap.pend = false; chime(true); return; } tr.i = Math.max(0, i); tourGo(); },
     tourStop: () => { tr.k = -1; ap.on = ap.pend = false; },
     places: () => sys.lm.map((m, k) => ({ k, name: m.name, kind: LMK[m.kind], kc: m.kind, body: sys.list[m.bi].name, bid: sys.list[m.bi].id, lat: m.lat, lon: m.lon })), goPlace,
     constellations: () => CONSTELLATIONS.map((c, i) => ({ i, id: c.id, name: c.name, ra: c.ra, dec: c.dec })), skyTrip: (i) => skyTrip(i), skyEnd: () => skyEnd(),
@@ -2312,6 +2361,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 /* ============================== UI OVERLAY (DOM: target chip + list, menu, touch action buttons) ============================== */
 const fmtD = (m) => { const a = Math.abs(m); return a < 1e4 ? Math.round(m) + ' m' : a < 1e7 ? (m / 1e3).toFixed(1) + ' km' : a < 1e10 ? (m / 1e6).toFixed(1) + ' Mm' : (m / 1e9).toFixed(2) + ' Gm'; };
 const ICON = { // 24x24 stroke icons
+  pass: 'M6 3h10a3 3 0 0 1 3 3v15H9a3 3 0 0 1-3-3zM6 18a3 3 0 0 1 3-3h10M10 7.5h5M10 10.5h5',
   cruise: 'M4 6l7 6-7 6M12 6l7 6-7 6', stop: 'M7 7h10v10H7z', boost: 'M13 3L5 14h6l-1 7 8-11h-6z', up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6',
   rl: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4', rr: 'M20 12a8 8 0 1 1-3-6.2M20 4v4h-4', menu: 'M4 7h16M4 12h16M4 17h16', close: 'M6 6l12 12M18 6L6 18',
   snd: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6', mute: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6', cam: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 .1',
@@ -2356,6 +2406,30 @@ function findTree(eng, ui) {
     node('Galaxies', 'the Milky Way and its neighbours', S.filter((x) => x.kind === 'Galaxy' && !x.here).map(st)),
     ui.inSol ? node('Night sky', 'a constellation, seen from a dark site at night', SKY_SEASONS.map(([l, s, f]) => node(l, s, CS.filter((c) => (l === 'Southern sky' ? south(c) : !south(c) && f(c))).map((c) => ({ name: c.name, sub: 'Constellation · night-sky trip', go: () => eng.skyTrip(c.i) }))))) : null,
   ].filter(Boolean);
+}
+function PassportPanel({ eng, onClose }) {
+  const P = eng.passport(), tp = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } }), pct = (x) => Math.round(x * 100);
+  const box = (label, v) => <div style={{ flex: 1, minWidth: 70, padding: '8px 6px', border: '1px solid ' + C.line, borderRadius: 10, textAlign: 'center' }}><div style={{ fontSize: 18, color: C.acc }}>{v.got}<span style={{ fontSize: 11, color: C.dim }}> / {v.tot}</span></div><div style={{ fontSize: 10, color: C.dim, letterSpacing: 1 }}>{label}</div></div>;
+  const W = { earth: 'Earth', luna: 'Moon', mars: 'Mars' };
+  return (<div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 6, top: 70, right: 12, bottom: 12, width: 'min(380px, calc(100% - 24px))', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><Ico n="pass" s={20} /><span style={{ flex: 1, letterSpacing: 2, marginLeft: 10 }}>EXPLORER PASSPORT</span><span {...tp(onClose)} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
+    <div style={{ overflowY: 'auto', padding: '14px', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2 }}>RANK</div>
+      <div style={{ fontSize: 26, color: C.warn, letterSpacing: 2 }}>{P.rank.toUpperCase()}</div>
+      <div style={{ height: 8, borderRadius: 4, background: 'rgba(120,200,255,.15)', margin: '8px 0 4px' }}><div style={{ width: Math.max(2, pct(P.frac)) + '%', height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#7dffc8,#ffc35a)' }} /></div>
+      <div style={{ fontSize: 11, color: C.dim }}>{P.got} of {P.tot} stamps ({pct(P.frac)} %){P.next ? ' · ' + P.next.name + ' in ' + P.next.need + ' more' : ' · the highest rank!'}</div>
+      <div style={{ display: 'flex', gap: 6, margin: '14px 0', flexWrap: 'wrap' }}>{box('PLACES', P.places)}{box('SKY', P.con)}{box('WORLDS', P.bodies)}{box('TOURS', P.tours)}</div>
+      <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, marginBottom: 6 }}>PLACES BY WORLD</div>
+      {Object.entries(P.byBody).map(([b, v]) => <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, margin: '4px 0' }}><span style={{ width: 54 }}>{W[b] || b}</span>
+        <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(120,200,255,.15)' }}><div style={{ width: (v.tot ? pct(v.got / v.tot) : 0) + '%', height: '100%', borderRadius: 3, background: C.acc }} /></div><span style={{ color: C.dim, fontSize: 11, width: 52, textAlign: 'right' }}>{v.got} / {v.tot}</span></div>)}
+      <div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, margin: '16px 0 6px' }}>BADGES · {P.badges.filter((b) => b.got).length} / {P.badges.length}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{P.badges.map((b) => <div key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, borderRadius: 10, border: '1px solid ' + (b.got ? 'rgba(255,195,90,.6)' : 'rgba(120,200,255,.18)'), opacity: b.got ? 1 : 0.55 }}>
+        <span style={{ width: 26, height: 26, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: b.got ? 'radial-gradient(#ffe2a0,#c8862a)' : 'rgba(120,200,255,.12)', color: b.got ? '#3a2400' : C.dim, fontSize: 13 }}>{b.got ? '★' : '?'}</span>
+        <span style={{ lineHeight: 1.2 }}><span style={{ fontSize: 12, color: b.got ? C.warn : C.fg }}>{b.name}</span><br /><span style={{ fontSize: 10, color: C.dim }}>{b.desc}</span></span></div>)}</div>
+      {P.recent.length > 0 && <><div style={{ fontSize: 11, color: C.dim, letterSpacing: 2, margin: '16px 0 6px' }}>LATEST STAMPS</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{P.recent.map((n) => <span key={n} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 12, border: '1px solid ' + C.line }}>{n}</span>)}</div></>}
+      <div style={{ fontSize: 11, color: C.dim, marginTop: 16, lineHeight: 1.5 }}>Fly low over a place to stamp it, look at a constellation at night, log worlds by flying close, and finish tours.</div>
+    </div></div>);
 }
 function FindPanel({ eng, ui, q, setQ, onClose, cache }) {
   const [path, setPath] = useState([]), tp = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
@@ -2523,7 +2597,7 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
   </>);
 }
 function Overlay({ eng }) {
-  const [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
+  const [passOpen, setPassOpen] = useState(false), [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
   useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); eng.galaxyClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
@@ -2578,6 +2652,7 @@ function Overlay({ eng }) {
       {/* menu */}
       {menu && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 230, padding: 6 }}>
         {item(ui.sound ? 'snd' : 'mute', ui.sound ? 'Sound: on' : 'Sound: off', ui.sound, () => eng.act('KeyM'))}
+        {item('pass', 'Explorer passport', passOpen, () => { setPassOpen(true); setMenu(false); })}
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
@@ -2611,6 +2686,7 @@ function Overlay({ eng }) {
       {ui.sky && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 4, left: '50%', top: 84, transform: 'translateX(-50%)', width: 'min(460px, calc(100% - 24px))', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, borderColor: 'rgba(160,190,255,.6)' }}>
         <span style={{ flex: 1, lineHeight: 1.35 }}><span style={{ color: C.acc, fontSize: 14 }}>{ui.sky.name}</span><br /><span style={{ fontSize: 11, color: C.dim }}>{ui.sky.phase === 'fly' ? 'Flying to ' + ui.sky.site + ' for the night of ' + ui.sky.when : 'Night sky over ' + ui.sky.site + ' · ' + ui.sky.when}</span></span>
         <div {...tap(() => eng.skyEnd())} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1, whiteSpace: 'nowrap' }}>BACK TO TODAY</div></div>}
+      {passOpen && !mapOut && <PassportPanel eng={eng} onClose={() => setPassOpen(false)} />}
       {find !== null && <FindPanel eng={eng} ui={ui} q={find} setQ={setFind} onClose={() => setFind(null)} cache={placesRef} />}
       {tours && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))', maxHeight: 'calc(100% - 82px)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><span style={{ flex: 1, letterSpacing: 1 }}>GUIDED TOURS</span><span {...tap(() => setTours(false))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
