@@ -2271,14 +2271,16 @@ async function createEngine(canvas, systemId, opts = {}) {
     ['interstellar', 'Interstellar', 'Warp to another star', () => Object.keys(pass.stars).some((s) => s !== 'sol' && s !== 'm31')],
     ['andromeda', 'Intergalactic', 'Reach the Andromeda Galaxy', () => !!pass.stars.m31],
   ];
-  function passBadges() { for (const [id, name, , ok] of BADGES) if (!pass.badges[id] && ok()) { pass.badges[id] = Date.now(); passSave(); banner('BADGE EARNED - ' + name.toUpperCase(), false); chime(true); passNew = { t: 'badge', name }; return; } }
-  let passNew = null, passTk = 0, passNear = -1, passDwell = 0, passLast = 0; const STAMP_K = 'cmxldnh'; // seas, oceans and regions give no stamp
+  function passBadges() { const got = []; for (const [id, name, , ok] of BADGES) if (!pass.badges[id] && ok()) { pass.badges[id] = Date.now(); got.push(name); } // every badge you qualify for, at once
+    if (got.length) { passSave(); banner((got.length > 1 ? 'BADGES EARNED - ' : 'BADGE EARNED - ') + got.join(', ').toUpperCase(), false); chime(true); passNew = { t: 'badge', name: got.join(', ') }; } }
+  let passNew = null, passTk = 0, passBc = 0, passNear = -1, passDwell = 0, passLast = 0; const STAMP_K = 'cmxldnh'; // seas, oceans and regions give no stamp
   function passStamp(kind, key, label) { const m = pass[kind]; if (m[key]) return false; m[key] = Date.now(); passSave(); banner('PASSPORT STAMP - ' + (label || key).toUpperCase(), false); chime(false); passNew = { t: kind, name: label || key }; passBadges(); return true; }
   function passTick() { // ~3 times a second: nearby landmarks, landings, stars visited
     if (bench.on || !sys) return; const tn = performance.now(); if (tn - passTk < 300) return; passTk = tn;
     if (sys.def.id === 'sol') { for (const m of sys.lm) if (STAMP_K.includes(m.kind)) pass.kinds[m.name] = m.kind + '|' + sys.list[m.bi].id; else delete pass.kinds[m.name]; pass.totals = { lm: sys.lm.filter((m) => STAMP_K.includes(m.kind)).length, bodies: sys.n, con: CONSTELLATIONS.length, tours: TOURS.length }; }
     if (STARS[here] && !pass.stars[STARS[here].id]) { pass.stars[STARS[here].id] = Date.now(); passSave(); passBadges(); }
     if (landed && !pass.landed) { pass.landed = 1; passSave(); passBadges(); }
+    if (++passBc % 10 === 0) passBadges(); // every few seconds: badges that come from the log (gas giants) or anything else
     if (!prValid || cruise || wp.on) return; const b = sys.list[prBody], o = prBody * 3, q = prBody * 4, d = dist(prBody), alt = altT;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / d, (cam[1] - pos[o + 1]) / d, (cam[2] - pos[o + 2]) / d);
     let near = -1; for (let k = 0; k < sys.lm.length; k++) { const m = sys.lm[k]; if (m.bi !== prBody || pass.lm[m.name] || !STAMP_K.includes(m.kind)) continue; // close, low, and a few seconds there
