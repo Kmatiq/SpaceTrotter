@@ -2371,7 +2371,7 @@ const ICON = { // 24x24 stroke icons
   sys: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M3 12c0-3 4-5 9-5s9 2 9 5-4 5-9 5-9-2-9-5', bench: 'M12 13l4-4M4 18a8 8 0 1 1 16 0', tour: 'M5 21V4M5 4h11l-2 4 2 4H5', save: 'M12 4v11M7 11l5 5 5-5M5 20h14', map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14', find: 'M10.5 10.5m-6.5 0a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0M15.5 15.5L21 21', back: 'M15 5l-7 7 7 7', tgt: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0' };
 const Ico = ({ n, s = 24 }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>;
 const C = { fg: '#bfe8ff', dim: '#7fa8c4', acc: '#7dffc8', warn: '#ffc35a', bg: 'rgba(4,10,18,.62)', line: 'rgba(120,200,255,.45)' };
-const panel = { background: C.bg, border: '1px solid ' + C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
+const panel = { background: C.bg, borderWidth: 1, borderStyle: 'solid', borderColor: C.line, borderRadius: 14, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', color: C.fg };
 // ---- FIND: browse by category (empty box) or search everything (typing)
 const NORDIC = ['Stockholm', 'Gothenburg', 'Malmo', 'Oslo', 'Bergen', 'Copenhagen', 'Aarhus', 'Helsinki', 'Tampere', 'Reykjavik'];
 const DARK = ['Abisko', 'La Palma Observatory', 'Mauna Kea', 'Atacama Desert', 'Lake Tekapo'];
