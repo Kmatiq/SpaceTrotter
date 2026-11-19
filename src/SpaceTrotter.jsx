@@ -506,7 +506,7 @@ fn terrMap(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  let e=elev(n,fp);if(e.y<.5){return TR(0.,vec3f(0.),0.,0.,0.);}
  let a=abs(n.y)<.9;let t1=normalize(cross(n,select(vec3f(1.,0.,0.),vec3f(0.,1.,0.),a)));let t2=cross(n,t1);let ep=max(fp,2e-5);
  let n1=normalize(n+t1*ep);let n2=normalize(n+t2*ep);let ex=elev(n1,fp).x;let ey=elev(n2,fp).x;const EK=3.1e-7;// metres -> R (x2 relief)
- let ld=smoothstep(0.,30.,e.x);
+ let ld=smoothstep(120.,1500.,e.x);
  return TR(max(e.x,0.)*EK+ld*dt.x*da,(t1*(max(ex,0.)-max(e.x,0.))+t2*(max(ey,0.)-max(e.x,0.)))/ep*EK+ld*dt.yzw*s*da,e.x*.001,0.,1.);}
 fn terr(b:array<vec4f,16>,n:vec3f,fp:f32)->TR{
  if(b[12].w>.5){let r=terrMap(b,n,fp);if(r.m>.5){return r;}}
@@ -608,7 +608,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let aa=b[7].w;
    if(aa>0.){let r1=1.-abs(vn(n*b[5].w*5.+vec3f(3.3)).x);let r2=1.-abs(vn(n*b[5].w*17.+vec3f(1.1)).x);col=mix(col,b[7].xyz,clamp(aa*(pow(r1,40.)+.6*pow(r2,70.)+.25*smoothstep(.3,.7,m)),0.,1.));}
    if(aa<0.){let f=fbm(n*b[5].w*3.+vec3f(9.),5.,.55).x;col=mix(col,b[7].xyz,smoothstep(.18,.38,f)*min(-aa,1.));em+=vec3f(1.,.32,.05)*smoothstep(.46,.56,f)*3.*-aa;}
-   if(b[10].w>0.&&!wat&&mm>.5&&mm<1.5){let nl=nlight(n,fpS);if(nl>=0.){let nt=smoothstep(.08,-.18,dot(n,L));let zd=log2(6.2832/(256.*fpS));let k=smoothstep(7.5,11.,zd);let lu=dot(A.rgb,vec3f(.3,.55,.15));let sat=max(A.r,max(A.g,A.b))-min(A.r,min(A.g,A.b));let urb=smoothstep(.03,.12,lu)*smoothstep(.1,.03,sat);let sp=smoothstep(.55,.8,vn(n*select(2.4e5,1.2e6,zd>15.)).x*.5+.5);em+=vec3f(1.,.66,.33)*pow(nl,1.3)*mix(1.,(.05+2.6*urb)*(.12+1.7*sp),k*select(0.,1.,A.w>.5))*b[10].w*.17*mix(2.5,1.,smoothstep(4.,8.,zd))*nt;}}
+   if(b[10].w>0.&&!wat&&mm>.5&&mm<1.5){let nl=nlight(n,fpS);if(nl>=0.){let nt=smoothstep(.08,-.18,dot(n,L));let zd=log2(6.2832/(256.*fpS));let k=smoothstep(7.5,11.,zd);let lu=dot(A.rgb,vec3f(.3,.55,.15));let sat=max(A.r,max(A.g,A.b))-min(A.r,min(A.g,A.b));let urb=smoothstep(.03,.12,lu)*smoothstep(.1,.03,sat);let LS=select(2.4e5,1.2e6,zd>15.);let pc=n*LS;let ci=floor(pc);let fr=pc-ci;let hh=hu(vec3i(ci));let lp=vec3f(f32(hh&255u),f32((hh>>8u)&255u),f32((hh>>16u)&255u))*(1./255.);let px=fpS*LS;let pt=smoothstep(.2+px*.5,0.,length(fr-lp))*step(.5,f32(hh>>24u)*(1./255.));let sp=mix(pt*2.5,.15,smoothstep(.25,.9,px));em+=vec3f(1.,.66,.33)*pow(nl,1.3)*mix(1.,(.05+2.6*urb)*(.06+1.5*sp),k*select(0.,1.,A.w>.5))*b[10].w*.17*mix(2.5,1.,smoothstep(4.,8.,zd))*nt;}}
    if(b[10].w>0.&&!wat&&!(mm>.5&&mm<1.5&&nlight(n,fpS)>=0.)){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,select(m,.3,A.w>.5))*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*select(smoothstep(.03,.1,T.f-ol),1.,A.w>.5);}}
   var sT=sunT(b,p,L);
   if(ringOn&&abs(L.y)>1e-4){let tr=-p.y/L.y;if(tr>0.){let rq=p+L*tr;sT*=1.-ringD(b,length(rq.xz),.01)*b[13].z*.9;}}
