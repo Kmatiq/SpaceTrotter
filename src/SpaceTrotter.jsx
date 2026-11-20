@@ -383,7 +383,11 @@ struct Hud{a:vec4f,c:vec4f,b:vec4f};
 @group(0)@binding(5) var smp:sampler;
 @group(0)@binding(6) var<storage,read> TH:array<vec2u>;// tile hash: key -> layer
 @group(0)@binding(7) var TA:texture_2d_array<f32>;// streamed map tiles (256x256)
-@group(0)@binding(8) var<storage,read> TLB:array<vec4f>;// city tiles: anchor (body frame), KS | anchor (cam-rel), body slot
+@group(0)@binding(8) var<storage,read> TLB:array<vec4f>;
+struct SHU{m:mat4x4f,p:vec4f};// sun shadow map: world (cam-rel) -> light clip; p: on, texel (light units), -, earth slot
+@group(0)@binding(9) var<uniform> SHB:SHU;
+@group(1)@binding(4) var shT:texture_depth_2d;
+@group(1)@binding(5) var shS:sampler_comparison;// city tiles: anchor (body frame), KS | anchor (cam-rel), body slot
 struct PB{i:vec4f,o:vec4f};
 @group(2)@binding(0) var<storage,read_write> PRB:PB;
 @group(1)@binding(0) var scn:texture_2d<f32>;
@@ -611,7 +615,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    if(aa<0.){let f=fbm(n*b[5].w*3.+vec3f(9.),5.,.55).x;col=mix(col,b[7].xyz,smoothstep(.18,.38,f)*min(-aa,1.));em+=vec3f(1.,.32,.05)*smoothstep(.46,.56,f)*3.*-aa;}
    if(b[10].w>0.&&!wat&&mm>.5&&mm<1.5){let nl=nlight(n,fpS);if(nl>=0.){let nt=smoothstep(.08,-.18,dot(n,L));let zd=log2(6.2832/(256.*fpS));let k=smoothstep(7.5,11.,zd);let lu=dot(A.rgb,vec3f(.3,.55,.15));let sat=max(A.r,max(A.g,A.b))-min(A.r,min(A.g,A.b));let urb=smoothstep(.03,.12,lu)*smoothstep(.1,.03,sat);let LS=select(2.4e5,1.2e6,zd>15.);let pc=n*LS;let ci=floor(pc);let fr=pc-ci;let hh=hu(vec3i(ci));let lp=vec3f(f32(hh&255u),f32((hh>>8u)&255u),f32((hh>>16u)&255u))*(1./255.);let px=fpS*LS;let pt=smoothstep(.2+px*.5,0.,length(fr-lp))*step(.5,f32(hh>>24u)*(1./255.));let sp=mix(pt*2.5,.15,smoothstep(.25,.9,px));em+=vec3f(1.,.66,.33)*pow(nl,1.3)*mix(1.,(.05+2.6*urb)*(.06+1.5*sp),k*select(0.,1.,A.w>.5))*b[10].w*.17*mix(2.5,1.,smoothstep(4.,8.,zd))*nt;}}
    if(b[10].w>0.&&!wat&&!(mm>.5&&mm<1.5&&nlight(n,fpS)>=0.)){let ci=fbm(n*70.,6.,.6).x;em+=vec3f(1.,.62,.28)*smoothstep(.3,.6,ci)*smoothstep(-.05,.3,select(m,.3,A.w>.5))*b[10].w*.06*smoothstep(.08,-.18,dot(n,L))*select(smoothstep(.03,.1,T.f-ol),1.,A.w>.5);}}
-  var sT=sunT(b,p,L);
+  var sT=sunT(b,p,L);if(SHB.p.x>.5&&v.id==u32(SHB.p.w)){sT*=shad(b[0].xyz+qr(b[2],p*R+n*SHB.p.y*1.5));}
   if(ringOn&&abs(L.y)>1e-4){let tr=-p.y/L.y;if(tr>0.){let rq=p+L*tr;sT*=1.-ringD(b,length(rq.xz),.01)*b[13].z*.9;}}
   if(b[11].w>0.){let ch=b[15].z;sT*=1.-.7*cloud(b,normalize(p+L*(ch/max(dot(n,L),.15))),.01);}
   let ndl=dot(N,L);let gdl=dot(n,L);
@@ -649,11 +653,16 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
 @compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),select(max(b[4].w,1e-4)*.08,1e-5,b[12].w>.5));PRB.o=vec4f(r.h,r.f,r.m,1.);}
 // ================= 3D CITY (real buildings, rasterised; base sits on the same terrain the ground raymarch draws) =================
 struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@location(2) q:vec4f,@location(3) @interpolate(flat) c:vec4f,@location(4) @interpolate(flat) L:vec3f,@location(5) @interpolate(flat) E:vec3f,@location(6) w:vec3f,@location(7) @interpolate(flat) sl:u32};
-@vertex fn vsC(@location(0) o:vec3f,@location(1) hr:f32,@location(2) nr:vec4f,@location(3) cl:vec4f,@location(4) bo:vec4f,@builtin(instance_index) i:u32)->CV{
- let A=TLB[i*2u];let C=TLB[i*2u+1u];let sl=u32(C.w);let b=BD[sl].d;let R=b[0].w;let n=normalize(A.xyz+o);
+fn cityW(o:vec3f,hr:f32,bo:vec3f,i:u32)->vec3f{let A=TLB[i*2u];let C=TLB[i*2u+1u];let b=BD[u32(C.w)].d;let R=b[0].w;let n=normalize(A.xyz+o);
  let hm=max(b[4].w+b[8].x*.3/max(b[8].y,1.),select(0.,select(.013,.017,b[12].w>2.5),b[12].w>1.5));
- OCM=mix(5.,7.,g.fx.z);let h=terr(b,normalize(A.xyz+o+bo.xyz),hm*.08).h*R;
- let wp=C.xyz+qr(b[2],o+n*(h+hr));let L=normalize(qr(qc(b[2]),g.sun.xyz-b[0].xyz));
+ OCM=mix(5.,7.,g.fx.z);let h=terr(b,normalize(A.xyz+o+bo),hm*.08).h*R;return C.xyz+qr(b[2],o+n*(h+hr));}
+@vertex fn vsCS(@location(0) o:vec3f,@location(1) hr:f32,@location(4) bo:vec4f,@builtin(instance_index) i:u32)->@builtin(position) vec4f{return SHB.m*vec4f(cityW(o,hr,bo.xyz,i),1.);}
+fn shad(w:vec3f)->f32{if(SHB.p.x<.5){return 1.;}let c=SHB.m*vec4f(w,1.);let uv=c.xy*vec2f(.5,-.5)+.5;let e=max(abs(c.x),abs(c.y));if(e>=1.||c.z<=0.||c.z>=1.){return 1.;}
+ let tx=1./2048.;var s=0.;for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){s+=textureSampleCompareLevel(shT,shS,uv+vec2f(f32(x),f32(y))*tx,c.z-.0004);}}
+ return mix(s/9.,1.,smoothstep(.85,1.,e));}
+@vertex fn vsC(@location(0) o:vec3f,@location(1) hr:f32,@location(2) nr:vec4f,@location(3) cl:vec4f,@location(4) bo:vec4f,@builtin(instance_index) i:u32)->CV{
+ let A=TLB[i*2u];let C=TLB[i*2u+1u];let sl=u32(C.w);let b=BD[sl].d;let n=normalize(A.xyz+o);
+ let wp=cityW(o,hr,bo.xyz,i);let L=normalize(qr(qc(b[2]),g.sun.xyz-b[0].xyz));
  return CV(g.vp*vec4f(wp,1.),nr.xyz,n,vec4f(o/A.w,hr/A.w),cl,L,g.sc.rgb*b[1].z*2.,wp,sl);}
 @fragment fn fsC(v:CV)->@location(0) vec4f{
  let b=BD[v.sl].d;let R=b[0].w;let up=normalize(v.u);let N0=normalize(v.n);let N=select(N0,-N0,dot(N0,up)<-.35);let L=v.L;let E=v.E;let c=v.c;let ud=dot(N,up);
@@ -687,7 +696,7 @@ struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@
    al=mix(al,vec3f(.07,.08,.1),mix(.18,m,fd)*.85);
    let night=1.-smoothstep(-.1,.05,dot(up,L));let lit=step(.58,hf(vec3i(i32(floor(x/2.8)),i32(floor(y/3.2)),i32(c.z*65535.))));
    em=vec3f(1.,.74,.42)*mix(.07,m*lit,fd)*night*.5;}}
- let gdl=dot(up,L);let ndl=max(dot(N,L),0.);let sT=sunT(b,up,L);
+ let gdl=dot(up,L);let ndl=max(dot(N,L),0.);let sT=sunT(b,up,L)*shad(v.w+qr(b[2],N)*SHB.p.y*2.);
  let skyC=normalize(b[12].xyz+vec3f(1e-4))*.75+vec3f(.25);let hemi=mix(vec3f(.04,.05,.07),skyC,.5+.5*ud)*.09;let day=smoothstep(-.12,.25,gdl);
  var col=al*E*ndl*smoothstep(-.03,.08,gdl)*sT+al*E*(.0025*mix(.3,1.,day)+b[12].xyz*.3*smoothstep(-.2,.3,gdl))+al*E*hemi*day*1.5+em;
  let d=length(v.w);let f=1.-exp(-d/(R*.02));col=mix(col,E*skyC*.05*day,f*.8);
@@ -963,19 +972,22 @@ async function createEngine(canvas, systemId, opts = {}) {
   const probeIn = new Float32Array(8), probeBuf = buf(32, U.STORAGE | U.COPY_DST | U.COPY_SRC), probeRd = buf(32, U.MAP_READ | U.COPY_DST);
   const VFC = VF | GPUShaderStage.COMPUTE;
   const tlF = new Float32Array(512 * 8), tlBuf = buf(tlF.byteLength, U.STORAGE | U.COPY_DST); // per-draw city tile anchors
+  const shF = new Float32Array(20), shBuf = buf(80, U.UNIFORM | U.COPY_DST), shTex = device.createTexture({ size: [2048, 2048], format: 'depth32float', usage: T.RENDER_ATTACHMENT | T.TEXTURE_BINDING }); // sun shadow map
   const bgl0 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: VFC, buffer: {} }, { binding: 1, visibility: VFC, buffer: { type: 'read-only-storage' } },
     { binding: 2, visibility: VF, buffer: { type: 'read-only-storage' } }, { binding: 3, visibility: VF, buffer: { type: 'read-only-storage' } },
     { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VFC, sampler: {} },
-    { binding: 6, visibility: VFC, buffer: { type: 'read-only-storage' } }, { binding: 7, visibility: VFC, texture: { viewDimension: '2d-array' } }, { binding: 8, visibility: VF, buffer: { type: 'read-only-storage' } }] });
+    { binding: 6, visibility: VFC, buffer: { type: 'read-only-storage' } }, { binding: 7, visibility: VFC, texture: { viewDimension: '2d-array' } }, { binding: 8, visibility: VF, buffer: { type: 'read-only-storage' } }, { binding: 9, visibility: VF, buffer: {} }] });
   const bgl1 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
     { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } }] });
   const bg0 = device.createBindGroup({ layout: bgl0, entries: [
     { binding: 0, resource: { buffer: gBuf } }, { binding: 1, resource: { buffer: bBuf } }, { binding: 2, resource: { buffer: iBuf } },
     { binding: 3, resource: { buffer: hBuf } }, { binding: 4, resource: atlas.createView() }, { binding: 5, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
-    { binding: 6, resource: { buffer: thBuf } }, { binding: 7, resource: tileTex.createView({ dimension: '2d-array' }) }, { binding: 8, resource: { buffer: tlBuf } }] });
-  const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] }), pl1 = device.createPipelineLayout({ bindGroupLayouts: [bgl0, bgl1] });
+    { binding: 6, resource: { buffer: thBuf } }, { binding: 7, resource: tileTex.createView({ dimension: '2d-array' }) }, { binding: 8, resource: { buffer: tlBuf } }, { binding: 9, resource: { buffer: shBuf } }] });
+  const bglS = device.createBindGroupLayout({ entries: [{ binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } }, { binding: 5, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'comparison' } }] });
+  const bgS = device.createBindGroup({ layout: bglS, entries: [{ binding: 4, resource: shTex.createView() }, { binding: 5, resource: device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' }) }] });
+  const plS = device.createPipelineLayout({ bindGroupLayouts: [bgl0, bglS] }), pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] }), pl1 = device.createPipelineLayout({ bindGroupLayouts: [bgl0, bgl1] });
 
   const PM = { color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } };
   const ADD = { color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'one', dstFactor: 'one' } };
@@ -986,11 +998,15 @@ async function createEngine(canvas, systemId, opts = {}) {
     primitive: { topology: 'triangle-list', cullMode: cull || 'none' },
     depthStencil: depth ? { format: DF, depthWriteEnabled: depth === 2, depthCompare: depth === 3 ? 'always' : 'greater' } : undefined });
   const skyP = pipe('vsF', 'fsSky', HDR, undefined, 3), sdfP = pipe('vsS', 'fsS', HDR, undefined, 2, 'front'),
-    bodyP = pipe('vsB', 'fsB', HDR, PM, 2, 'front'), tailP = pipe('vsS', 'fsT', HDR, ADD, 1, 'front'),
+    bodyP = pipe('vsB', 'fsB', HDR, PM, 2, 'front', plS), tailP = pipe('vsS', 'fsT', HDR, ADD, 1, 'front'),
     postP = pipe('vsF', 'fsPost', fmt, undefined, 0, 0, pl1), hudP = pipe('vsH', 'fsH', fmt, AL, 0);
-  const cityP = device.createRenderPipeline({ layout: pl0, vertex: { module: mod, entryPoint: 'vsC', buffers: [{ arrayStride: 32, attributes: [
+  const cityP = device.createRenderPipeline({ layout: plS, vertex: { module: mod, entryPoint: 'vsC', buffers: [{ arrayStride: 32, attributes: [
     { shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32' }, { shaderLocation: 2, offset: 16, format: 'snorm8x4' }, { shaderLocation: 3, offset: 20, format: 'unorm8x4' }, { shaderLocation: 4, offset: 24, format: 'float16x4' }] }] },
     fragment: { module: mod, entryPoint: 'fsC', targets: [{ format: HDR }] }, primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: DF, depthWriteEnabled: true, depthCompare: 'greater' } });
+  const shadowP = device.createRenderPipeline({ layout: pl0, vertex: { module: mod, entryPoint: 'vsCS', buffers: [{ arrayStride: 32, attributes: [
+    { shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32' }, { shaderLocation: 4, offset: 24, format: 'float16x4' }] }] },
+    primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less', depthBias: 2, depthBiasSlopeScale: 2 } });
+  const shAtt = { view: null, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }, shDesc = { colorAttachments: [], depthStencilAttachment: shAtt };
   const bglP = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }] });
   const probeP = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [bgl0, device.createBindGroupLayout({ entries: [] }), bglP] }), compute: { module: mod, entryPoint: 'csProbe' } });
   const bgP = device.createBindGroup({ layout: bglP, entries: [{ binding: 0, resource: { buffer: probeBuf } }] });
@@ -1131,6 +1147,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const city = { id: 'hel', on: (() => { if (typeof location === 'undefined' || /[?&]nocity\b/.test(location.search)) return false; if (/[?&]city\b/.test(location.search)) return true; try { return localStorage.getItem('spacetrotter.buildings') !== '0'; } catch (e) { return true; } })(),
     root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0, q: '', at: null, maxD: 30000, sse: 8, vmax: 3e6,
     active: (la, lo, alt) => alt <= 40000 && Math.abs(la - 1.0503) <= 0.012 && Math.abs(lo - 0.4371) <= 0.024, rootUrl: () => Promise.resolve(CITY_URL), px: () => canvas.clientHeight || H }; // the city's coarser levels are rough simplifications: ask for the fine ones early // within ~70 km of Helsinki, below ~40 km (real)
+  let shadowsOn = (() => { if (typeof location !== 'undefined' && /[?&]noshadow\b/.test(location.search)) return false; try { return localStorage.getItem('spacetrotter.shadows') !== '0'; } catch (e) { return true; } })(); // sun shadows from buildings (menu switch, remembered)
   const ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImhFZkVzTVF5bzZGN21HQ2EiLCJqdGkiOiJmNjY2MmI2YS0xMjUyLTRjNmQtYjYxZC1lMzMwYzFhMDI3OWIiLCJpZCI6NTUyMDk3LCJzdWIiOiJLbWF0aXEiLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoiU3BhY2VUcm90dGVyIiwiaWF0IjoxNzk1MDEwMzc0fQ.qmQMiGtggHCvpO3SH1Nc0u58hRl2eLV1vrCBnoFApLI'; // public browser token, locked to kmatiq.github.io + localhost:5173, assets:read only
   const HEL_POLY = [4545,2952,4529,2975,4382,2953,4295,2978,4226,2920,4015,2880,4049,2864,3963,2820,3903,2857,3877,2799,3788,2778,3738,2783,3724,2764,3425,2698,3446,2592,3540,2566,3599,2488,3523,2459,3432,2447,3358,2372,2914,2452,2824,2497,2875,2593,2880,2713,2766,2755,2534,2760,2507,2783,2471,2777,2379,2880,2328,2850,2209,2893,2088,2878,2057,2861,2007,2865,1956,2814,1836,2796,1755,2699,1781,2677,1732,2644,1605,2682,1559,2728,1565,2762,1475,2785,928,2685,914,2664,773,2603,724,2541,679,2524,643,2539,578,2536,386,2591,347,2585,314,2541,419,2212,514,2250,479,2216,469,2037,428,1958,444,1656,357,1304,-172,1000,1423,-775,3586,-576,3768,935,3943,1469,4204,1997,4014,2182,4044,2299,4266,2394,4231,2428,4271,2451,4409,2463,4375,2563,4335,2566,4273,2611,4326,2625,4348,2720,4433,2718,4509,2735,4523,2757,4441,2783,4471,2785,4473,2830,4439,2849,4539,2896,4456,2935]; // City of Helsinki boundary (Helsinki open data, CC BY 4.0), simplified to ~100 m, as (lon - 24.8, lat - 60) x 1e4
   const inPoly = (P, x, y) => { let c = false; for (let i = 0, j = P.length - 2; i < P.length; j = i, i += 2) { const yi = P[i + 1], yj = P[j + 1]; if ((yi > y) !== (yj > y) && x < ((P[j] - P[i]) * (y - yi)) / (yj - yi) + P[i]) c = !c; } return c; };
@@ -1267,6 +1284,21 @@ async function createEngine(canvas, systemId, opts = {}) {
     rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && S.fly < 8; i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) srcJson(S, n, n.url, n.T); else srcTile(S, n); }
     if (S.nV > S.vmax) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(S.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
       for (const n of all) { if (S.nV <= S.vmax * 0.75 || n.tile.use === S.use) break; n.tile.buf.destroy(); S.nV -= n.tile.n; S.nT--; n.tile = null; n.st = 0; } }
+  }
+  function shadowFrame() { // sun shadow map over the city around the camera (buildings cast onto ground and each other)
+    shF[16] = 0; const eb = sys.idx.earth; if (eb === undefined || !city.n || !shadowsOn) { device.queue.writeBuffer(shBuf, 0, shF); return; }
+    const o = eb * 3, ex = pos[o] - cam[0], ey = pos[o + 1] - cam[1], ez = pos[o + 2] - cam[2], dc = Math.hypot(ex, ey, ez), R0 = sys.list[eb].R, alt = Math.max(0, dc - R0);
+    const ux = -ex / dc, uy = -ey / dc, uz = -ez / dc; let sx = gF[32] - ex, sy = gF[33] - ey, sz = gF[34] - ez; const sl = Math.hypot(sx, sy, sz); sx /= sl; sy /= sl; sz /= sl;
+    if (sx * ux + sy * uy + sz * uz < 0.02 || alt > R0 * 0.003) { device.queue.writeBuffer(shBuf, 0, shF); return; } // sun down, or too high for building shadows to show
+    const rs = Math.min(Math.max(alt * 2.5 + 40, 60), 360); let fx = gF[24], fy = gF[25], fz = gF[26]; const fu = fx * ux + fy * uy + fz * uz; fx -= ux * fu; fy -= uy * fu; fz -= uz * fu; const fl = Math.hypot(fx, fy, fz) || 1;
+    let cx = -ux * alt + (fx / fl) * rs * 0.55, cy = -uy * alt + (fy / fl) * rs * 0.55, cz = -uz * alt + (fz / fl) * rs * 0.55;
+    let ax = Math.abs(sy) < 0.9 ? 0 : 1, ay = Math.abs(sy) < 0.9 ? 1 : 0; let Xx = ay * sz - 0 * sy, Xy = 0 * sx - ax * sz, Xz = ax * sy - ay * sx; const xl = Math.hypot(Xx, Xy, Xz); Xx /= xl; Xy /= xl; Xz /= xl;
+    const Yx = sy * Xz - sz * Xy, Yy = sz * Xx - sx * Xz, Yz = sx * Xy - sy * Xx, tx = (2 * rs) / 2048;
+    for (const [vx, vy, vz] of [[Xx, Xy, Xz], [Yx, Yy, Yz]]) { const k = (cx - ex) * vx + (cy - ey) * vy + (cz - ez) * vz, d = k - Math.round(k / tx) * tx; cx -= vx * d; cy -= vy * d; cz -= vz * d; } // snap to texels in an Earth-fixed frame: no shimmer
+    const m = shF, cX = cx * Xx + cy * Xy + cz * Xz, cY = cx * Yx + cy * Yy + cz * Yz, cS = cx * sx + cy * sy + cz * sz, k4 = 1 / (4 * rs);
+    m[0] = Xx / rs; m[4] = Xy / rs; m[8] = Xz / rs; m[12] = -cX / rs; m[1] = Yx / rs; m[5] = Yy / rs; m[9] = Yz / rs; m[13] = -cY / rs;
+    m[2] = -sx * k4; m[6] = -sy * k4; m[10] = -sz * k4; m[14] = 0.5 + cS * k4; m[3] = 0; m[7] = 0; m[11] = 0; m[15] = 1;
+    m[16] = 1; m[17] = tx; m[18] = rs; m[19] = slotOf[eb]; device.queue.writeBuffer(shBuf, 0, shF);
   }
   function drawsUpload(eb) { if (!city.n || eb === undefined) return; const o = eb * 3, q = eb * 4, KS = sys.list[eb].R / 6371008.8; // per-draw anchors (city tiles + landmarks), camera-relative in f64
     for (let i = 0; i < city.n; i++) { const t = city.draws[i], e = i * 8; qrot(t3, 0, bq, q, t.A[0], t.A[1], t.A[2]);
@@ -2200,7 +2232,7 @@ async function createEngine(canvas, systemId, opts = {}) {
 
     buildHud(dt, spd);
     const Q = device.queue;
-    helFrame(); Q.writeBuffer(gBuf, 0, gF); Q.writeBuffer(bBuf, 0, bodyF, 0, sys.nSph * BSTR);
+    helFrame(); shadowFrame(); Q.writeBuffer(gBuf, 0, gF); Q.writeBuffer(bBuf, 0, bodyF, 0, sys.nSph * BSTR);
     if (ni) Q.writeBuffer(iBuf, 0, instF, 0, ni * ISTR); if (hn) Q.writeBuffer(hBuf, 0, hudF, 0, hn * HSTR);
     // ---- encode ----
     if (frame % 2 === 0) tiles();
@@ -2219,8 +2251,10 @@ async function createEngine(canvas, systemId, opts = {}) {
         enc.copyBufferToBuffer(probeBuf, 16, probeRd, 0, 16); doProbe = true; prSent = bi;
       } else if (bd >= 0.05) { prValid = false; prBody = -1; }
     }
+    if (shF[16] > 0.5 && city.n) { shAtt.view = shAtt.view || shTex.createView(); const sp = enc.beginRenderPass(shDesc); sp.setBindGroup(0, bg0); sp.setPipeline(shadowP); // sun's view of the buildings
+      for (let k = 0; k < city.n; k++) { sp.setVertexBuffer(0, city.draws[k].buf); sp.draw(city.draws[k].n, 1, 0, k); } sp.end(); }
     let p = enc.beginRenderPass(sceneDesc);
-    p.setBindGroup(0, bg0);
+    p.setBindGroup(0, bg0); p.setBindGroup(1, bgS);
     p.setPipeline(skyP); p.draw(3);
     if (gx.a < 1) { if (nOpaque) { p.setPipeline(sdfP); p.draw(36, nOpaque, 0, 0); }
     if (city.n) { p.setPipeline(cityP); for (let k = 0; k < city.n; k++) { p.setVertexBuffer(0, city.draws[k].buf); p.draw(city.draws[k].n, 1, 0, k); } }
@@ -2371,14 +2405,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
-    get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
+    get shadow() { return { on: shadowsOn, p: Array.from(shF.slice(16)) }; }, shadowToggle: () => { shadowsOn = !shadowsOn; try { localStorage.setItem('spacetrotter.shadows', shadowsOn ? '1' : '0'); } catch (e) { /* private mode */ } }, get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, osm: osm.vis, world3d: osm.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, shadows: shadowsOn, osm: osm.vis, world3d: osm.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -2740,6 +2774,7 @@ function Overlay({ eng }) {
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('sys', (ui.world3d ? '3D buildings: ' : '3D buildings (Helsinki): ') + (ui.buildings ? 'on' : 'off'), ui.buildings, () => eng.cityToggle())}
+        {item('sys', 'Shadows: ' + (ui.shadows ? 'on' : 'off'), ui.shadows, () => eng.shadowToggle())}
         {item('sys', 'Constellations: ' + ['auto (night sky)', 'always', 'off'][ui.con || 0], ui.con !== 2, () => eng.act('KeyC'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spacetrotter.html'; a.download = 'spacetrotter.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}

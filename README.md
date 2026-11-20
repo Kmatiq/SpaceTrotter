@@ -76,6 +76,8 @@ renders at your screen's full resolution.*
 - **3D buildings worldwide:** OpenStreetMap buildings for the whole world (Cesium OSM Buildings, via Cesium ion),
   streamed below about 25 km. Helsinki keeps its own, better model inside the city limits, and the landmark
   models stand in place of their OSM versions. `?noosm` turns the worldwide buildings off.
+- **Sun shadows:** buildings and landmarks cast real-time shadows onto the ground and each other (☰ → Shadows,
+  or `?noshadow`).
 - **Constellations:** in Earth's atmosphere at dusk and night, the 34 best-known constellations are drawn
   over the real stars, with names and a fact for the one you look at. `C` or the menu: auto / always / off.
 - **Photo mode:** hides everything and saves a PNG.
