@@ -76,6 +76,9 @@ renders at your screen's full resolution.*
 - **3D buildings worldwide:** OpenStreetMap buildings for the whole world (Cesium OSM Buildings, via Cesium ion),
   streamed below about 25 km. Helsinki keeps its own, better model inside the city limits, and the landmark
   models stand in place of their OSM versions. `?noosm` turns the worldwide buildings off.
+- **Photorealistic 3D (test):** open the game with `?g3d` for Google Photorealistic 3D Tiles (via Cesium ion) below
+  about 12 km in daylight: textured photogrammetry of cities and landscapes. Where it shows, the OSM buildings and
+  landmark models step aside; at night the lit OSM city returns.
 - **Sun shadows:** buildings and landmarks cast real-time shadows onto the ground and each other (☰ → Shadows,
   or `?noshadow`).
 - **Constellations:** in Earth's atmosphere at dusk and night, the 34 best-known constellations are drawn
@@ -126,6 +129,7 @@ and ☰.
 | Helsinki aerial photo | City of Helsinki orthophoto 2025, via the [kartta.hel.fi](https://kartta.hel.fi) open-data WMS | zoom 14–18 (to ~0.3 m/px), **CC BY 4.0** |
 | Helsinki buildings | [City of Helsinki 3D city model](https://www.hel.fi/en/decision-making/information-on-helsinki/maps-and-geospatial-data/helsinki-3d), LOD2 3D Tiles | **CC BY 4.0**, streamed from kartta.hel.fi; scaled 1/5 like the Earth |
 | Draco decoder | Google [Draco](https://github.com/google/draco) glTF decoder (via three.js r170), in `public/draco` | **Apache-2.0**; decodes the Helsinki model's compressed tiles in a worker |
+| Photorealistic 3D (`?g3d`) | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles) via Cesium ion | **© Google** and the data providers shown on screen; Google logo shown while visible |
 | Buildings elsewhere | [Cesium OSM Buildings](https://cesium.com/platform/cesium-ion/content/cesium-osm-buildings/) via Cesium ion (free Community plan, non-commercial) | **© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, ODbL**; 3D Tiles 1.0, flat-roofed blocks |
 
 **Deliberate compromises, for playability:**
