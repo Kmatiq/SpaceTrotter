@@ -812,10 +812,17 @@ fn slab(ro:vec3f,rd:vec3f)->vec2f{let iv=1./rd;let a=(-1.-ro)*iv;let c=(1.-ro)*i
  if(g.gx.w<.5){c+=gxAll(g.gx.xyz,GXM*rd,1.)*.05;}// other galaxies as faint smudges in the sky
  return vec4f(c,1.);}
 // ================= POST: bloom-lite, sun glare, warp streaks, ACES =================
+fn vpos(p:vec2i)->vec3f{let d=textureLoad(dep,p,0);let r=ray(vec2f(p)+.5);return r*(g.fw.w/max(d,1e-30))/dot(r,g.fw.xyz);}// view-space position (camera at origin) from the reversed-Z depth
+fn ssao(p:vec2i,mx:vec2i)->f32{let d0=textureLoad(dep,p,0);if(d0<=0.){return 1.;}let P=vpos(p);let z=dot(P,g.fw.xyz);if(z>4000.||z<.05){return 1.;}// ambient occlusion: darker corners, alleys and folds (screen space, from depth only)
+ let N0=cross(vpos(min(p+vec2i(1,0),mx))-P,vpos(min(p+vec2i(0,1),mx))-P);let nl=length(N0);if(nl<1e-12){return 1.;}let N=N0/nl*select(1.,-1.,dot(N0,P)>0.);
+ let rw=clamp(z*.03,.4,6.);let rp=rw*g.res.y*.5/(z*g.up.w);if(rp<1.5){return 1.;}let ns=select(6,12,g.fx.z>.5);let rot=f32((p.x&3)*4+(p.y&3))*.3927;
+ var occ=0.;for(var i=0;i<ns;i++){let a=rot+f32(i)*2.39996;let s=rp*sqrt((f32(i)+.5)/f32(ns));let q=clamp(p+vec2i(vec2f(cos(a),sin(a))*s),vec2i(0),mx);
+  let v=vpos(q)-P;let l=length(v);if(l>1e-6){occ+=max(dot(v,N)/l-.15,0.)*(1.-smoothstep(rw*.6,rw*1.6,l));}}
+ return 1.-clamp(occ/f32(ns)*2.6,0.,.75)*(1.-smoothstep(1500.,4000.,z));}
 @fragment fn fsPost(@builtin(position) f:vec4f)->@location(0) vec4f{
  let mx=vec2i(g.res.xy)-1;let sk=g.res.y/1440.;let hu0=(f.xy-g.res.xy*.5)/g.res.y;let hr=length(hu0);let ha=atan2(hu0.y,hu0.x);let he=g.fx.x*smoothstep(.22,.85,hr);
  var ip=vec2i(f.xy);if(he>0.){let hq=f.xy*.035/max(sk,.3);let w=vec2f(vn(vec3f(hq,g.mi.x*6.)).x,vn(vec3f(hq.yx+vec2f(7.),g.mi.x*6.)).x);ip=clamp(ip+vec2i(w*he*9.*sk),vec2i(0),mx);} // heat-haze refraction
- var c=textureLoad(scn,ip,0).rgb;
+ var c=textureLoad(scn,ip,0).rgb*ssao(vec2i(f.xy),mx);
  var bl=vec3f(0.);for(var i=0;i<16;i++){let a=f32(i)*2.39996;let r=(3.+f32(i)*2.2)*sk;let s=textureLoad(scn,clamp(ip+vec2i(vec2f(cos(a),sin(a))*r),vec2i(0),mx),0).rgb;bl+=max(s-vec3f(1.),vec3f(0.))/(1.+f32(i)*.3);}
  c+=bl*.035;
  if(g.ss.w>0.){let sp=g.ss.xy*g.res.xy;var vis=0.;var tot=0.;
