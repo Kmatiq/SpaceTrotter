@@ -649,10 +649,10 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
 @compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),select(max(b[4].w,1e-4)*.08,1e-5,b[12].w>.5));PRB.o=vec4f(r.h,r.f,r.m,1.);}
 // ================= 3D CITY (real buildings, rasterised; base sits on the same terrain the ground raymarch draws) =================
 struct CV{@builtin(position) p:vec4f,@location(0) n:vec3f,@location(1) u:vec3f,@location(2) q:vec4f,@location(3) @interpolate(flat) c:vec4f,@location(4) @interpolate(flat) L:vec3f,@location(5) @interpolate(flat) E:vec3f,@location(6) w:vec3f,@location(7) @interpolate(flat) sl:u32};
-@vertex fn vsC(@location(0) o:vec3f,@location(1) hr:f32,@location(2) nr:vec4f,@location(3) cl:vec4f,@builtin(instance_index) i:u32)->CV{
+@vertex fn vsC(@location(0) o:vec3f,@location(1) hr:f32,@location(2) nr:vec4f,@location(3) cl:vec4f,@location(4) bo:vec4f,@builtin(instance_index) i:u32)->CV{
  let A=TLB[i*2u];let C=TLB[i*2u+1u];let sl=u32(C.w);let b=BD[sl].d;let R=b[0].w;let n=normalize(A.xyz+o);
  let hm=max(b[4].w+b[8].x*.3/max(b[8].y,1.),select(0.,select(.013,.017,b[12].w>2.5),b[12].w>1.5));
- OCM=mix(5.,7.,g.fx.z);let h=terr(b,n,hm*.08).h*R;
+ OCM=mix(5.,7.,g.fx.z);let h=terr(b,normalize(A.xyz+o+bo.xyz),hm*.08).h*R;
  let wp=C.xyz+qr(b[2],o+n*(h+hr));let L=normalize(qr(qc(b[2]),g.sun.xyz-b[0].xyz));
  return CV(g.vp*vec4f(wp,1.),nr.xyz,n,vec4f(o/A.w,hr/A.w),cl,L,g.sc.rgb*b[1].z*2.,wp,sl);}
 @fragment fn fsC(v:CV)->@location(0) vec4f{
@@ -879,6 +879,7 @@ const qlook = (o, oi, fx, fy, fz, ux, uy, uz) => { // camera looks down -Z: buil
 };
 const hash = (a, b, c) => { let h = Math.imul(a, 1597334673) ^ Math.imul(b, 3812015801) ^ Math.imul(c, 2798796415); h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const D2R = Math.PI / 180;
+const f2h = (x) => { const s = x < 0 ? 0x8000 : 0; x = Math.abs(x); if (!(x >= 6.1e-5)) return s; if (x >= 65504) return s | 0x7bff; const e = Math.floor(Math.log2(x)), m = Math.round((x / 2 ** e - 1) * 1024); return m === 1024 ? s | ((e + 16) << 10) : s | ((e + 15) << 10) | m; }; // float -> half bits
 
 /* ============================== SYSTEM COMPILATION (runs only on switch) ============================== */
 const MAXB = 64, MAXI = 4096, MAXH = 12000, BSTR = 64, ISTR = 12, HSTR = 12;
@@ -987,8 +988,8 @@ async function createEngine(canvas, systemId, opts = {}) {
   const skyP = pipe('vsF', 'fsSky', HDR, undefined, 3), sdfP = pipe('vsS', 'fsS', HDR, undefined, 2, 'front'),
     bodyP = pipe('vsB', 'fsB', HDR, PM, 2, 'front'), tailP = pipe('vsS', 'fsT', HDR, ADD, 1, 'front'),
     postP = pipe('vsF', 'fsPost', fmt, undefined, 0, 0, pl1), hudP = pipe('vsH', 'fsH', fmt, AL, 0);
-  const cityP = device.createRenderPipeline({ layout: pl0, vertex: { module: mod, entryPoint: 'vsC', buffers: [{ arrayStride: 24, attributes: [
-    { shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32' }, { shaderLocation: 2, offset: 16, format: 'snorm8x4' }, { shaderLocation: 3, offset: 20, format: 'unorm8x4' }] }] },
+  const cityP = device.createRenderPipeline({ layout: pl0, vertex: { module: mod, entryPoint: 'vsC', buffers: [{ arrayStride: 32, attributes: [
+    { shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32' }, { shaderLocation: 2, offset: 16, format: 'snorm8x4' }, { shaderLocation: 3, offset: 20, format: 'unorm8x4' }, { shaderLocation: 4, offset: 24, format: 'float16x4' }] }] },
     fragment: { module: mod, entryPoint: 'fsC', targets: [{ format: HDR }] }, primitive: { topology: 'triangle-list', cullMode: 'none' }, depthStencil: { format: DF, depthWriteEnabled: true, depthCompare: 'greater' } });
   const bglP = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }] });
   const probeP = device.createComputePipeline({ layout: device.createPipelineLayout({ bindGroupLayouts: [bgl0, device.createBindGroupLayout({ entries: [] }), bglP] }), compute: { module: mod, entryPoint: 'csProbe' } });
@@ -1136,7 +1137,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const segX = (ax, ay, bx, by, cx, cy, dx, dy) => { const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx); if (!d) return false; const s = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d, u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d; return s >= 0 && s <= 1 && u >= 0 && u <= 1; };
   const rectInPoly = (P, x0, y0, x1, y1) => { const R = [x0, y0, x1, y0, x1, y1, x0, y1]; for (let k = 0; k < 8; k += 2) if (!inPoly(P, R[k], R[k + 1])) return false; // all corners inside, and no boundary edge crosses the rectangle
     for (let i = 0, j = P.length - 2; i < P.length; j = i, i += 2) for (let k = 0; k < 8; k += 2) { const l = (k + 2) % 8; if (segX(P[j], P[j + 1], P[i], P[i + 1], R[k], R[k + 1], R[l], R[l + 1])) return false; } return true; };
-  const osm = { id: 'osm', on: typeof location !== 'undefined' && /[?&]osm\b/.test(location.search) && location.protocol !== 'file:', root: null, fly: 0, nT: 0, nV: 0, vis: false, use: 0, err: 0, q: '', at: null, maxD: 15000, sse: 10, vmax: 2.5e6,
+  const osm = { id: 'osm', on: typeof location !== 'undefined' && !/[?&]noosm\b/.test(location.search) && location.protocol !== 'file:', root: null, fly: 0, nT: 0, nV: 0, vis: false, use: 0, err: 0, q: '', at: null, maxD: 15000, sse: 10, vmax: 2.5e6,
     active: (la, lo, alt) => alt <= 25000, rootUrl: ionEndpoint, px: () => canvas.clientHeight || H,
     skip: (n) => n.sk ?? (n.sk = rectInPoly(HEL_POLY, (n.bv[0] / D2R - 24.8) * 1e4, (n.bv[1] / D2R - 60) * 1e4, (n.bv[2] / D2R - 24.8) * 1e4, (n.bv[3] / D2R - 60) * 1e4)), // wholly inside Helsinki
     drop: (la, lo) => { const d = la / D2R, g = lo / D2R, hx = (g - 24.8) * 1e4, hy = (d - 60) * 1e4; if (hx > -180 && hx < 4550 && hy > -780 && hy < 2980 && inPoly(HEL_POLY, hx, hy)) return true; // Helsinki has its own, better model
@@ -1222,11 +1223,15 @@ async function createEngine(canvas, systemId, opts = {}) {
       for (let i = 0; i < nv; i++) { const f = fid[i]; sa[f] += lat[i]; so[f] += lon[i]; sc[f]++; }
       for (let f = 0; f <= fmax; f++) if (sc[f] && S.drop(sa[f] / sc[f], so[f] / sc[f])) keep[f] = 0; nk = 0; for (let i = 0; i < nv; i++) if (keep[fid[i]]) nk++; } // whole triangles share a feature, so dropping its vertices keeps the rest intact
     if (!nk) return null;
-    const out = new ArrayBuffer(nk * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out);
+    const out = new ArrayBuffer(nk * 32), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out), oh = new Uint16Array(out);
+    const ca = new Float64Array(fmax + 1), co = new Float64Array(fmax + 1), cc = new Uint32Array(fmax + 1); for (let i = 0; i < nv; i++) { const f = fid[i]; ca[f] += lat[i]; co[f] += lon[i]; cc[f]++; } // building centres: one ground height per building
+    for (let f = 0; f <= fmax; f++) if (cc[f]) { ca[f] /= cc[f]; co[f] /= cc[f]; }
     let ax = 0, ay = 0, az = 0; for (let i = 0; i < nv; i++) if (keep[fid[i]]) { const cl = Math.cos(lat[i]); ax += cl * Math.cos(lon[i]); ay += Math.sin(lat[i]); az -= cl * Math.sin(lon[i]); } // anchor: the content's own centre
     { const s = Rg / (Math.hypot(ax, ay, az) || 1); ax *= s; ay *= s; az *= s; }
-    for (let i = 0, w = 0; i < nv; i++) { const f = fid[i]; if (!keep[f]) continue; const cl = Math.cos(lat[i]), o = w * 6, k = w * 24; const hr = hh[i] - base[f];
-      of[o] = cl * Math.cos(lon[i]) * Rg - ax; of[o + 1] = Math.sin(lat[i]) * Rg - ay; of[o + 2] = -cl * Math.sin(lon[i]) * Rg - az;
+    for (let i = 0, w = 0; i < nv; i++) { const f = fid[i]; if (!keep[f]) continue; const cl = Math.cos(lat[i]), o = w * 8, k = w * 32; const hr = hh[i] - base[f];
+      const px = cl * Math.cos(lon[i]) * Rg, py = Math.sin(lat[i]) * Rg, pz = -cl * Math.sin(lon[i]) * Rg, cb = Math.cos(ca[f]);
+      of[o] = px - ax; of[o + 1] = py - ay; of[o + 2] = pz - az;
+      oh[w * 16 + 12] = f2h(cb * Math.cos(co[f]) * Rg - px); oh[w * 16 + 13] = f2h(Math.sin(ca[f]) * Rg - py); oh[w * 16 + 14] = f2h(-cb * Math.sin(co[f]) * Rg - pz); // to the building's centre
       of[o + 3] = hr < 0.3 ? -8 * KS : hr * KS; // walls reach 8 m below grade: no gaps where the ground is a little uneven
       ob[k + 16] = nrm[i * 3]; ob[k + 17] = nrm[i * 3 + 1]; ob[k + 18] = nrm[i * 3 + 2];
       const hs = Math.imul((Math.round(cla[f] * 1e5) * 73856093) ^ (Math.round(clo[f] * 1e5) * 19349663), 2654435761) >>> 0; // stable per building (lowest corner), same in every LOD
@@ -1282,14 +1287,14 @@ async function createEngine(canvas, systemId, opts = {}) {
         const k = [[-1, -1], [1, -1], [1, 1], [-1, 1]]; for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; quad(P(a, ...k[i]), P(a, ...k[j]), P(b, ...k[j]), P(b, ...k[i]), col, ctr); } },
       quad, tri };
     L.build(M);
-    const nv = tris.length * 3, out = new ArrayBuffer(nv * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out), la0 = L.lat * D2R, lo0 = L.lon * D2R, h = (L.head || 0) * D2R, ch = Math.cos(h), sh = Math.sin(h);
+    const nv = tris.length * 3, out = new ArrayBuffer(nv * 32), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out), la0 = L.lat * D2R, lo0 = L.lon * D2R, h = (L.head || 0) * D2R, ch = Math.cos(h), sh = Math.sin(h);
     const ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
     const E = [-Math.sin(lo0), 0, -Math.cos(lo0)], N = [-Math.sin(la0) * Math.cos(lo0), Math.cos(la0), Math.sin(la0) * Math.sin(lo0)], UP = [Math.cos(la0) * Math.cos(lo0), Math.sin(la0), -Math.cos(la0) * Math.sin(lo0)];
     const rot = (p) => [p[0] * ch + p[1] * sh, -p[0] * sh + p[1] * ch, p[2]]; let v = 0; // heading: clockwise from north
     for (const [a0, b0, c0, col, ctr0] of tris) { const a = rot(a0), b = rot(b0), c = rot(c0), ctr = rot(ctr0);
       let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); const nl = Math.hypot(nx, ny, nz) || 1;
       const mx = (a[0] + b[0] + c[0]) / 3 - ctr[0], my = (a[1] + b[1] + c[1]) / 3 - ctr[1], mz = (a[2] + b[2] + c[2]) / 3 - ctr[2], sg = nx * mx + ny * my + nz * mz < 0 ? -1 : 1; nx *= sg / nl; ny *= sg / nl; nz *= sg / nl; // outward from the part
-      for (const p of [a, b, c]) { const la = la0 + p[1] / RE, lo = lo0 + p[0] / (RE * Math.cos(la0)), cl = Math.cos(la), o = v * 6, k = v * 24;
+      for (const p of [a, b, c]) { const la = la0 + p[1] / RE, lo = lo0 + p[0] / (RE * Math.cos(la0)), cl = Math.cos(la), o = v * 8, k = v * 32;
         of[o] = cl * Math.cos(lo) * Rg - ax; of[o + 1] = Math.sin(la) * Rg - ay; of[o + 2] = -cl * Math.sin(lo) * Rg - az; of[o + 3] = p[2] < 0.01 ? -8 * KS : p[2] * KS;
         ob[k + 16] = Math.round((E[0] * nx + N[0] * ny + UP[0] * nz) * 127); ob[k + 17] = Math.round((E[1] * nx + N[1] * ny + UP[1] * nz) * 127); ob[k + 18] = Math.round((E[2] * nx + N[2] * ny + UP[2] * nz) * 127);
         ou[k + 20] = Math.round(col[0] * 255); ou[k + 21] = Math.round(col[1] * 255); ou[k + 22] = Math.round(col[2] * 255); ou[k + 23] = col[3] || 255; v++; } } // alpha 200..255: fixed colour + surface pattern id (255 plain), no city facade
