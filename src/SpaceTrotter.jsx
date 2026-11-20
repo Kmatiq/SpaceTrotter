@@ -331,41 +331,42 @@ const LMK = { c: 'City', m: 'Mountain', s: 'Region', o: 'Ocean', x: 'Landmark', 
 // Helsinki aerial photo (City of Helsinki orthophoto 2025, CC BY 4.0): Web-Mercator tiles 14..18 inside this box, keyed by local tile x/y
 const HOR = { w: 24.8191, e: 25.2713, s: 60.1247, n: 60.3045, x14: 9321, y14: 4730 }; // origin = a zoom-14 tile corner, so every zoom 14..18 shares it
 // ---- famous landmarks in 3D (real size in metres, x east / y north / z up; heading turns the model clockwise). Simplified shapes, built at first approach.
+// clear: boxes [x0, y0, x1, y1] in the same model metres; streamed OSM buildings whose centre falls inside are left out, so nothing doubles up with the model.
 const LMG = (r, n, rot = 0) => Array.from({ length: n }, (_, i) => { const a = rot + (i * 2 * Math.PI) / n; return [Math.cos(a) * (Array.isArray(r) ? r[0] : r), Math.sin(a) * (Array.isArray(r) ? r[1] : r)]; });
 const LSQ = (w, d = w) => [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
 export const LANDMARKS3D = [
-  { name: 'Eiffel Tower', lat: 48.85826, lon: 2.2945, head: 43, build(M) { const c = [0.45, 0.36, 0.28, 254], p = [0.4, 0.32, 0.25];
+  { name: 'Eiffel Tower', lat: 48.85826, lon: 2.2945, head: 43, clear: [[-70, -70, 70, 70]], build(M) { const c = [0.45, 0.36, 0.28, 254], p = [0.4, 0.32, 0.25];
     for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) M.loft(LSQ(26), [sx * 50, sy * 50], 0, LSQ(19), [sx * 31, sy * 31], 57, c, false); // four legs leaning in: the great arches
     M.prism(LSQ(76), [0, 0], 57, 64, p); M.loft(LSQ(60), [0, 0], 64, LSQ(36), [0, 0], 115, c); M.prism(LSQ(42), [0, 0], 115, 121, p);
     M.loft(LSQ(30), [0, 0], 121, LSQ(9), [0, 0], 276, c); M.prism(LSQ(13), [0, 0], 276, 283, p); M.taper(LSQ(4), [0, 0], 283, 330, 0.15, c); } },
-  { name: 'Pyramids of Giza', lat: 29.97917, lon: 31.13417, build(M) { const s = [0.8, 0.68, 0.48, 247];
+  { name: 'Pyramids of Giza', lat: 29.97917, lon: 31.13417, clear: [[-120, -120, 120, 120], [-440, -457, -216, -233], [-625, -802, -513, -690]], build(M) { const s = [0.8, 0.68, 0.48, 247];
     M.loft(LSQ(230), [0, 0], 0, LSQ(0.4), [0, 0], 139, s); M.loft(LSQ(215), [-328, -345], 0, LSQ(0.4), [-328, -345], 136, [0.78, 0.66, 0.47, 247]); M.loft(LSQ(103), [-569, -746], 0, LSQ(0.4), [-569, -746], 65, [0.76, 0.63, 0.45, 247]); } },
-  { name: 'Colosseum', lat: 41.89021, lon: 12.49223, head: -20, build(M) { const c = [0.78, 0.72, 0.62, 252], n = 48, O = LMG([94, 78], n), I = LMG([43, 27], n);
+  { name: 'Colosseum', lat: 41.89021, lon: 12.49223, head: -20, clear: [[-100, -84, 100, 84]], build(M) { const c = [0.78, 0.72, 0.62, 252], n = 48, O = LMG([94, 78], n), I = LMG([43, 27], n);
     for (let i = 0; i < n; i++) { const j = (i + 1) % n, o0 = O[i], o1 = O[j], i0 = I[i], i1 = I[j];
       M.quad([o0[0], o0[1], 0], [o1[0], o1[1], 0], [o1[0], o1[1], 48], [o0[0], o0[1], 48], c, [0, 0, 24]); // outer wall
       M.quad([o0[0], o0[1], 48], [o1[0], o1[1], 48], [i1[0], i1[1], 10], [i0[0], i0[1], 10], c, [(o0[0] + i0[0]) / 2, (o0[1] + i0[1]) / 2, -50]); // seating slope
       M.quad([i0[0], i0[1], 10], [i1[0], i1[1], 10], [i1[0], i1[1], 0], [i0[0], i0[1], 0], [0.7, 0.64, 0.55, 253], [i0[0] * 3, i0[1] * 3, 5]); } } }, // arena wall
-  { name: 'Statue of Liberty', lat: 40.68925, lon: -74.0445, build(M) { const g = [0.6, 0.58, 0.55, 253], cu = [0.36, 0.58, 0.5, 248];
+  { name: 'Statue of Liberty', lat: 40.68925, lon: -74.0445, clear: [[-50, -50, 50, 50]], build(M) { const g = [0.6, 0.58, 0.55, 253], cu = [0.36, 0.58, 0.5, 248];
     M.prism(LMG(46, 11), [0, 0], 0, 10, g); M.loft(LSQ(28), [0, 0], 10, LSQ(19), [0, 0], 47, [0.7, 0.67, 0.6, 253]);
     M.stack([[47, 8], [62, 6.5], [75, 5], [80, 5.4], [81, 3], [86, 2.4], [88, 0.6]], 12, [0, 0], cu);
     M.beam([3.6, 0, 78], [5.2, 0, 93], 2.4, cu); M.prism(LSQ(3), [5.3, 0], 93, 96, [0.82, 0.66, 0.3]); M.beam([-3, 1.5, 70], [-4, 3, 76], 2.2, cu); } },
-  { name: 'Big Ben', lat: 51.50073, lon: -0.12463, build(M) { const s = [0.74, 0.64, 0.46, 246], d = [0.36, 0.34, 0.31];
+  { name: 'Big Ben', lat: 51.50073, lon: -0.12463, clear: [[-62, -282, 9, 9]], build(M) { const s = [0.74, 0.64, 0.46, 246], d = [0.36, 0.34, 0.31];
     M.prism(LSQ(12), [0, 0], 0, 55, s); M.prism(LSQ(13.5), [0, 0], 55, 70, s); M.prism(LSQ(11), [0, 0], 70, 78, s); M.taper(LSQ(11), [0, 0], 78, 96, 0.04, d);
     M.prism(LSQ(62, 265), [-28, -138], 0, 27, s); M.loft(LSQ(62, 265), [-28, -138], 27, LSQ(40, 250), [-28, -138], 33, d);
     M.prism(LSQ(23), [-14, -268], 0, 88, s); M.taper(LSQ(23), [-14, -268], 88, 98, 0.5, d); M.prism(LMG(9, 8), [-28, -128], 0, 75, s); M.taper(LMG(9, 8), [-28, -128], 75, 91, 0.05, d); } },
-  { name: 'Taj Mahal', lat: 27.1751, lon: 78.04215, build(M) { const w = [0.93, 0.91, 0.87, 250];
+  { name: 'Taj Mahal', lat: 27.1751, lon: 78.04215, clear: [[-50, -50, 50, 50]], build(M) { const w = [0.93, 0.91, 0.87, 250];
     M.prism(LSQ(95), [0, 0], 0, 7, [0.72, 0.45, 0.36, 253]); M.prism(LMG(40, 8, Math.PI / 8), [0, 0], 7, 35, w); M.prism(LMG(14, 16), [0, 0], 35, 44, w);
     M.stack([[44, 17], [50, 18.5], [56, 17.5], [62, 14], [67, 9], [71, 3.5], [73, 0.6], [76, 0.2]], 16, [0, 0], w);
     for (const [x, y] of [[42, 42], [42, -42], [-42, 42], [-42, -42]]) { M.prism(LMG(2.8, 10), [x, y], 7, 47, w); M.stack([[47, 3.4], [49, 3.4], [51, 2], [52.5, 0.2]], 10, [x, y], w); } } },
-  { name: 'Burj Khalifa', lat: 25.1972, lon: 55.2744, build(M) { M.stack([[0, 42], [150, 33], [300, 26], [450, 18], [585, 11], [640, 6.5], [700, 3], [828, 0.5]], 6, [0, 0], [0.62, 0.68, 0.75, 249], Math.PI / 6); } },
-  { name: 'Golden Gate Bridge', lat: 37.81993, lon: -122.47826, head: -4, build(M) { const o = [0.75, 0.27, 0.13];
+  { name: 'Burj Khalifa', lat: 25.1972, lon: 55.2744, clear: [[-45, -45, 45, 45]], build(M) { M.stack([[0, 42], [150, 33], [300, 26], [450, 18], [585, 11], [640, 6.5], [700, 3], [828, 0.5]], 6, [0, 0], [0.62, 0.68, 0.75, 249], Math.PI / 6); } },
+  { name: 'Golden Gate Bridge', lat: 37.81993, lon: -122.47826, head: -4, clear: [[-22, -990, 22, 990]], build(M) { const o = [0.75, 0.27, 0.13];
     for (const ty of [640, -640]) { for (const sx of [-14, 14]) M.prism(LSQ(10, 11), [sx, ty], 0, 227, o); for (const z of [150, 195, 222]) M.beam([-14, ty, z], [14, ty, z], 5, o); }
     M.prism(LSQ(27, 1960), [0, 0], 64, 70, [0.6, 0.24, 0.13]);
     const cz = (y) => (Math.abs(y) <= 640 ? 72 + (227 - 72) * (y / 640) ** 2 : 227 - (227 - 76) * (Math.abs(y) - 640) / 340);
     for (const sx of [-14, 14]) for (let y = -980; y < 980; y += 40) { M.beam([sx, y, cz(y)], [sx, y + 40, cz(y + 40)], 1.6, o); if (Math.abs(y) % 80 === 0 && cz(y) > 74) M.beam([sx, y, 70], [sx, y, cz(y)], 0.5, o); } } },
-  { name: 'Christ the Redeemer', lat: -22.95192, lon: -43.21049, head: 140, build(M) { const c = [0.86, 0.85, 0.8, 248];
+  { name: 'Christ the Redeemer', lat: -22.95192, lon: -43.21049, head: 140, clear: [[-12, -12, 12, 12]], build(M) { const c = [0.86, 0.85, 0.8, 248];
     M.prism(LSQ(9), [0, 0], 0, 8, [0.75, 0.74, 0.7]); M.loft(LSQ(7, 5), [0, 0], 8, LSQ(4.5, 3.4), [0, 0], 32, c); M.taper(LSQ(3.2), [0, 0], 32, 36, 0.6, c); M.beam([-14, 0, 29.5], [14, 0, 29.5], 2.4, c); } },
-  { name: 'Stockholm City Hall', lat: 59.3275, lon: 18.0543, build(M) { const b = [0.55, 0.27, 0.2, 251], g = [0.35, 0.55, 0.48, 248];
+  { name: 'Stockholm City Hall', lat: 59.3275, lon: 18.0543, clear: [[-40, -60, 40, 60]], build(M) { const b = [0.55, 0.27, 0.2, 251], g = [0.35, 0.55, 0.48, 248];
     M.prism(LSQ(75, 112), [0, 0], 0, 26, b); M.prism(LSQ(15), [30, -50], 0, 86, b); M.prism(LSQ(12), [30, -50], 86, 100, g); M.taper(LSQ(4), [30, -50], 100, 106, 0.1, [0.85, 0.7, 0.3]); } },
 ];
 /* ============================== WGSL (single module, all entry points) ============================== */
@@ -1125,77 +1126,142 @@ async function createEngine(canvas, systemId, opts = {}) {
   // building's base is kept (scaled like the planet), and the vertex shader puts the base on the same terrain the ground shader draws.
   const CITY_URL = 'https://kartta.hel.fi/3d/datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json';
   // real 3D buildings: on by default (menu switch, remembered; ?nocity turns them off, ?city forces them on)
-  const city = { on: (() => { if (typeof location === 'undefined' || /[?&]nocity\b/.test(location.search)) return false; if (/[?&]city\b/.test(location.search)) return true; try { return localStorage.getItem('spacetrotter.buildings') !== '0'; } catch (e) { return true; } })(), root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0 };
-  const cityNode = (j, base, T) => { const m = j.transform ? mat4mul(T, j.transform) : T, c = j.content && (j.content.uri || j.content.url);
-    return { bv: j.boundingVolume.region, ge: j.geometricError, add: j.refine === 'ADD', T: m, url: c ? new URL(c, base).href : null, kind: c ? (/\.json(\?|$)/.test(c) ? 1 : 2) : 0,
-      kids: (j.children || []).map((k) => cityNode(k, base, m)), st: 0, tile: null, ctr: null }; };
+  // Two 3D Tiles sources share one loader: Helsinki's own LOD2 city model and, for the rest of the world, Cesium OSM Buildings (Cesium ion).
+  const city = { id: 'hel', on: (() => { if (typeof location === 'undefined' || /[?&]nocity\b/.test(location.search)) return false; if (/[?&]city\b/.test(location.search)) return true; try { return localStorage.getItem('spacetrotter.buildings') !== '0'; } catch (e) { return true; } })(),
+    root: null, fly: 0, nT: 0, nV: 0, vis: false, draws: [], n: 0, use: 0, err: 0, q: '', at: null, maxD: 30000, sse: 8, vmax: 3e6,
+    active: (la, lo, alt) => alt <= 40000 && Math.abs(la - 1.0503) <= 0.012 && Math.abs(lo - 0.4371) <= 0.024, rootUrl: () => Promise.resolve(CITY_URL), px: () => canvas.clientHeight || H }; // the city's coarser levels are rough simplifications: ask for the fine ones early // within ~70 km of Helsinki, below ~40 km (real)
+  const ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImhFZkVzTVF5bzZGN21HQ2EiLCJqdGkiOiJmNjY2MmI2YS0xMjUyLTRjNmQtYjYxZC1lMzMwYzFhMDI3OWIiLCJpZCI6NTUyMDk3LCJzdWIiOiJLbWF0aXEiLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoiU3BhY2VUcm90dGVyIiwiaWF0IjoxNzk1MDEwMzc0fQ.qmQMiGtggHCvpO3SH1Nc0u58hRl2eLV1vrCBnoFApLI'; // public browser token, locked to kmatiq.github.io + localhost:5173, assets:read only
+  const HEL_POLY = [4545,2952,4529,2975,4382,2953,4295,2978,4226,2920,4015,2880,4049,2864,3963,2820,3903,2857,3877,2799,3788,2778,3738,2783,3724,2764,3425,2698,3446,2592,3540,2566,3599,2488,3523,2459,3432,2447,3358,2372,2914,2452,2824,2497,2875,2593,2880,2713,2766,2755,2534,2760,2507,2783,2471,2777,2379,2880,2328,2850,2209,2893,2088,2878,2057,2861,2007,2865,1956,2814,1836,2796,1755,2699,1781,2677,1732,2644,1605,2682,1559,2728,1565,2762,1475,2785,928,2685,914,2664,773,2603,724,2541,679,2524,643,2539,578,2536,386,2591,347,2585,314,2541,419,2212,514,2250,479,2216,469,2037,428,1958,444,1656,357,1304,-172,1000,1423,-775,3586,-576,3768,935,3943,1469,4204,1997,4014,2182,4044,2299,4266,2394,4231,2428,4271,2451,4409,2463,4375,2563,4335,2566,4273,2611,4326,2625,4348,2720,4433,2718,4509,2735,4523,2757,4441,2783,4471,2785,4473,2830,4439,2849,4539,2896,4456,2935]; // City of Helsinki boundary (Helsinki open data, CC BY 4.0), simplified to ~100 m, as (lon - 24.8, lat - 60) x 1e4
+  const inPoly = (P, x, y) => { let c = false; for (let i = 0, j = P.length - 2; i < P.length; j = i, i += 2) { const yi = P[i + 1], yj = P[j + 1]; if ((yi > y) !== (yj > y) && x < ((P[j] - P[i]) * (y - yi)) / (yj - yi) + P[i]) c = !c; } return c; };
+  const segX = (ax, ay, bx, by, cx, cy, dx, dy) => { const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx); if (!d) return false; const s = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d, u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d; return s >= 0 && s <= 1 && u >= 0 && u <= 1; };
+  const rectInPoly = (P, x0, y0, x1, y1) => { const R = [x0, y0, x1, y0, x1, y1, x0, y1]; for (let k = 0; k < 8; k += 2) if (!inPoly(P, R[k], R[k + 1])) return false; // all corners inside, and no boundary edge crosses the rectangle
+    for (let i = 0, j = P.length - 2; i < P.length; j = i, i += 2) for (let k = 0; k < 8; k += 2) { const l = (k + 2) % 8; if (segX(P[j], P[j + 1], P[i], P[i + 1], R[k], R[k + 1], R[l], R[l + 1])) return false; } return true; };
+  const osm = { id: 'osm', on: typeof location !== 'undefined' && /[?&]osm\b/.test(location.search) && location.protocol !== 'file:', root: null, fly: 0, nT: 0, nV: 0, vis: false, use: 0, err: 0, q: '', at: null, maxD: 15000, sse: 10, vmax: 2.5e6,
+    active: (la, lo, alt) => alt <= 25000, rootUrl: ionEndpoint, px: () => canvas.clientHeight || H,
+    skip: (n) => n.sk ?? (n.sk = rectInPoly(HEL_POLY, (n.bv[0] / D2R - 24.8) * 1e4, (n.bv[1] / D2R - 60) * 1e4, (n.bv[2] / D2R - 24.8) * 1e4, (n.bv[3] / D2R - 60) * 1e4)), // wholly inside Helsinki
+    drop: (la, lo) => { const d = la / D2R, g = lo / D2R, hx = (g - 24.8) * 1e4, hy = (d - 60) * 1e4; if (hx > -180 && hx < 4550 && hy > -780 && hy < 2980 && inPoly(HEL_POLY, hx, hy)) return true; // Helsinki has its own, better model
+      for (const L of LANDMARKS3D) { const n = (d - L.lat) * 111320, e = (g - L.lon) * 111320 * Math.cos(L.lat * D2R); if (!L.clear || n * n + e * e > 1.2e6) continue; // and where our landmark models stand
+        const h = (L.head || 0) * D2R, ch = Math.cos(h), sh = Math.sin(h), x = e * ch - n * sh, y = e * sh + n * ch; for (const b of L.clear) if (x > b[0] && x < b[2] && y > b[1] && y < b[3]) return true; } return false; } };
+  async function ionEndpoint() { const r = await fetch('https://api.cesium.com/v1/assets/96188/endpoint?access_token=' + ION_TOKEN); if (!r.ok) throw new Error('ion ' + r.status); const j = await r.json(); osm.at = j.accessToken; osm.q = j.url.includes('?') ? j.url.slice(j.url.indexOf('?')) : ''; return j.url; }
+  const srcFetch = (S, url, again = true) => fetch(url, S.at ? { headers: { Authorization: 'Bearer ' + S.at } } : undefined).then((r) => { // ion asset tokens expire after about an hour: renew once
+    if (r.status === 401 && S.at && again) return (S.renew || (S.renew = S.rootUrl().finally(() => { S.renew = null; }))).then(() => srcFetch(S, url, false)); if (!r.ok) throw new Error(r.status); return r; });
+  const withQ = (u, q) => (q && !u.includes('?') ? u + q : u);
+  const cityNode = (j, base, T, q, pa) => { const m = j.transform ? mat4mul(T, j.transform) : T, c = j.content && (j.content.uri || j.content.url), add = j.refine ? j.refine === 'ADD' : !!pa; // refine is inherited when a tile leaves it out
+    return { bv: j.boundingVolume.region, ge: j.geometricError, add, T: m, url: c ? withQ(new URL(c, base).href, q) : null, kind: c ? (/\.json(\?|$)/.test(c) ? 1 : 2) : 0,
+      kids: (j.children || []).map((k) => cityNode(k, base, m, q, add)), st: 0, tile: null, ctr: null }; };
   function mat4mul(a, b) { const r = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; r[i * 4 + j] = s; } return r; } // column-major
   const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  function cityJson(n, url, T) { if (city.fly >= 8) return; n.st = 1; city.fly++;
-    fetch(url).then((r) => { if (!r.ok) throw 0; return r.json(); }).then((j) => { city.fly--; const r = cityNode(j.root, url, T); if (n === city) { city.root = r; } else { n.kids = [r]; n.st = 3; } })
-      .catch(() => { city.fly--; city.err++; if (n !== city) n.st = 4; else city.st = 4; }); }
-  function cityGlb(n) { if (city.fly >= 8) return; n.st = 1; city.fly++;
-    fetch(n.url).then((r) => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then((ab) => { city.fly--; n.tile = cityDecode(ab, n); n.st = n.tile ? 3 : 4; if (n.tile) { city.nT++; city.nV += n.tile.n; } })
-      .catch(() => { city.fly--; city.err++; n.st = 4; }); }
-  function cityDecode(ab, n) { // glb -> interleaved vertex buffer (anchor-relative sphere position f32x3, height above base f32, normal snorm8x4, colour unorm8x4)
-    const dv = new DataView(ab); if (dv.getUint32(0, true) !== 0x46546c67) return null; const jl = dv.getUint32(12, true), J = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 20, jl))), b0 = 20 + jl + 8;
-    const eb = sys.idx.earth; if (eb === undefined) return null; const Rg = sys.list[eb].R, KS = Rg / 6371008.8;
-    const acc = (i) => { const a = J.accessors[i], bv = J.bufferViews[a.bufferView], nc = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type]; return { o: b0 + (bv.byteOffset || 0) + (a.byteOffset || 0), s: bv.byteStride || nc * 4, n: a.count, ct: a.componentType }; };
-    const prims = []; let nv = 0;
-    for (const nd of J.nodes || []) { if (nd.mesh === undefined) continue; const M = mat4mul(n.T, nd.matrix || I4);
-      for (const p of J.meshes[nd.mesh].primitives) { if ((p.mode ?? 4) !== 4 || p.attributes.POSITION === undefined) continue; const ix = p.indices !== undefined ? acc(p.indices) : null; const cnt = ix ? ix.n : J.accessors[p.attributes.POSITION].count;
-        prims.push({ M, P: acc(p.attributes.POSITION), N: p.attributes.NORMAL !== undefined ? acc(p.attributes.NORMAL) : null, F: p.attributes._FEATURE_ID_0 !== undefined ? acc(p.attributes._FEATURE_ID_0) : null, ix, cnt }); nv += cnt; } }
+  function srcJson(S, n, url, T) { if (S.fly >= 8) return; n.st = 1; S.fly++;
+    srcFetch(S, url).then((r) => r.json()).then((j) => { const r = cityNode(j.root, url, T, S.q, n !== S && n.add); if (n === S) S.root = r; else { n.kids = [r]; n.st = 3; } })
+      .catch(() => { S.err++; n.st = 4; n.rt = performance.now() + 30000; }).finally(() => { S.fly--; }); }
+  function srcTile(S, n) { if (S.fly >= 8) return; n.st = 1; S.fly++; let net = true;
+    srcFetch(S, n.url).then((r) => r.arrayBuffer()).then((ab) => { net = false; return cityDecode(ab, n, S); })
+      .then((tl) => { n.tile = tl; n.st = tl ? 3 : 4; if (tl) { S.nT++; S.nV += tl.n; } })
+      .catch((e) => { S.err++; n.st = 4; if (net) n.rt = performance.now() + 30000; else if (S.err < 5) console.warn('3D tile skipped:', n.url, e); }) // network trouble: try again in 30 s; a tile we cannot read stays out
+      .finally(() => { S.fly--; }); }
+  // Draco-compressed meshes (KHR_draco_mesh_compression, used by the Helsinki model): Google's decoder (public/draco, Apache-2.0), fetched on first need, run in a worker
+  let dracoW = null, dracoSeq = 0; const dracoJobs = new Map();
+  function dracoBody() { let D = null; const q = []; // runs inside the worker, after the decoder script
+    const run = (d) => { try { const dec = new D.Decoder(), m = new D.Mesh(), a = d.bytes, s = dec.DecodeArrayToMesh(a, a.byteLength, m);
+        if (!s.ok() || m.ptr === 0) throw new Error(s.error_msg()); const ni = m.num_faces() * 3, np = m.num_points(), out = { id: d.id, attrs: {} };
+        let p = D._malloc(ni * 4); dec.GetTrianglesUInt32Array(m, ni * 4, p); out.index = new Uint32Array(D.HEAPF32.buffer, p, ni).slice(); D._free(p); const tr = [out.index.buffer];
+        for (const k in d.attrs) { const at = dec.GetAttributeByUniqueId(m, d.attrs[k]); if (!at || !at.ptr) continue; const nv = np * at.num_components(); p = D._malloc(nv * 4);
+          dec.GetAttributeDataArrayForAllPoints(m, at, D.DT_FLOAT32, nv * 4, p); out.attrs[k] = new Float32Array(D.HEAPF32.buffer, p, nv).slice(); D._free(p); tr.push(out.attrs[k].buffer); }
+        D.destroy(m); D.destroy(dec); self.postMessage(out, tr); } catch (e) { self.postMessage({ id: d.id, err: String((e && e.message) || e) }); } };
+    self.onmessage = (e) => { const d = e.data; if (d.wasm) { DracoDecoderModule({ wasmBinary: d.wasm, onModuleLoaded: (m) => { D = m; q.splice(0).forEach(run); } }); return; } if (D) run(d); else q.push(d); }; }
+  function dracoDecode(bytes, attrs) {
+    if (!dracoW) { const get = (u, k) => fetch(u).then((r) => { if (!r.ok) throw new Error('draco ' + r.status); return r[k](); });
+      dracoW = Promise.all([get('./draco/draco_wasm_wrapper_gltf.js', 'text'), get('./draco/draco_decoder_gltf.wasm', 'arrayBuffer')]).then(([js, wasm]) => {
+        const w = new Worker(URL.createObjectURL(new Blob([js, '\n;(', dracoBody.toString(), ')();'], { type: 'text/javascript' }))); // own scope: no clash with the decoder's globals
+        w.onmessage = (e) => { const j = dracoJobs.get(e.data.id); if (!j) return; dracoJobs.delete(e.data.id); if (e.data.err) j[1](new Error('draco: ' + e.data.err)); else j[0](e.data); };
+        w.onerror = () => { for (const j of dracoJobs.values()) j[1](new Error('draco worker failed')); dracoJobs.clear(); }; w.postMessage({ wasm }, [wasm]); return w; }); }
+    return dracoW.then((w) => new Promise((res, rej) => { const id = ++dracoSeq; dracoJobs.set(id, [res, rej]); w.postMessage({ id, bytes, attrs }, [bytes.buffer]); }));
+  }
+  async function cityDecode(ab, n, S) { // glb or b3dm -> interleaved vertex buffer (anchor-relative sphere position f32x3, height above base f32, normal snorm8x4, colour unorm8x4)
+    const dv = new DataView(ab); let g0 = 0, rtc = null, top = null;
+    if (dv.getUint32(0, true) === 0x6d643362) { const ftj = dv.getUint32(12, true), ftb = dv.getUint32(16, true), btj = dv.getUint32(20, true), btb = dv.getUint32(24, true); // 'b3dm' (3D Tiles 1.0): feature + batch tables, then the glb
+      if (ftj) { try { const ft = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 28, ftj))); if (Array.isArray(ft.RTC_CENTER)) rtc = ft.RTC_CENTER; } catch (e) { /* no centre */ } }
+      if (btj) { try { const s = new TextDecoder().decode(new Uint8Array(ab, 28 + ftj + ftb, btj)), a = s.indexOf('"parentIds":['); // OSM batch hierarchy: geometry -> building part -> building (the root, its own parent)
+        if (a > 0 && s.indexOf('"parentCounts"') < 0) { const P = JSON.parse(s.slice(a + 12, s.indexOf(']', a) + 1)); // only this array: the whole table (all the OSM tags) would be slow to parse
+          top = (i) => { let k = i; for (let c = 0; c < 8 && P[k] !== undefined && P[k] !== k; c++) k = P[k]; return k; }; } } catch (e) { /* no hierarchy */ } } // parts of one building share its ground level, colour and fate
+      g0 = 28 + ftj + ftb + btj + btb; }
+    if (dv.getUint32(g0, true) !== 0x46546c67 || sys.idx.earth === undefined) return null; const jl = dv.getUint32(g0 + 12, true), J = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, g0 + 20, jl))), b0 = g0 + 20 + jl + 8;
+    const acc = (i) => { const a = J.accessors[i], bv = J.bufferViews[a.bufferView], nc = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type], cs = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 }[a.componentType]; return { o: b0 + (bv.byteOffset || 0) + (a.byteOffset || 0), s: bv.byteStride || nc * cs, n: a.count, ct: a.componentType }; };
+    const rdI = (a, i) => { const o = a.o + i * a.s; return a.ct === 5126 ? Math.round(dv.getFloat32(o, true)) : a.ct === 5125 ? dv.getUint32(o, true) : a.ct === 5123 ? dv.getUint16(o, true) : dv.getUint8(o); }; // ids and indices
+    const f3 = (a) => { if (a.ct !== 5126) throw new Error('unsupported vertex format'); const r = new Float32Array(a.n * 3); for (let i = 0; i < a.n; i++) { const o = a.o + i * a.s; r[i * 3] = dv.getFloat32(o, true); r[i * 3 + 1] = dv.getFloat32(o + 4, true); r[i * 3 + 2] = dv.getFloat32(o + 8, true); } return r; };
+    const prims = [], jobs = [];
+    for (const nd of J.nodes || []) { if (nd.mesh === undefined) continue; const NM = nd.matrix || I4; // node matrix acts in glTF y-up space, before the y-up -> z-up turn and the tile transform
+      for (const p of J.meshes[nd.mesh].primitives) { if ((p.mode ?? 4) !== 4 || p.attributes.POSITION === undefined) continue;
+        const fk = p.attributes._FEATURE_ID_0 !== undefined ? '_FEATURE_ID_0' : p.attributes._BATCHID !== undefined ? '_BATCHID' : null, dr = p.extensions && p.extensions.KHR_draco_mesh_compression, pr = { NM };
+        if (dr) { const bv = J.bufferViews[dr.bufferView], at = {}; for (const k of ['POSITION', 'NORMAL', fk]) if (k && dr.attributes[k] !== undefined) at[k] = dr.attributes[k];
+          jobs.push(dracoDecode(new Uint8Array(ab, b0 + (bv.byteOffset || 0), bv.byteLength).slice(), at).then((r) => { pr.P = r.attrs.POSITION; pr.N = r.attrs.NORMAL || null; pr.F = (fk && r.attrs[fk]) || null; pr.ix = r.index; pr.cnt = r.index.length; }));
+        } else { const P = acc(p.attributes.POSITION), ix = p.indices !== undefined ? acc(p.indices) : null; pr.P = f3(P); pr.N = p.attributes.NORMAL !== undefined ? f3(acc(p.attributes.NORMAL)) : null; pr.F = null; pr.ix = null; pr.cnt = ix ? ix.n : P.n;
+          if (fk) { const a = acc(p.attributes[fk]); pr.F = new Float32Array(a.n); for (let i = 0; i < a.n; i++) pr.F[i] = rdI(a, i); }
+          if (ix) { pr.ix = new Uint32Array(ix.n); for (let k = 0; k < ix.n; k++) pr.ix[k] = rdI(ix, k); } }
+        prims.push(pr); } }
+    if (jobs.length) await Promise.all(jobs);
+    const eb = sys.idx.earth; if (eb === undefined) return null; const Rg = sys.list[eb].R, KS = Rg / 6371008.8; let nv = 0; for (const p of prims) nv += p.cnt;
     if (!nv) return null;
-    const lat = new Float64Array(nv), lon = new Float64Array(nv), hh = new Float64Array(nv), fid = new Int32Array(nv), out = new ArrayBuffer(nv * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out);
+    const lat = new Float64Array(nv), lon = new Float64Array(nv), hh = new Float64Array(nv), fid = new Int32Array(nv), nrm = new Int8Array(nv * 3), M = n.T;
     const A = 6378137, E2 = 6.69437999014e-3, B = A * Math.sqrt(1 - E2), EP2 = (A * A - B * B) / (B * B); let fmax = 0, v = 0, fbase = 0;
-    for (const p of prims) { const M = p.M;
-      for (let k = 0; k < p.cnt; k++, v++) { const i = p.ix ? (p.ix.ct === 5125 ? dv.getUint32(p.ix.o + k * 4, true) : dv.getUint16(p.ix.o + k * 2, true)) : k, o = p.P.o + i * p.P.s;
-        const gx = dv.getFloat32(o, true), gy = dv.getFloat32(o + 4, true), gz = dv.getFloat32(o + 8, true), lx = gx, ly = -gz, lz = gy; // glTF y-up -> tile z-up
+    const rx = rtc ? rtc[0] : 0, ry = rtc ? rtc[1] : 0, rz = rtc ? rtc[2] : 0;
+    for (const p of prims) { const N3 = p.NM, P = p.P, Nn = p.N, F = p.F, ix = p.ix;
+      for (let k = 0; k < p.cnt; k++, v++) { const i = ix ? ix[k] : k, px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2];
+        const gx = N3[0] * px + N3[4] * py + N3[8] * pz + N3[12], gy = N3[1] * px + N3[5] * py + N3[9] * pz + N3[13], gz = N3[2] * px + N3[6] * py + N3[10] * pz + N3[14];
+        const lx = gx + rx, ly = -gz + ry, lz = gy + rz; // glTF y-up -> tile z-up (+ RTC centre)
         const X = M[0] * lx + M[4] * ly + M[8] * lz + M[12], Y = M[1] * lx + M[5] * ly + M[9] * lz + M[13], Z = M[2] * lx + M[6] * ly + M[10] * lz + M[14];
         const pp = Math.hypot(X, Y), th = Math.atan2(Z * A, pp * B), st = Math.sin(th), ct = Math.cos(th), la = Math.atan2(Z + EP2 * B * st * st * st, pp - E2 * A * ct * ct * ct), sl = Math.sin(la);
         lat[v] = la; lon[v] = Math.atan2(Y, X); hh[v] = pp / Math.cos(la) - A / Math.sqrt(1 - E2 * sl * sl);
-        const f = p.F ? fbase + Math.round(dv.getFloat32(p.F.o + i * p.F.s, true)) : fbase; fid[v] = f; if (f > fmax) fmax = f;
-        if (p.N) { const q = p.N.o + i * p.N.s; ob[v * 24 + 16] = Math.round(dv.getFloat32(q, true) * 127); ob[v * 24 + 17] = Math.round(dv.getFloat32(q + 4, true) * 127); ob[v * 24 + 18] = Math.round(dv.getFloat32(q + 8, true) * 127); } // glTF y-up axes = the game's body frame
-      } fbase = fmax + 1; }
-    const base = new Float64Array(fmax + 1).fill(1e9), cla = new Float64Array(fmax + 1), clo = new Float64Array(fmax + 1);
+        const f = F ? fbase + (top ? top(Math.round(F[i])) : Math.round(F[i])) : fbase; fid[v] = f; if (f > fmax) fmax = f;
+        if (Nn) { const ax = Nn[i * 3], ay = Nn[i * 3 + 1], az = Nn[i * 3 + 2]; // glTF y-up ECEF axes = the game's body frame
+          nrm[v * 3] = Math.round((N3[0] * ax + N3[4] * ay + N3[8] * az) * 127); nrm[v * 3 + 1] = Math.round((N3[1] * ax + N3[5] * ay + N3[9] * az) * 127); nrm[v * 3 + 2] = Math.round((N3[2] * ax + N3[6] * ay + N3[10] * az) * 127); }
+      } if (!g0) fbase = fmax + 1; } // a b3dm's batch ids are shared by all its primitives
+    const base = new Float64Array(fmax + 1).fill(1e9), cla = new Float64Array(fmax + 1), clo = new Float64Array(fmax + 1), keep = new Uint8Array(fmax + 1).fill(1);
     for (let i = 0; i < nv; i++) { const f = fid[i]; if (hh[i] < base[f]) { base[f] = hh[i]; cla[f] = lat[i]; clo[f] = lon[i]; } }
-    const bv = n.bv, la0 = (bv[1] + bv[3]) / 2, lo0 = (bv[0] + bv[2]) / 2, ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
-    for (let i = 0; i < nv; i++) { const cl = Math.cos(lat[i]), f = fid[i], o = i * 6; let hr = hh[i] - base[f];
+    let nk = nv; if (S && S.drop) { const sa = new Float64Array(fmax + 1), so = new Float64Array(fmax + 1), sc = new Uint32Array(fmax + 1); // feature centres
+      for (let i = 0; i < nv; i++) { const f = fid[i]; sa[f] += lat[i]; so[f] += lon[i]; sc[f]++; }
+      for (let f = 0; f <= fmax; f++) if (sc[f] && S.drop(sa[f] / sc[f], so[f] / sc[f])) keep[f] = 0; nk = 0; for (let i = 0; i < nv; i++) if (keep[fid[i]]) nk++; } // whole triangles share a feature, so dropping its vertices keeps the rest intact
+    if (!nk) return null;
+    const out = new ArrayBuffer(nk * 24), of = new Float32Array(out), ob = new Int8Array(out), ou = new Uint8Array(out);
+    let ax = 0, ay = 0, az = 0; for (let i = 0; i < nv; i++) if (keep[fid[i]]) { const cl = Math.cos(lat[i]); ax += cl * Math.cos(lon[i]); ay += Math.sin(lat[i]); az -= cl * Math.sin(lon[i]); } // anchor: the content's own centre
+    { const s = Rg / (Math.hypot(ax, ay, az) || 1); ax *= s; ay *= s; az *= s; }
+    for (let i = 0, w = 0; i < nv; i++) { const f = fid[i]; if (!keep[f]) continue; const cl = Math.cos(lat[i]), o = w * 6, k = w * 24; const hr = hh[i] - base[f];
       of[o] = cl * Math.cos(lon[i]) * Rg - ax; of[o + 1] = Math.sin(lat[i]) * Rg - ay; of[o + 2] = -cl * Math.sin(lon[i]) * Rg - az;
       of[o + 3] = hr < 0.3 ? -8 * KS : hr * KS; // walls reach 8 m below grade: no gaps where the ground is a little uneven
+      ob[k + 16] = nrm[i * 3]; ob[k + 17] = nrm[i * 3 + 1]; ob[k + 18] = nrm[i * 3 + 2];
       const hs = Math.imul((Math.round(cla[f] * 1e5) * 73856093) ^ (Math.round(clo[f] * 1e5) * 19349663), 2654435761) >>> 0; // stable per building (lowest corner), same in every LOD
-      ou[i * 24 + 20] = hs & 255; ou[i * 24 + 21] = (hs >>> 8) & 255; ou[i * 24 + 22] = (hs >>> 16) & 255; ou[i * 24 + 23] = 0;
-    }
+      ou[k + 20] = hs & 255; ou[k + 21] = (hs >>> 8) & 255; ou[k + 22] = (hs >>> 16) & 255; ou[k + 23] = 0; w++; }
     const gb = device.createBuffer({ size: out.byteLength, usage: U.VERTEX | U.COPY_DST }); device.queue.writeBuffer(gb, 0, out);
-    return { buf: gb, n: nv, A: [ax, ay, az], use: 0 };
+    return { buf: gb, n: nk, A: [ax, ay, az], use: 0 };
   }
   function cityRegionDist(bv, la, lo, alt) { const cla = Math.min(bv[3], Math.max(bv[1], la)), clo = Math.min(bv[2], Math.max(bv[0], lo)), R = 6371008.8;
     const dz = alt > bv[5] ? alt - bv[5] : alt < bv[4] ? bv[4] - alt : 0; return Math.max(1, Math.hypot((la - cla) * R, (lo - clo) * R * Math.cos(la), dz)); }
-  function cityFrame(eb, dc) { // traverse the tile tree for this frame: screen-space-error refinement, frustum cull, LRU; fills city.draws
-    city.n = 0; city.vis = false; if (!city.on || eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return;
+  function srcFrame(S, eb, dc) { // traverse one source's tile tree for this frame: screen-space-error refinement, frustum cull, LRU; adds to the shared city.draws
+    S.vis = false; if (!S.on || !city.on || eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return;
     const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
     qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
     const la = Math.asin(Math.max(-1, Math.min(1, t3[1]))), lo = Math.atan2(-t3[2], t3[0]), alt = (dc - R0) / KS;
-    if (alt > 40000 || Math.abs(la - 1.0503) > 0.012 || Math.abs(lo - 0.4371) > 0.024) return; // within ~70 km of Helsinki, below ~40 km (real)
-    if (!city.root) { if (!city.st) { city.st = 1; cityJson(city, CITY_URL, I4); } return; }
-    city.use++; const sseK = H / (2 * Math.tan(fov / 2)), hd = Math.atan(Math.hypot(Math.tan(fov / 2) * W / H, Math.tan(fov / 2)));
+    if (!S.active(la, lo, alt)) return;
+    if (!S.root) { if (S.st === 4 && performance.now() > S.rt) S.st = 0; if (!S.st) { S.st = 1; S.rootUrl().then((u) => { S.st = 0; srcJson(S, S, u, I4); }).catch(() => { S.st = 4; S.rt = performance.now() + 30000 * Math.min(32, 2 ** (S.fails = (S.fails || 0) + 1)); S.err++; }); } return; }
+    S.use++; const n0 = city.n, sseK = S.px() / (2 * Math.tan(fov / 2)), hd = Math.atan(Math.hypot(Math.tan(fov / 2) * W / H, Math.tan(fov / 2))), thr = S.sse * (S.k || 1) * (tc.on ? 1.6 : 1);
     const visible = (n) => { if (!n.ctr) { const bv = n.bv, a = (bv[1] + bv[3]) / 2, b = (bv[0] + bv[2]) / 2, ca = Math.cos(a); n.ctr = [ca * Math.cos(b) * R0, Math.sin(a) * R0, -ca * Math.sin(b) * R0, 0.5 * Math.hypot((bv[3] - bv[1]) * R0, (bv[2] - bv[0]) * R0 * ca, (bv[5] - bv[4]) * KS) + 50]; }
       qrot(t3, 0, bq, q, n.ctr[0], n.ctr[1], n.ctr[2]); const x = pos[o] + t3[0] - cam[0], y = pos[o + 1] + t3[1] - cam[1], z = pos[o + 2] + t3[2] - cam[2], d = Math.hypot(x, y, z), r = n.ctr[3];
       if (d < r) return true; return Math.acos(Math.max(-1, Math.min(1, (x * fw[0] + y * fw[1] + z * fw[2]) / d))) < hd + Math.asin(Math.min(1, r / d)); };
-    const rq = city.rq || (city.rq = []); rq.length = 0; let dNow = 0;
-    const want = (n, pri) => { if (!n.st) rq.push([pri, n]); };
+    const rq = S.rq || (S.rq = []); rq.length = 0; let dNow = 0;
+    const want = (n, pri) => { if (n.rt && n.st === 4 && performance.now() > n.rt) { n.st = 0; n.rt = 0; } if (!n.st) { if (S.skip && n.kind && S.skip(n)) n.st = 4; else rq.push([pri, n]); } };
     const ready = (n) => { if (n.kind === 2) { want(n, 1e7 + dNow); return n.st >= 3; } if (n.kind === 1) { want(n, 5e6 + dNow); return n.st === 4 || (n.st === 3 && n.kids.every(ready)); } return n.kids.every(ready); };
-    const draw = (n) => { if (n.st === 3 && n.tile && city.n < 512) { n.tile.use = city.use; city.draws[city.n++] = n.tile; } else want(n, dNow); };
-    const visit = (n, depth) => { if (depth > 40) return; const d = cityRegionDist(n.bv, la, lo, alt); if (d > 30000 || !visible(n)) return;
+    const draw = (n) => { if (n.st === 3 && n.tile && city.n < 512) { n.tile.use = S.use; city.draws[city.n++] = n.tile; } else want(n, dNow); };
+    const visit = (n, depth) => { if (depth > 40) return; const d = cityRegionDist(n.bv, la, lo, alt); if (d > S.maxD || !visible(n)) return;
       dNow = d; if (n.kind === 1) { if (n.st === 3) n.kids.forEach((k) => visit(k, depth + 1)); else want(n, d); return; }
-      const refine = n.kids.length > 0 && (n.kind !== 2 || (n.ge * sseK) / d > (tc.on ? 32 : 20));
+      const refine = n.kids.length > 0 && (n.kind !== 2 || (n.ge * sseK) / d > thr);
       if (!refine) { if (n.kind === 2) draw(n); return; }
       if (n.kind === 2 && (n.add || !n.kids.every(ready))) draw(n);
       if (n.add || n.kind !== 2 || n.kids.every(ready)) n.kids.forEach((k) => visit(k, depth + 1)); };
-    visit(city.root, 0); city.vis = city.n > 0;
-    rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && city.fly < 8; i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) cityJson(n, n.url, n.T); else cityGlb(n); }
-    if (city.nV > 3e6) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(city.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
-      for (const n of all) { if (city.nV <= 2.2e6 || n.tile.use === city.use) break; n.tile.buf.destroy(); city.nV -= n.tile.n; city.nT--; n.tile = null; n.st = 0; } }
+    visit(S.root, 0); S.vis = city.n > n0;
+    { let dv = 0; for (let i = n0; i < city.n; i++) dv += city.draws[i].n; S.k = dv > 0.85 * S.vmax ? Math.min(4, (S.k || 1) * 1.03) : dv < 0.6 * S.vmax ? Math.max(1, (S.k || 1) / 1.01) : S.k || 1; } // detail follows the vertex budget
+    rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && S.fly < 8; i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) srcJson(S, n, n.url, n.T); else srcTile(S, n); }
+    if (S.nV > S.vmax) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(S.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
+      for (const n of all) { if (S.nV <= S.vmax * 0.75 || n.tile.use === S.use) break; n.tile.buf.destroy(); S.nV -= n.tile.n; S.nT--; n.tile = null; n.st = 0; } }
   }
   function drawsUpload(eb) { if (!city.n || eb === undefined) return; const o = eb * 3, q = eb * 4, KS = sys.list[eb].R / 6371008.8; // per-draw anchors (city tiles + landmarks), camera-relative in f64
     for (let i = 0; i < city.n; i++) { const t = city.draws[i], e = i * 8; qrot(t3, 0, bq, q, t.A[0], t.A[1], t.A[2]);
@@ -2134,7 +2200,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     // ---- encode ----
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
-    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); cityFrame(eb, dE); lmFrame(eb, dE); drawsUpload(eb); }
+    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); city.n = 0; srcFrame(city, eb, dE); srcFrame(osm, eb, dE); lmFrame(eb, dE); drawsUpload(eb); }
     passTick();
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
@@ -2300,14 +2366,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
-    get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
+    get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, osm: osm.vis, world3d: osm.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -2598,6 +2664,15 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
     <style>{'@keyframes tutpulse{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
   </>);
 }
+function Credits({ ui }) { // data credits, shown only while that data is on screen (the Cesium ion terms ask for its logo and the OpenStreetMap credit)
+  if (!ui.city && !ui.osm) return null;
+  const a = { color: 'inherit', textDecoration: 'none' };
+  return <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: ui.osm ? 'auto' : 'none', textShadow: '0 0 3px #000', zIndex: 1 }}>
+    {ui.city && <span>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</span>}
+    {ui.osm && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><a href="https://cesium.com" target="_blank" rel="noreferrer" style={a}><img src="https://assets.ion.cesium.com/ion-credit.png" alt="Cesium ion" style={{ height: ui.touch ? 11 : 13, display: 'block' }} /></a>
+      <span>Buildings © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={a}>OpenStreetMap</a> contributors</span><a href="https://cesium.com/pricing/" target="_blank" rel="noreferrer" style={a}>Upgrade for commercial use.</a></span>}
+  </div>;
+}
 function Overlay({ eng }) {
   const [passOpen, setPassOpen] = useState(false), [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
@@ -2618,7 +2693,7 @@ function Overlay({ eng }) {
   if (ui.photo && !mapOut) { // photo mode: clean view, two faint buttons only
     const pb = (x) => ({ ...panel, pointerEvents: 'auto', cursor: 'pointer', width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, ...x });
     const snap = () => eng.capture().then((u) => { const a = document.createElement('a'); a.href = u; a.download = 'spacetrotter-' + Date.now() + '.png'; a.click(); });
-    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}>{ui.city && <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
+    return (<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', color: C.fg }}><Credits ui={ui} />
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
         <div {...tap(snap)} style={pb()} title="Save picture"><Ico n="save" s={20} /></div>
         <div {...tap(() => eng.act('KeyP'))} style={pb()} title="Exit photo mode (P)"><Ico n="close" s={20} /></div>
@@ -2635,7 +2710,7 @@ function Overlay({ eng }) {
   const item = (icon, label, on, fn) => <div {...tap(fn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, cursor: 'pointer', color: on ? C.acc : C.fg, background: on ? 'rgba(80,255,190,.08)' : 'transparent' }}><Ico n={icon} s={20} /><span>{label}</span></div>;
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', font: '14px ui-monospace,Consolas,monospace', color: C.fg }}>
-      {ui.city && <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: 'none', textShadow: '0 0 3px #000' }}>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</div>}
+      <Credits ui={ui} />
       {/* target chip + menu (top right) */}
       <div style={{ position: 'absolute', top: 12, right: 12, display: mapOut ? 'none' : 'flex', gap: 8, alignItems: 'stretch' }}>
         <div data-tut="target" {...tap(openList)} style={btn({ flexDirection: 'row', gap: 10, padding: '8px 14px', minHeight: 48, alignItems: 'center', borderColor: 'rgba(125,255,200,.55)' })} title="Choose target (T)">
@@ -2659,7 +2734,7 @@ function Overlay({ eng }) {
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
-        {item('sys', '3D buildings (Helsinki): ' + (ui.buildings ? 'on' : 'off'), ui.buildings, () => eng.cityToggle())}
+        {item('sys', (ui.world3d ? '3D buildings: ' : '3D buildings (Helsinki): ') + (ui.buildings ? 'on' : 'off'), ui.buildings, () => eng.cityToggle())}
         {item('sys', 'Constellations: ' + ['auto (night sky)', 'always', 'off'][ui.con || 0], ui.con !== 2, () => eng.act('KeyC'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spacetrotter.html'; a.download = 'spacetrotter.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}
