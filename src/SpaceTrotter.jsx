@@ -1378,6 +1378,66 @@ async function createEngine(canvas, systemId, opts = {}) {
     m[2] = -sx * k4; m[6] = -sy * k4; m[10] = -sz * k4; m[14] = 0.5 + cS * k4; m[3] = 0; m[7] = 0; m[11] = 0; m[15] = 1;
     m[16] = 1; m[17] = tx; device.queue.writeBuffer(shBuf, 0, shF);
   }
+  // ---- live Helsinki transit: HSL high-frequency positioning (MQTT over WebSocket, CC BY 4.0), only the cells around the camera ----
+  const hsl = { on: (() => { if (typeof location !== 'undefined' && /[?&]notransit\b/.test(location.search)) return false; try { return localStorage.getItem('spacetrotter.transit') !== '0'; } catch (e) { return true; } })(),
+    ws: null, open: false, subs: new Set(), veh: new Map(), buf: null, cap: 0, tile: null, vis: false, last: 0, away: 0, tSub: 0, fails: 0, retry: 0, n: 0 };
+  const HSLC = { bus: [0, 0.48, 0.79, 12, 2.55, 3.1], tram: [0, 0.6, 0.37, 30, 2.4, 3.6], train: [0.55, 0.28, 0.6, 75, 3.2, 4.4], metro: [1, 0.39, 0.1, 88, 3.2, 3.7], ferry: [0, 0.73, 0.89, 26, 8, 5], ubus: [0, 0.48, 0.79, 12, 2.55, 3.1] }; // HSL colours; length, width, height (m)
+  const mqStr = (s) => { const b = new TextEncoder().encode(s); return [b.length >> 8, b.length & 255, ...b]; };
+  const mqPkt = (h, body) => { const len = []; let n = body.length; do { let d = n % 128; n = Math.floor(n / 128); if (n) d |= 128; len.push(d); } while (n); return new Uint8Array([h, ...len, ...body]); };
+  let mqId = 1;
+  function hslConnect() { const ws = new WebSocket('wss://mqtt.hsl.fi:443/', ['mqtt']); ws.binaryType = 'arraybuffer'; hsl.ws = ws; hsl.open = false; hsl.subs.clear();
+    ws.onopen = () => { ws.send(mqPkt(0x10, [...mqStr('MQTT'), 4, 2, 0, 60, ...mqStr('spacetrotter-' + Math.random().toString(36).slice(2, 10))])); hsl.open = true; hsl.fails = 0; };
+    ws.onmessage = (e) => { const d = new Uint8Array(e.data), td = new TextDecoder(); let i = 0; while (i < d.length) { const h = d[i++]; let m = 1, len = 0, b; do { b = d[i++]; len += (b & 127) * m; m *= 128; } while (b & 128 && i < d.length); const end = i + len;
+      if (h >> 4 === 3) { const tl = (d[i] << 8) | d[i + 1], topic = td.decode(d.subarray(i + 2, i + 2 + tl)), mode = topic.split('/')[6]; if (HSLC[mode]) try { const v = JSON.parse(td.decode(d.subarray(i + 2 + tl, end))).VP; if (v && v.lat && v.long) hslPos(mode, v); } catch (er) { /* skip */ } } i = end; } };
+    ws.onclose = ws.onerror = () => { if (hsl.ws === ws) { hsl.ws = null; hsl.open = false; hsl.retry = performance.now() + 5000 * Math.min(12, 2 ** hsl.fails++); } }; }
+  function hslPos(mode, v) { const k = v.oper + '/' + v.veh, now = performance.now(); let o = hsl.veh.get(k);
+    if (!o) { o = { mode, lat: v.lat, lon: v.long, hdg: v.hdg || 0, dl: v.lat, dn: v.long, dh: v.hdg || 0 }; hsl.veh.set(k, o); }
+    o.mode = mode; o.lat = v.lat; o.lon = v.long; o.hdg = v.hdg ?? o.hdg; o.spd = v.spd || 0; o.t = now; o.desi = v.desi; }
+  const hslCells = (la, lo, alt) => { // geohash cells of the HSL topic around the camera: 0.01 degree close up, 0.1 degree higher
+    const fine = alt < 2500, st = fine ? 0.01 : 0.1, rl = fine ? 3 : 1, rn = fine ? 5 : 1, out = [], dla = la / D2R, dlo = lo / D2R;
+    for (let a = -rl; a <= rl; a++) for (let b = -rn; b <= rn; b++) { const y = dla + a * st, x = dlo + b * st; if (y < 59.9 || y > 60.6 || x < 24.2 || x > 25.6) continue;
+      const yi = Math.floor(y), xi = Math.floor(x), fy = String(Math.floor((y - yi) * 100 + 1e-6)).padStart(2, '0'), fx = String(Math.floor((x - xi) * 100 + 1e-6)).padStart(2, '0');
+      out.push('/hfp/v2/journey/ongoing/vp/+/+/+/+/+/+/+/+/+/' + yi + ';' + xi + '/' + fy[0] + fx[0] + (fine ? '/' + fy[1] + fx[1] : '') + '/#'); }
+    return [...new Set(out)]; };
+  function hslFrame(eb, dc) {
+    hsl.vis = false; if (eb === undefined || !hsl.on || gx.a > 0.5 || mp.a > 0.5 || bench.on) { hslIdle(); return; }
+    const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+    qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
+    const la = Math.asin(Math.max(-1, Math.min(1, t3[1]))), lo = Math.atan2(-t3[2], t3[0]), alt = (dc - R0) / KS, now = performance.now();
+    if (alt > 8000 || Math.abs(la / D2R - 60.2) > 0.4 || Math.abs(lo / D2R - 24.9) > 0.75) { hslIdle(); return; } hsl.away = 0;
+    if (!hsl.ws && now > hsl.retry) hslConnect();
+    if (hsl.open && now > hsl.tSub) { hsl.tSub = now + 1500; const want = hslCells(la, lo, alt), add = want.filter((s) => !hsl.subs.has(s)), del = [...hsl.subs].filter((s) => !want.includes(s));
+      if (add.length) { hsl.ws.send(mqPkt(0x82, [mqId >> 8, mqId & 255, ...add.flatMap((s) => [...mqStr(s), 0])])); mqId = (mqId % 65000) + 1; add.forEach((s) => hsl.subs.add(s)); }
+      if (del.length) { hsl.ws.send(mqPkt(0xa2, [mqId >> 8, mqId & 255, ...del.flatMap((s) => mqStr(s))])); mqId = (mqId % 65000) + 1; del.forEach((s) => hsl.subs.delete(s)); } }
+    if (hsl.open && now - hsl.last > 30000) { hsl.last = now; try { hsl.ws.send(new Uint8Array([0xc0, 0])); } catch (e) { /* closed */ } } // keep-alive
+    // vehicles: dead reckoning between the 1 Hz updates, eased towards each new fix
+    const dtf = Math.min(0.1, (now - (hsl.tf || now)) / 1000); hsl.tf = now; const list = [];
+    for (const [k, v] of hsl.veh) { if (now - v.t > 25000) { hsl.veh.delete(k); continue; } const age = Math.min(4, (now - v.t) / 1000), dd = v.spd * age, ch = Math.cos(v.hdg * D2R), sh = Math.sin(v.hdg * D2R);
+      const pl = v.lat + (dd * ch) / 111320, pn = v.lon + (dd * sh) / (111320 * Math.cos(v.lat * D2R)), e = Math.min(1, dtf * 4); v.dl += (pl - v.dl) * e; v.dn += (pn - v.dn) * e; let dh = ((v.hdg - v.dh + 540) % 360) - 180; v.dh = (v.dh + dh * Math.min(1, dtf * 3) + 360) % 360;
+      if (v.mode === 'metro' && v.dn < 24.975) continue; // the metro runs in tunnels west of Kalasatama
+      const dy = (v.dl - la / D2R) * 111320, dx = (v.dn - lo / D2R) * 111320 * Math.cos(la); if (dx * dx + dy * dy < 9e6 + alt * alt * 4) list.push(v); }
+    if (!list.length) return;
+    const VPV = 72, nv = list.length * VPV; if (nv > hsl.cap) { if (hsl.buf) hsl.buf.destroy(); hsl.cap = Math.ceil(nv * 1.5); hsl.buf = device.createBuffer({ size: hsl.cap * 32, usage: U.VERTEX | U.COPY_DST }); hsl.arr = new ArrayBuffer(hsl.cap * 32); }
+    const Rg = R0, la0 = 60.17 * D2R, lo0 = 24.94 * D2R, ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
+    const of = new Float32Array(hsl.arr), ob = new Int8Array(hsl.arr), ou = new Uint8Array(hsl.arr), oh = new Uint16Array(hsl.arr); let w = 0;
+    const box = (E, N, UP, cx, cy, px, py, pz, hl, hw, z0, z1, col) => { // oriented box: centre (px,py,pz), half length along heading, half width, heights z0..z1 (m)
+      const c = [[-hl, -hw], [hl, -hw], [hl, hw], [-hl, hw]], P = (i, z) => { const [a, b] = c[i]; const ex = a * cx - b * cy, ny = a * cy + b * cx; return [px + (E[0] * ex + N[0] * ny) * KS, py + (E[1] * ex + N[1] * ny) * KS, pz + (E[2] * ex + N[2] * ny) * KS, z]; };
+      const quad = (p0, p1, p2, p3, nx, ny, nz) => { for (const p of [p0, p1, p2, p0, p2, p3]) { const o2 = w * 8, k = w * 32; of[o2] = p[0] - ax; of[o2 + 1] = p[1] - ay; of[o2 + 2] = p[2] - az; of[o2 + 3] = p[3] * KS;
+        ob[k + 16] = Math.round(nx * 127); ob[k + 17] = Math.round(ny * 127); ob[k + 18] = Math.round(nz * 127); ou[k + 20] = col[0] * 255; ou[k + 21] = col[1] * 255; ou[k + 22] = col[2] * 255; ou[k + 23] = 255;
+        oh[w * 16 + 12] = f2h(px - p[0]); oh[w * 16 + 13] = f2h(py - p[1]); oh[w * 16 + 14] = f2h(pz - p[2]); w++; } }; // the whole vehicle on one ground height
+      const fw = [E[0] * cx + N[0] * cy, E[1] * cx + N[1] * cy, E[2] * cx + N[2] * cy], rt = [-E[0] * cy + N[0] * cx, -E[1] * cy + N[1] * cx, -E[2] * cy + N[2] * cx];
+      quad(P(0, z0), P(1, z0), P(1, z1), P(0, z1), -rt[0], -rt[1], -rt[2]); quad(P(1, z0), P(2, z0), P(2, z1), P(1, z1), fw[0], fw[1], fw[2]);
+      quad(P(2, z0), P(3, z0), P(3, z1), P(2, z1), rt[0], rt[1], rt[2]); quad(P(3, z0), P(0, z0), P(0, z1), P(3, z1), -fw[0], -fw[1], -fw[2]);
+      quad(P(0, z1), P(1, z1), P(2, z1), P(3, z1), UP[0], UP[1], UP[2]); quad(P(0, z0), P(3, z0), P(2, z0), P(1, z0), -UP[0], -UP[1], -UP[2]); };
+    for (const v of list) { const C = HSLC[v.mode], vla = v.dl * D2R, vlo = v.dn * D2R, cl = Math.cos(vla), px = cl * Math.cos(vlo) * Rg, py = Math.sin(vla) * Rg, pz = -cl * Math.sin(vlo) * Rg;
+      const E = [-Math.sin(vlo), 0, -Math.cos(vlo)], N = [-Math.sin(vla) * Math.cos(vlo), Math.cos(vla), Math.sin(vla) * Math.sin(vlo)], UP = [cl * Math.cos(vlo), Math.sin(vla), -cl * Math.sin(vlo)], h = v.dh * D2R;
+      const cx = Math.sin(h), cy = Math.cos(h), L = C[3] / 2, Wd = C[4] / 2, Hh = C[5]; // heading: clockwise from north
+      box(E, N, UP, cx, cy, px, py, pz, L, Wd, 0.25, Hh * 0.42, C); box(E, N, UP, cx, cy, px, py, pz, L * 0.97, Wd + 0.03, Hh * 0.42, Hh * 0.78, [0.07, 0.09, 0.12]); // body below, dark window band, coloured roof
+      box(E, N, UP, cx, cy, px, py, pz, L, Wd, Hh * 0.78, Hh, C); }
+    device.queue.writeBuffer(hsl.buf, 0, hsl.arr, 0, w * 32); hsl.n = list.length;
+    if (city.n < MAXDR) { hsl.tile = hsl.tile || { use: 0 }; hsl.tile.buf = hsl.buf; hsl.tile.n = w; hsl.tile.A = [ax, ay, az]; city.draws[city.n++] = hsl.tile; hsl.vis = true; }
+  }
+  function hslIdle() { if (hsl.ws && (hsl.away = hsl.away || performance.now()) && performance.now() - hsl.away > 20000) { try { hsl.ws.close(); } catch (e) { /* closed */ } hsl.ws = null; hsl.open = false; hsl.veh.clear(); } } // left the area: hang up after 20 s
   function drawsUpload(eb) { if (!city.n || eb === undefined) return; const o = eb * 3, q = eb * 4, KS = sys.list[eb].R / 6371008.8; // per-draw anchors (city tiles + landmarks), camera-relative in f64
     for (let i = 0; i < city.n; i++) { const t = city.draws[i], e = i * 8; qrot(t3, 0, bq, q, t.A[0], t.A[1], t.A[2]);
       tlF[e] = t.A[0]; tlF[e + 1] = t.A[1]; tlF[e + 2] = t.A[2]; tlF[e + 3] = KS; tlF[e + 4] = pos[o] + t3[0] - cam[0]; tlF[e + 5] = pos[o + 1] + t3[1] - cam[1]; tlF[e + 6] = pos[o + 2] + t3[2] - cam[2]; tlF[e + 7] = slotOf[eb]; }
@@ -2315,7 +2375,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     // ---- encode ----
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
-    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); city.n = 0; srcFrame(g3d, eb, dE); if (g3d.vis) g3d.seen = performance.now(); if (g3d.vis || (g3d.on && performance.now() - (g3d.seen || -1e9) < 4000 && g3d.active && g3d.root)) { city.vis = osm.vis = false; } else { srcFrame(city, eb, dE); srcFrame(osm, eb, dE); lmFrame(eb, dE); } drawsUpload(eb); }
+    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); city.n = 0; srcFrame(g3d, eb, dE); if (g3d.vis) g3d.seen = performance.now(); if (g3d.vis || (g3d.on && performance.now() - (g3d.seen || -1e9) < 4000 && g3d.active && g3d.root)) { city.vis = osm.vis = false; } else { srcFrame(city, eb, dE); srcFrame(osm, eb, dE); lmFrame(eb, dE); } hslFrame(eb, dE); drawsUpload(eb); }
     passTick();
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
@@ -2484,14 +2544,14 @@ async function createEngine(canvas, systemId, opts = {}) {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
-    get shadow() { return { on: shadowsOn, p: Array.from(shF.slice(16)) }; }, g3dToggle: () => { g3d.on = !g3d.on; try { localStorage.setItem('spacetrotter.g3d', g3d.on ? '1' : '0'); } catch (e) { /* private mode */ } }, shadowToggle: () => { shadowsOn = !shadowsOn; try { localStorage.setItem('spacetrotter.shadows', shadowsOn ? '1' : '0'); } catch (e) { /* private mode */ } }, get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get g3d() { return { k: g3d.k, on: g3d.on, root: !!g3d.root, tiles: g3d.nT, verts: g3d.nV, tex: g3d.texB, vis: g3d.vis, fly: g3d.fly, err: g3d.err, credit: g3d.credit }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
+    get shadow() { return { on: shadowsOn, p: Array.from(shF.slice(16)) }; }, transitToggle: () => { hsl.on = !hsl.on; try { localStorage.setItem('spacetrotter.transit', hsl.on ? '1' : '0'); } catch (e) { /* private mode */ } }, get transit() { return { on: hsl.on, open: hsl.open, subs: hsl.subs.size, vehicles: hsl.veh.size, drawn: hsl.n, vis: hsl.vis }; }, g3dToggle: () => { g3d.on = !g3d.on; try { localStorage.setItem('spacetrotter.g3d', g3d.on ? '1' : '0'); } catch (e) { /* private mode */ } }, shadowToggle: () => { shadowsOn = !shadowsOn; try { localStorage.setItem('spacetrotter.shadows', shadowsOn ? '1' : '0'); } catch (e) { /* private mode */ } }, get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get g3d() { return { k: g3d.k, on: g3d.on, root: !!g3d.root, tiles: g3d.nT, verts: g3d.nV, tex: g3d.texB, vis: g3d.vis, fly: g3d.fly, err: g3d.err, credit: g3d.credit }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
     get ui() { const t = sys.list[target]; return { target: t.id, name: t.name, type: t.type, dist: dist(target) - t.R, cruise, charging: charge >= 0, canCruise: dist(target) > t.arrive * 1.2 && !bench.on,
       tut: { look: tutLook, move: tutMove },
       tour: tr.k >= 0 && sys.def.id === 'sol' ? { name: TOURS[tr.k].name, i: tr.i, n: TOURS[tr.k].stops.length, title: TOURS[tr.k].stops[tr.i].p || sys.list[sys.idx[TOURS[tr.k].stops[tr.i].b]].name, text: TOURS[tr.k].stops[tr.i].t, arrived: tourArrived() } : null, inSol: sys.def.id === 'sol',
-      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, shadows: shadowsOn, photo3d: g3d.on, osm: osm.vis, g3d: g3d.vis ? g3d.credit || 'Google' : '', world3d: osm.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
+      date: new Date((jdNow() - 2440587.5) * 86400000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC', realTime: TS === TSR, photo, con: conMode, buildings: city.on, shadows: shadowsOn, photo3d: g3d.on, transit: hsl.on, hsl: hsl.vis, osm: osm.vis, g3d: g3d.vis ? g3d.credit || 'Google' : '', world3d: osm.on, sky: skyT.saved ? { name: CONSTELLATIONS[skyT.ci].name, site: skyT.site[0], when: skyT.when, phase: skyT.phase } : null, city: city.vis || (gF[67] > 0 && gF[43] > 0 && (dist(sys.idx.earth) - sys.list[sys.idx.earth].R) < sys.list[sys.idx.earth].R * 0.004), galaxy: gx.on ? { focus: gx.focus, sel: gx.sel < 0 ? null : { i: gx.sel, name: GALAXIES[gx.sel].name, fact: GALAXIES[gx.sel].fact, ly: GALAXIES[gx.sel].ly, home: gx.sel === 0 ? !STARS[here].gal : STARS[here].id === GALAXIES[gx.sel].id }, far: gx.dist > 600000 } : null, warp: wp.on, wsel: wsel < 0 ? null : { k: wsel, name: STARS[wsel].name, fact: STARS[wsel].fact, ly: starDir(wsel, sd3), known: !!STARS[wsel].planets }, auto: ap.on || ap.pend ? sys.lm[ap.k].name : null, third: thirdPerson, sound: au.on, touch: tc.on, help: showHelp, stats: showStats, bench: bench.on, system: sys.def.name, landed,
       map: { on: mp.on, a: mp.a, focus: sys.list[mp.focus].id, focusName: sys.list[mp.focus].name, sel: mp.sel < 0 ? null : (() => { const b = sys.list[mp.sel];
         return { id: b.id, name: b.name, type: b.type, dist: dist(mp.sel) - b.R, fact: b.def && b.def.fact, found: !!disc[mp.sel], kids: sys.list.some((x) => x.parent === mp.sel) && mp.sel !== mp.focus }; })() } }; },
     bodies: () => sys.list.map((b, i) => ({ id: b.id, name: b.name, type: b.type, parent: b.parent >= 0 ? sys.list[b.parent].id : null, dist: dist(i) - b.R, found: !!disc[i],
@@ -2783,10 +2843,11 @@ function Tutorial({ ui, st, eng, onClose, setTours, setMenu }) {
   </>);
 }
 function Credits({ ui }) { // data credits, shown only while that data is on screen (the Cesium ion terms ask for its logo and the OpenStreetMap credit)
-  if (!ui.city && !ui.osm && !ui.g3d) return null;
+  if (!ui.city && !ui.osm && !ui.g3d && !ui.hsl) return null;
   const a = { color: 'inherit', textDecoration: 'none' };
   return <div style={{ position: 'absolute', left: '50%', top: ui.touch ? 76 : 3, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, whiteSpace: 'nowrap', fontSize: ui.touch ? 9 : 10, opacity: 0.55, pointerEvents: ui.osm || ui.g3d ? 'auto' : 'none', textShadow: '0 0 3px #000', zIndex: 1 }}>
     {ui.city && <span>Helsinki aerial photo and 3D buildings: City of Helsinki, CC BY 4.0</span>}
+    {ui.hsl && <span>Live transit: HSL, CC BY 4.0</span>}
     {ui.osm && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><a href="https://cesium.com" target="_blank" rel="noreferrer" style={a}><img src="https://assets.ion.cesium.com/ion-credit.png" alt="Cesium ion" style={{ height: ui.touch ? 11 : 13, display: 'block' }} /></a>
       <span>Buildings © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={a}>OpenStreetMap</a> contributors</span><a href="https://cesium.com/pricing/" target="_blank" rel="noreferrer" style={a}>Upgrade for commercial use.</a></span>}
     {ui.g3d && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><img src="https://assets.ion.cesium.com/google-credit.png" alt="Google" style={{ height: ui.touch ? 11 : 13, display: 'block' }} /><a href="https://cesium.com" target="_blank" rel="noreferrer" style={a}><img src="https://assets.ion.cesium.com/ion-credit.png" alt="Cesium ion" style={{ height: ui.touch ? 11 : 13, display: 'block' }} /></a>
@@ -2857,6 +2918,7 @@ function Overlay({ eng }) {
         {item('sys', (ui.world3d ? '3D buildings: ' : '3D buildings (Helsinki): ') + (ui.buildings ? 'on' : 'off'), ui.buildings, () => eng.cityToggle())}
         {item('sys', 'Photorealistic 3D: ' + (ui.photo3d ? 'on' : 'off'), ui.photo3d, () => eng.g3dToggle())}
         {item('sys', 'Shadows: ' + (ui.shadows ? 'on' : 'off'), ui.shadows, () => eng.shadowToggle())}
+        {item('sys', 'Live transit (Helsinki): ' + (ui.transit ? 'on' : 'off'), ui.transit, () => eng.transitToggle())}
         {item('sys', 'Constellations: ' + ['auto (night sky)', 'always', 'off'][ui.con || 0], ui.con !== 2, () => eng.act('KeyC'))}
         {item('full', 'Fullscreen', false, () => eng.act('Full'))}
         {location.protocol !== 'file:' && item('save', 'Download game file (play offline / share)', false, () => { const a = document.createElement('a'); a.href = 'spacetrotter.html'; a.download = 'spacetrotter.html'; document.body.appendChild(a); a.click(); a.remove(); setMenu(false); })}

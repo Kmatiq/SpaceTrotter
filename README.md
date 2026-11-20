@@ -26,6 +26,7 @@ textures, models or libraries to download apart from React. Everything you see i
 - Explore 3D buildings worldwide, Helsinki's detailed city model, 10 famous landmarks, and sun shadows.
 - See photorealistic 3D cities (Google) by day, in more than 2,500 cities.
 - Take guided tours, search for places, and look up constellations from a dark spot on Earth.
+- Watch Helsinki's buses, trams, trains, metro and ferries move live.
 - Collect passport stamps and badges.
 - Warp to other stars and galaxies.
 - Use photo mode.
@@ -43,6 +44,7 @@ left, look on the right.
 | Moon / Mars imagery and heights | [NASA Moon Trek](https://trek.nasa.gov/moon/) (LRO) / [Mars Trek](https://trek.nasa.gov/mars/) (Viking, MOLA) | NASA, public |
 | Buildings worldwide | [Cesium OSM Buildings](https://cesium.com/platform/cesium-ion/content/cesium-osm-buildings/) via Cesium ion | © OpenStreetMap contributors, ODbL |
 | Photorealistic 3D cities | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles) via Cesium ion | © Google and data providers |
+| Live Helsinki transit | [HSL high-frequency positioning](https://digitransit.fi/en/developers/apis/5-realtime-api/vehicle-positions/) | CC BY 4.0 |
 | Helsinki 3D model and aerial photo | [City of Helsinki](https://kartta.hel.fi) | CC BY 4.0 |
 | Planet positions | NASA/JPL approximate planetary positions (Standish) | public |
 | Stars | [HYG database v4.1](https://github.com/astronexus/HYG-Database) | CC BY-SA |
@@ -60,4 +62,4 @@ npm run dev     # http://localhost:5173
 npm run build   # dist/ + dist/spacetrotter.html (single file)
 ```
 
-Almost everything lives in `src/SpaceTrotter.jsx`. URL flags: `?nog3d`, `?noosm`, `?nocity`, `?noshadow`.
+Almost everything lives in `src/SpaceTrotter.jsx`. URL flags: `?nog3d`, `?noosm`, `?nocity`, `?noshadow`, `?notransit`.
