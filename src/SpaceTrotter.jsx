@@ -634,8 +634,10 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(b[11].w>0.){let ch=b[15].z;let cc=(an-ch)*(dn+1.+ch);let dd=bb*bb-cc;
   if(dd>0.){let sq=sqrt(dd);let t=select(select(cc/(-bb+sq),1e30,bb>0.),-bb+sq,cc<0.);
    if(t<1e29&&t>0.&&(tS<0.||t<tS)){let pc=ro+rd*t;let nc=normalize(pc);var a=cloud(b,nc,t*pa)*.9;
+    let Lt=normalize(L-nc*dot(L,nc)+vec3f(1e-6));let a2=cloud(b,normalize(nc+Lt*ch*1.5),t*pa)*.9;// relief: cover a little towards the Sun shades the far side, lights the rims
+    let rel=clamp(1.-(a2-a)*3.,.5,1.2);let thk=select(mix(1.,1.15,a),mix(1.,.5,a*a),an<ch);// thick clouds: bright tops from above, grey bellies from below
     a=1.-pow(1.-a,1./max(abs(dot(nc,rd)),.4));let nl=dot(nc,L);
-    let cc2=vec3f(1.)*E*(max(nl,0.)*.9+.1*smoothstep(-.2,.2,nl))*sunT(b,pc,L)+E*.01;
+    let cc2=vec3f(1.)*E*(max(nl,0.)*.9*rel*thk+.1*smoothstep(-.2,.2,nl))*sunT(b,pc,L)+E*.01;
     acc=vec4f(cc2*a,a)+(1.-a)*acc;tD=min(tD,t);}}}
  // ---- rings ----
  var rC=vec4f(0.);var tR=-1.;
