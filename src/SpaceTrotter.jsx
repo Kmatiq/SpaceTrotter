@@ -650,7 +650,7 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
  if(atm&&t1>t0){let A=atmo(b,ro,rd,t0,t1,L,dt,E);let veil=clamp(dot(A.c,vec3f(.3,.5,.2))*5.,0.,1.);acc=vec4f(A.c+A.t*acc.rgb,1.-(1.-acc.a)*dot(A.t,vec3f(.3333))*(1.-veil));if(t0>1e-6){tD=min(tD,t0);}}// daylit sky drowns out the stars; inside the air the depth stays at the ground, so buildings in front are not hidden
  if(rC.a>0.){acc=rC+(1.-rC.a)*acc;tD=min(tD,tR);}
  if(acc.a<.002&&max(acc.r,max(acc.g,acc.b))<.0004){discard;}
- let push=select(0.,SHB.p.z,v.id==u32(SHB.p.w)&&tS>0.&&tD>=tS);return FO(acc,zdep(max(tD,1e-9)*R*(1.+push*.02)+push*15.,rdw));}
+ let push=select(0.,SHB.p.z,v.id==u32(SHB.p.w)&&tS>0.&&tD>=tS);return FO(acc,zdep(max(tD,1e-9)*R*(1.+push*.3)+push*40.,rdw));}
 // exact ground height under the ship for collision (same terrain function as the raymarch)
 @compute @workgroup_size(1) fn csProbe(){let b=BD[u32(PRB.i.w)].d;OCM=7.;let r=terr(b,normalize(PRB.i.xyz),select(max(b[4].w,1e-4)*.08,1e-5,b[12].w>.5));PRB.o=vec4f(r.h,r.f,r.m,1.);}
 // ================= 3D CITY (real buildings, rasterised; base sits on the same terrain the ground raymarch draws) =================
@@ -980,7 +980,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   const thF = new Uint32Array(8192).fill(0xffffffff), thBuf = buf(thF.byteLength, U.STORAGE | U.COPY_DST); device.queue.writeBuffer(thBuf, 0, thF);
   const probeIn = new Float32Array(8), probeBuf = buf(32, U.STORAGE | U.COPY_DST | U.COPY_SRC), probeRd = buf(32, U.MAP_READ | U.COPY_DST);
   const VFC = VF | GPUShaderStage.COMPUTE;
-  const tlF = new Float32Array(512 * 8), tlBuf = buf(tlF.byteLength, U.STORAGE | U.COPY_DST); // per-draw city tile anchors
+  const MAXDR = 2048, tlF = new Float32Array(MAXDR * 8), tlBuf = buf(tlF.byteLength, U.STORAGE | U.COPY_DST); // per-draw city tile anchors
   const shF = new Float32Array(20), shBuf = buf(80, U.UNIFORM | U.COPY_DST), shTex = device.createTexture({ size: [2048, 2048], format: 'depth32float', usage: T.RENDER_ATTACHMENT | T.TEXTURE_BINDING }); // sun shadow map
   const bgl0 = device.createBindGroupLayout({ entries: [
     { binding: 0, visibility: VFC, buffer: {} }, { binding: 1, visibility: VFC, buffer: { type: 'read-only-storage' } },
@@ -1328,11 +1328,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     const rq = S.rq || (S.rq = []); rq.length = 0; let dNow = 0;
     const want = (n, pri) => { if (n.rt && n.st === 4 && performance.now() > n.rt) { n.st = 0; n.rt = 0; } if (!n.st) { if (S.skip && n.kind && S.skip(n)) n.st = 4; else rq.push([pri, n]); } };
     const all = (ks) => { let ok = true; for (const k of ks) if (!ready(k)) ok = false; return ok; }; // every child asked for at once (no short-circuit), so they load in parallel
-    const ready = (n) => { if (n.kind === 2) { want(n, (S.photo ? 0 : 1e7) + dNow); return n.st >= 3; } if (n.kind === 1) { want(n, (S.photo ? 0 : 5e6) + dNow); return n.st === 4 || (n.st === 3 && all(n.kids)); } return all(n.kids); };
+    const ready = (n) => { if (n.tile) n.tile.use = S.use; if (n.kind === 2) { want(n, (S.photo ? 0 : 1e7) + dNow); return n.st >= 3; } if (n.kind === 1) { want(n, (S.photo ? 0 : 5e6) + dNow); return n.st === 4 || (n.st === 3 && all(n.kids)); } return all(n.kids); };
     const pre = (n, depth, lv) => { if (lv < 0 || depth > 40) return; const d = ndist(n); if (d > S.maxD || !visible(n)) return; dNow = d; // look ahead below a tile still waiting for its children: deep tiles near the camera load in parallel, not level by level
       if (n.kind === 1) { if (n.st === 3) n.kids.forEach((k) => pre(k, depth + 1, lv)); else want(n, 2e6 + d); return; } if (n.kind === 2 && !n.st) want(n, 3e6 + d); if (n.kind !== 2 || n.st === 3) { if (n.kids.length && (n.kind !== 2 || (n.ge * sseK) / d > thr)) n.kids.forEach((k) => pre(k, depth + 1, lv - 1)); } };
-    const draw = (n) => { if (n.st === 3 && n.tile && city.n < 512) { n.tile.use = S.use; city.draws[city.n++] = n.tile; } else want(n, dNow); };
-    const visit = (n, depth) => { if (depth > 40) return; const d = ndist(n); if (d > S.maxD || !visible(n)) return;
+    const draw = (n) => { if (n.st === 3 && n.tile && city.n < MAXDR) { n.tile.use = S.use; city.draws[city.n++] = n.tile; } else want(n, dNow); };
+    const visit = (n, depth) => { if (depth > 40) return; const d = ndist(n); if (d > S.maxD || !visible(n)) return; if (n.tile) n.tile.use = S.use;
       dNow = d; if (n.kind === 1) { if (n.st === 3) n.kids.forEach((k) => visit(k, depth + 1)); else want(n, d); return; }
       const refine = n.kids.length > 0 && (n.kind !== 2 || (n.ge * sseK) / d > thr);
       if (!refine) { if (n.kind === 2) draw(n); return; }
@@ -1340,7 +1340,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (rk) n.kids.forEach((k) => visit(k, depth + 1)); else if (S.photo) n.kids.forEach((k) => pre(k, depth + 1, 6)); };
     visit(S.root, 0); S.vis = city.n > n0;
     if (S.photo && S.vis) { const cc = {}; for (let i = n0; i < city.n; i++) for (const s of (city.draws[i].cr || '').split(';')) { const k = s.trim(); if (k) cc[k] = (cc[k] || 0) + 1; } S.credit = Object.keys(cc).sort((a, b) => cc[b] - cc[a]).join('; '); } // the data credits of what is on screen
-    { let dv = 0; for (let i = n0; i < city.n; i++) dv += city.draws[i].n; S.k = dv > 0.85 * S.vmax ? Math.min(4, (S.k || 1) * 1.03) : dv < 0.6 * S.vmax ? Math.max(1, (S.k || 1) / 1.01) : S.k || 1; } // detail follows the vertex budget
+    { let dv = 0, db = 0; for (let i = n0; i < city.n; i++) { dv += city.draws[i].n; db += city.draws[i].bytes || 0; } const f = Math.max(dv / S.vmax, db / (tc.on ? 1.6e8 : 4e8)); S.k = f > 0.7 ? Math.min(6, (S.k || 1) * 1.04) : f < 0.45 ? Math.max(1, (S.k || 1) / 1.01) : S.k || 1; } // detail follows the vertex budget
     rq.sort((a, b) => a[0] - b[0]); for (let i = 0; i < rq.length && S.fly < (S.mf || 8); i++) { const n = rq[i][1]; if (n.st) continue; if (n.kind === 1) srcJson(S, n, n.url, n.T); else srcTile(S, n); }
     const tmax = tc.on ? 1.6e8 : 4e8; // texture bytes (photorealistic tiles)
     if (S.nV > S.vmax || (S.texB || 0) > tmax) { const all = []; const walk = (n) => { if (n.tile) all.push(n); if (n.kind !== 1 || n.st === 3) n.kids.forEach(walk); }; walk(S.root); all.sort((a, b) => a.tile.use - b.tile.use); // evict least recently drawn
@@ -1396,7 +1396,7 @@ async function createEngine(canvas, systemId, opts = {}) {
   function lmFrame(eb, dc) { if (eb === undefined || gx.a > 0.5 || mp.a > 0.5 || bench.on) return; const o = eb * 3, q = eb * 4, R0 = sys.list[eb].R, KS = R0 / 6371008.8; if ((dc - R0) / KS > 40000) return;
     tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3]; qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc);
     for (let i = 0; i < LANDMARKS3D.length; i++) { const L = LANDMARKS3D[i], la = L.lat * D2R, lo = L.lon * D2R, c = t3[0] * Math.cos(la) * Math.cos(lo) + t3[1] * Math.sin(la) - t3[2] * Math.cos(la) * Math.sin(lo);
-      if (c < Math.cos(90000 / 6371008.8) || city.n >= 512) continue; if (!lmTiles[i]) lmTiles[i] = lmBuild(L); city.draws[city.n++] = lmTiles[i]; } } // within ~90 km (real)
+      if (c < Math.cos(90000 / 6371008.8) || city.n >= MAXDR) continue; if (!lmTiles[i]) lmTiles[i] = lmBuild(L); city.draws[city.n++] = lmTiles[i]; } } // within ~90 km (real)
   // ---- surface flight: GPU height probe + co-rotating frame ----
   let prBody = -1, prH = 0, prValid = false, prBusy = false, prSent = -1, rqRef = -1, landed = false, altT = Infinity;
   // ---- surface transition: eye clearance, atmospheric-entry heat, banners, touchdown ----
@@ -2298,7 +2298,7 @@ async function createEngine(canvas, systemId, opts = {}) {
     // ---- encode ----
     if (frame % 2 === 0) tiles();
     const enc = device.createCommandEncoder();
-    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); city.n = 0; srcFrame(g3d, eb, dE); if (g3d.vis) { city.vis = osm.vis = false; } else { srcFrame(city, eb, dE); srcFrame(osm, eb, dE); lmFrame(eb, dE); } drawsUpload(eb); }
+    { const eb = sys.idx.earth, dE = eb === undefined ? 1 : dist(eb); city.n = 0; srcFrame(g3d, eb, dE); if (g3d.vis) g3d.seen = performance.now(); if (g3d.vis || (g3d.on && performance.now() - (g3d.seen || -1e9) < 4000 && g3d.active && g3d.root)) { city.vis = osm.vis = false; } else { srcFrame(city, eb, dE); srcFrame(osm, eb, dE); lmFrame(eb, dE); } drawsUpload(eb); }
     passTick();
     // ground probe: nearest solid body, direction in its local (spin) frame
     let doProbe = false;
