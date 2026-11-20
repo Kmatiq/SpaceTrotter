@@ -605,12 +605,12 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
    let T=terr(b,n,fpS);N=normalize(n-(T.n-dot(T.n,n)*n));let mm=b[12].w;
    let m=fbm(n*b[5].w*1.1+vec3f(5.1),5.,.5).x;let ol=select(b[3].w,0.,T.m>.5&&mm<1.5);let hr=T.h/max(b[4].w,1e-6);
    var wat=ol>-5.&&T.f<ol;var A=vec4f(0.);if(mm>.5){A=albedo(mm,n,fpS,g.hA.xyz+rd*tS);}
-   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.4&&dot(A.rgb,vec3f(.3,.6,.1))<.04;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=select(mix(vec3f(dot(A.rgb,vec3f(.3,.55,.15))),A.rgb,1.25)*.85,A.rgb*select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.)*select(1.,.1,A.w>1.9));// ground grain where the photo runs out of pixels
+   if(A.w>.5){if(T.m<.5){wat=A.b>A.r*1.2&&A.b>A.g*.85&&dot(A.rgb,vec3f(.3,.6,.1))<.07;N=n;}let gs=b[5].w*3000.;let go=clamp(lod(fpS,gs),0.,7.);col=select(mix(vec3f(dot(A.rgb,vec3f(.3,.55,.15))),A.rgb,1.25)*.85,A.rgb*select(1.7,1.25,mm>2.5),mm>1.5)*(1.+.45*fbm(n*gs,go,.55).x*min(go*.5,1.)*select(1.,.1,A.w>1.9));// ground grain where the photo runs out of pixels
    if(wat&&mm<1.5){spec=b[14].w;}else{wat=false;}}
    else if(wat){col=b[5].xyz*mix(1.,.45,smoothstep(0.,.25,ol-T.f));spec=b[14].w;}
    else{col=mix(b[3].xyz,b[4].xyz,smoothstep(-.12,.12,m*b[8].z+hr*.22-.1))*(1.+T.c*1.5);
     if(ol>-5.){col=mix(col,b[6].xyz,smoothstep(.55,.75,hr)*.8);col=mix(b[4].xyz*1.1,col,smoothstep(0.,.03,T.f-ol));}}
-   if(wat){let wv=vn(n*6000.+vec3f(g.mi.x*.5)).yzw*.004;N=normalize(n+wv-dot(wv,n)*n);rough=clamp(.07+fpS*3e3,.07,.5);}
+   if(wat){let tt=g.mi.x;var wv=vn(n*6000.+vec3f(tt*.5)).yzw*.004;wv+=vn(n*1.5e5+vec3f(tt*1.3,tt*.7,0.)).yzw*.003*(1.-smoothstep(1e-6,4e-5,fpS));wv+=vn(n*6e5+vec3f(0.,tt*2.1,tt*1.6)).yzw*.002*(1.-smoothstep(3e-7,1e-5,fpS));N=normalize(n+wv-dot(wv,n)*n);rough=clamp(.07+fpS*3e3,.07,.5);}
    let cl=b[6].w;if(cl<1.5&&A.w<.5){let k=smoothstep(cl,cl+.03,abs(n.y)+m*.06);col=mix(col,b[6].xyz,k);spec*=1.-k;}
    let aa=b[7].w;
    if(aa>0.){let r1=1.-abs(vn(n*b[5].w*5.+vec3f(3.3)).x);let r2=1.-abs(vn(n*b[5].w*17.+vec3f(1.1)).x);col=mix(col,b[7].xyz,clamp(aa*(pow(r1,40.)+.6*pow(r2,70.)+.25*smoothstep(.3,.7,m)),0.,1.));}
@@ -627,7 +627,8 @@ fn star(b:array<vec4f,16>,ro:vec3f,rd:vec3f,rdw:vec3f,dn:f32,an:f32,pa:f32)->FO{
   let Lr=normalize(n*.55-(L-n*gdl));let rim=max(dot(N,Lr),0.)*select(.05,.06,thin);// soft cool fill from the side away from the Sun
   var c=col*E*max(ndl,0.)*smoothstep(-.03,.08,gdl)*sT+col*E*(.0025+b[12].xyz*.3*smoothstep(-.2,.3,gdl))+col*E*(hemi+vec3f(.55,.7,1.)*rim)*day;
   if(spec>0.){let Hh=normalize(L+V);let nh=max(dot(N,Hh),0.);let a2=rough*rough*rough*rough;let dd=nh*nh*(a2-1.)+1.;
-   let F=.02+.98*pow(1.-max(dot(V,Hh),0.),5.);c+=E*sT*spec*a2/(PI*dd*dd)*F*.25*max(ndl,0.)/max(dot(N,V),.15);}
+   let F=.02+.98*pow(1.-max(dot(V,Hh),0.),5.);c+=E*sT*spec*a2/(PI*dd*dd)*F*.25*max(ndl,0.)/max(dot(N,V),.15);
+   let Rr=reflect(rd,N);let el=clamp(dot(Rr,n),0.,1.);let skyR=E*skyC*mix(.15,.05,sqrt(el))*day+E*.0012;let Fw=.02+.98*pow(1.-max(dot(normalize(n+N),V),0.),5.);c=mix(c,skyR,clamp(Fw,0.,1.)*.85)+E*vec3f(.003,.011,.016)*day*sT*(1.-Fw);}// water mirrors the sky, more at grazing angles
   acc=vec4f(c+em,1.)*cov;tD=tS;}
  // ---- clouds ----
  if(b[11].w>0.){let ch=b[15].z;let cc=(an-ch)*(dn+1.+ch);let dd=bb*bb-cc;
