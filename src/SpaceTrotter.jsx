@@ -2669,17 +2669,17 @@ function sunMoment(kind, ms, lat, lon) { // on the local (solar) day around ms: 
   return best; }
 function TimePanel({ eng, onClose }) {
   const T = eng.timeNow(), lat = T.lat ?? 60.17, lon = T.lon ?? 24.94, tp = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
-  const d = new Date(T.ms), loc = new Date(T.ms + (lon / 15) * 3600e3), hm = (x) => x.toISOString().slice(11, 16), el = sunEl(T.ms, lat, lon);
+  const tz = Math.round(lon / 15), d = new Date(T.ms), loc = new Date(T.ms + tz * 3600e3), hm = (x) => x.toISOString().slice(11, 16), el = sunEl(T.ms, lat, lon), noon = sunMoment('day', T.ms, lat, lon), mx = sunEl(noon, lat, lon); // clock time of the zone here (from the longitude, no summer time)
   const go = (k) => eng.setWhen(sunMoment(k, T.ms, lat, lon)), btn = (label, fn, on) => <div {...tp(fn)} style={{ flex: 1, minWidth: 64, padding: '9px 4px', textAlign: 'center', border: '1px solid ' + (on ? C.acc : C.line), borderRadius: 10, cursor: 'pointer', fontSize: 12, letterSpacing: 1, color: on ? C.acc : C.fg }}>{label}</div>;
-  const iso = d.toISOString().slice(0, 16);
+  const iso = loc.toISOString().slice(0, 16), tzs = 'UTC' + (tz >= 0 ? '+' : '−') + Math.abs(tz);
   return (<div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 6, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))' }}>
     <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><Ico n="stats" s={20} /><span style={{ flex: 1, letterSpacing: 2, marginLeft: 10 }}>DATE & TIME</span><span {...tp(onClose)} style={{ cursor: 'pointer', padding: '0 4px', fontSize: 18 }}>✕</span></div>
     <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div><div style={{ fontSize: 30, color: C.acc, letterSpacing: 2 }}>{hm(loc)}</div><div style={{ fontSize: 12, color: C.dim }}>{loc.toISOString().slice(0, 10)} · sun time here · {hm(d)} UTC · Sun {el >= 0 ? '+' : ''}{el.toFixed(0)}°</div></div>
+      <div><div style={{ fontSize: 30, color: C.acc, letterSpacing: 2 }}>{hm(loc)}</div><div style={{ fontSize: 12, color: C.dim }}>{loc.toISOString().slice(0, 10)} · local time here ({tzs}) · {hm(d)} UTC</div><div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>Sun now {el >= 0 ? '+' : ''}{el.toFixed(0)}° · highest today {mx.toFixed(0)}° at {hm(new Date(noon + tz * 3600e3))}</div></div>
       <div style={{ display: 'flex', gap: 6 }}>{btn('SUNRISE', () => go('rise'))}{btn('DAY', () => go('day'))}{btn('SUNSET', () => go('set'))}{btn('NIGHT', () => go('night'))}</div>
       <div style={{ display: 'flex', gap: 6 }}>{btn('−1 H', () => eng.setWhen(T.ms - 3600e3))}{btn('+1 H', () => eng.setWhen(T.ms + 3600e3))}{btn('−1 DAY', () => eng.setWhen(T.ms - 864e5))}{btn('+1 DAY', () => eng.setWhen(T.ms + 864e5))}</div>
-      <label style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>EXACT (UTC)
-        <input type="datetime-local" value={iso} onChange={(e) => { const v = Date.parse(e.target.value + 'Z'); if (!isNaN(v)) eng.setWhen(v); }} onClick={(e) => e.stopPropagation()} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: 8, background: 'rgba(0,0,0,.35)', color: C.fg, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', colorScheme: 'dark' }} /></label>
+      <label style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>EXACT (LOCAL TIME HERE, {tzs})
+        <input type="datetime-local" value={iso} onChange={(e) => { const v = Date.parse(e.target.value + 'Z'); if (!isNaN(v)) eng.setWhen(v - tz * 3600e3); }} onClick={(e) => e.stopPropagation()} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: 8, background: 'rgba(0,0,0,.35)', color: C.fg, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', colorScheme: 'dark' }} /></label>
       <div style={{ display: 'flex', gap: 6 }}>{btn('NOW', () => eng.setWhen(Date.now()), false)}{btn(T.real ? 'REAL TIME' : 'FAST: 6 H / S', () => eng.act('Time'), !T.real)}</div>
     </div></div>);
 }
