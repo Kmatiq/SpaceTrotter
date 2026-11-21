@@ -1417,7 +1417,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (v.mode === 'metro' && v.dn < 24.975) continue; // the metro runs in tunnels west of Kalasatama
       const dy = (v.dl - la / D2R) * 111320, dx = (v.dn - lo / D2R) * 111320 * Math.cos(la); if (dx * dx + dy * dy < 9e6 + alt * alt * 4) list.push(v); }
     if (!list.length) return;
-    const VPV = 108, nv = list.length * VPV; // three boxes of 36 vertices if (nv > hsl.cap) { if (hsl.buf) hsl.buf.destroy(); hsl.cap = Math.ceil(nv * 1.5); hsl.buf = device.createBuffer({ size: hsl.cap * 32, usage: U.VERTEX | U.COPY_DST }); hsl.arr = new ArrayBuffer(hsl.cap * 32); }
+    const VPV = 108, nv = list.length * VPV; if (nv > hsl.cap) { if (hsl.buf) hsl.buf.destroy(); hsl.cap = Math.ceil(nv * 1.5); hsl.buf = device.createBuffer({ size: hsl.cap * 32, usage: U.VERTEX | U.COPY_DST }); hsl.arr = new ArrayBuffer(hsl.cap * 32); }
     const Rg = R0, la0 = 60.17 * D2R, lo0 = 24.94 * D2R, ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
     const of = new Float32Array(hsl.arr), ob = new Int8Array(hsl.arr), ou = new Uint8Array(hsl.arr), oh = new Uint16Array(hsl.arr); let w = 0;
     const box = (E, N, UP, cx, cy, px, py, pz, hl, hw, z0, z1, col) => { // oriented box: centre (px,py,pz), half length along heading, half width, heights z0..z1 (m)
@@ -2679,7 +2679,7 @@ function TimePanel({ eng, onClose }) {
       <div style={{ display: 'flex', gap: 6 }}>{btn('SUNRISE', () => go('rise'))}{btn('DAY', () => go('day'))}{btn('SUNSET', () => go('set'))}{btn('NIGHT', () => go('night'))}</div>
       <div style={{ display: 'flex', gap: 6 }}>{btn('−1 H', () => eng.setWhen(T.ms - 3600e3))}{btn('+1 H', () => eng.setWhen(T.ms + 3600e3))}{btn('−1 DAY', () => eng.setWhen(T.ms - 864e5))}{btn('+1 DAY', () => eng.setWhen(T.ms + 864e5))}</div>
       <label style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>EXACT (UTC)
-        <input type="datetime-local" value={iso} onChange={(e) => { const v = Date.parse(e.target.value + 'Z'); if (!isNaN(v)) eng.setWhen(v); }} onClick={(e) => e.stopPropagation()} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, background: 'rgba(0,0,0,.35)', color: C.fg, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', colorScheme: 'dark' }} /></label>
+        <input type="datetime-local" value={iso} onChange={(e) => { const v = Date.parse(e.target.value + 'Z'); if (!isNaN(v)) eng.setWhen(v); }} onClick={(e) => e.stopPropagation()} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: 8, background: 'rgba(0,0,0,.35)', color: C.fg, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', colorScheme: 'dark' }} /></label>
       <div style={{ display: 'flex', gap: 6 }}>{btn('NOW', () => eng.setWhen(Date.now()), false)}{btn(T.real ? 'REAL TIME' : 'FAST: 6 H / S', () => eng.act('Time'), !T.real)}</div>
     </div></div>);
 }
