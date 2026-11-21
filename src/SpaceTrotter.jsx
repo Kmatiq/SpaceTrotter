@@ -1417,7 +1417,7 @@ async function createEngine(canvas, systemId, opts = {}) {
       if (v.mode === 'metro' && v.dn < 24.975) continue; // the metro runs in tunnels west of Kalasatama
       const dy = (v.dl - la / D2R) * 111320, dx = (v.dn - lo / D2R) * 111320 * Math.cos(la); if (dx * dx + dy * dy < 9e6 + alt * alt * 4) list.push(v); }
     if (!list.length) return;
-    const VPV = 72, nv = list.length * VPV; if (nv > hsl.cap) { if (hsl.buf) hsl.buf.destroy(); hsl.cap = Math.ceil(nv * 1.5); hsl.buf = device.createBuffer({ size: hsl.cap * 32, usage: U.VERTEX | U.COPY_DST }); hsl.arr = new ArrayBuffer(hsl.cap * 32); }
+    const VPV = 108, nv = list.length * VPV; // three boxes of 36 vertices if (nv > hsl.cap) { if (hsl.buf) hsl.buf.destroy(); hsl.cap = Math.ceil(nv * 1.5); hsl.buf = device.createBuffer({ size: hsl.cap * 32, usage: U.VERTEX | U.COPY_DST }); hsl.arr = new ArrayBuffer(hsl.cap * 32); }
     const Rg = R0, la0 = 60.17 * D2R, lo0 = 24.94 * D2R, ax = Math.cos(la0) * Math.cos(lo0) * Rg, ay = Math.sin(la0) * Rg, az = -Math.cos(la0) * Math.sin(lo0) * Rg;
     const of = new Float32Array(hsl.arr), ob = new Int8Array(hsl.arr), ou = new Uint8Array(hsl.arr), oh = new Uint16Array(hsl.arr); let w = 0;
     const box = (E, N, UP, cx, cy, px, py, pz, hl, hw, z0, z1, col) => { // oriented box: centre (px,py,pz), half length along heading, half width, heights z0..z1 (m)
@@ -2544,7 +2544,11 @@ async function createEngine(canvas, systemId, opts = {}) {
     switchStarSystem, startBenchmark: startBench,
     get benchmark() { return bench.res; }, get frame() { return frame; }, get stats() { return { benchT: bench.on ? bench.t : -1, instances: nOpaque, tails: nTail, hud: hn, cam: Array.from(cam), att: (() => { const o = ship.ref * 3, d = dist(ship.ref) || 1, nx = (abs[0] - pos[o]) / d, ny = (abs[1] - pos[o + 1]) / d, nz = (abs[2] - pos[o + 2]) / d; qrot(t3, 0, ship.q, 0, 1, 0, 0); const r = Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R; qrot(t3, 0, ship.q, 0, 0, 0, -1); const pt = Math.round(Math.asin(Math.max(-1, Math.min(1, t3[0] * nx + t3[1] * ny + t3[2] * nz))) / D2R); qrot(t3, 0, ship.q, 0, 0, 1, 0); return [Math.round(r), pt, +(t3[0] * nx + t3[1] * ny + t3[2] * nz).toFixed(2)]; })(), hdg: (() => { qrot(t3, 0, ship.q, 0, 0, 0, -1); return Math.round(Math.atan2(t3[2], t3[0]) / D2R); })(), ref: sys.list[ship.ref].id, cruiseV, tv: Math.hypot(tv[0], tv[1], tv[2]), al: (fw[0] * (pos[target * 3] - abs[0]) + fw[1] * (pos[target * 3 + 1] - abs[1]) + fw[2] * (pos[target * 3 + 2] - abs[2])) / dist(target), altT, clr, landed, heat, prValid, vel: Array.from(ship.vel) }; },
     capture: () => new Promise((res) => { capReq = { res }; }),
-    get shadow() { return { on: shadowsOn, p: Array.from(shF.slice(16)) }; }, transitToggle: () => { hsl.on = !hsl.on; try { localStorage.setItem('spacetrotter.transit', hsl.on ? '1' : '0'); } catch (e) { /* private mode */ } }, get transit() { return { on: hsl.on, open: hsl.open, subs: hsl.subs.size, vehicles: hsl.veh.size, drawn: hsl.n, vis: hsl.vis }; }, g3dToggle: () => { g3d.on = !g3d.on; try { localStorage.setItem('spacetrotter.g3d', g3d.on ? '1' : '0'); } catch (e) { /* private mode */ } }, shadowToggle: () => { shadowsOn = !shadowsOn; try { localStorage.setItem('spacetrotter.shadows', shadowsOn ? '1' : '0'); } catch (e) { /* private mode */ } }, get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get g3d() { return { k: g3d.k, on: g3d.on, root: !!g3d.root, tiles: g3d.nT, verts: g3d.nV, tex: g3d.texB, vis: g3d.vis, fly: g3d.fly, err: g3d.err, credit: g3d.credit }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
+    get shadow() { return { on: shadowsOn, p: Array.from(shF.slice(16)) }; }, timeNow: () => { const eb = sys.idx.earth; let lat = null, lon = null; if (eb !== undefined) { const o = eb * 3, q = eb * 4, dc = dist(eb); tq[0] = -bq[q]; tq[1] = -bq[q + 1]; tq[2] = -bq[q + 2]; tq[3] = bq[q + 3];
+      qrot(t3, 0, tq, 0, (cam[0] - pos[o]) / dc, (cam[1] - pos[o + 1]) / dc, (cam[2] - pos[o + 2]) / dc); lat = Math.asin(Math.max(-1, Math.min(1, t3[1]))) / D2R; lon = Math.atan2(-t3[2], t3[0]) / D2R; }
+      return { ms: (jdNow() - 2440587.5) * 86400000, real: TS === TSR, lat, lon }; },
+    setWhen: (ms) => { TS = TSR; jd0 = ms / 86400000 + 2440587.5 - simT * TSR; }, // a chosen moment, then real time from there
+    transitToggle: () => { hsl.on = !hsl.on; try { localStorage.setItem('spacetrotter.transit', hsl.on ? '1' : '0'); } catch (e) { /* private mode */ } }, get transit() { return { on: hsl.on, open: hsl.open, subs: hsl.subs.size, vehicles: hsl.veh.size, drawn: hsl.n, vis: hsl.vis }; }, g3dToggle: () => { g3d.on = !g3d.on; try { localStorage.setItem('spacetrotter.g3d', g3d.on ? '1' : '0'); } catch (e) { /* private mode */ } }, shadowToggle: () => { shadowsOn = !shadowsOn; try { localStorage.setItem('spacetrotter.shadows', shadowsOn ? '1' : '0'); } catch (e) { /* private mode */ } }, get city() { return { on: city.on, root: !!city.root, tiles: city.nT, verts: city.nV, drawn: city.n, fly: city.fly, err: city.err }; }, get g3d() { return { k: g3d.k, on: g3d.on, root: !!g3d.root, tiles: g3d.nT, verts: g3d.nV, tex: g3d.texB, vis: g3d.vis, fly: g3d.fly, err: g3d.err, credit: g3d.credit }; }, get osm() { return { on: osm.on, root: !!osm.root, tiles: osm.nT, verts: osm.nV, vis: osm.vis, fly: osm.fly, err: osm.err, st: osm.st }; }, cityOn: (v) => { city.on = !!v; }, cityToggle: () => { city.on = !city.on; try { localStorage.setItem('spacetrotter.buildings', city.on ? '1' : '0'); } catch (e) { /* ignore */ } },
     get tileCache() { const o = {}; tmap.forEach((v, k) => { const kd = k >>> 30, z = (k >>> 26) & 15; o[kd + "/" + z] = (o[kd + "/" + z] || 0) + (v >= 0 ? 1 : 0); }); return o; }, // PNG data URL of the next frame
     setTarget: (id) => { if (sys.idx[id] !== undefined) setTgt(sys.idx[id]); },
     act: (code) => { audioInit(); act(code); }, hold: (code, on) => { audioInit(); keys[code] = on ? 1 : 0; },
@@ -2652,6 +2656,32 @@ function findTree(eng, ui) {
     node('Galaxies', 'the Milky Way and its neighbours', S.filter((x) => x.kind === 'Galaxy' && !x.here).map(st)),
     ui.inSol ? node('Night sky', 'a constellation, seen from a dark site at night', SKY_SEASONS.map(([l, s, f]) => node(l, s, CS.filter((c) => (l === 'Southern sky' ? south(c) : !south(c) && f(c))).map((c) => ({ name: c.name, sub: 'Constellation · night-sky trip', go: () => eng.skyTrip(c.i) }))))) : null,
   ].filter(Boolean);
+}
+const sunEl = (ms, lat, lon) => { const d = ms / 86400000 + 2440587.5 - 2451545, g = (357.529 + 0.98560028 * d) * D2R, L = (280.459 + 0.98564736 * d + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * D2R, e = (23.439 - 3.6e-7 * d) * D2R; // Sun's height (deg)
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L)), ha = (((18.697374558 + 24.06570982441908 * d) % 24) * 15 + lon) * D2R - ra;
+  return Math.asin(Math.sin(lat * D2R) * Math.sin(dec) + Math.cos(lat * D2R) * Math.cos(dec) * Math.cos(ha)) / D2R; };
+function sunMoment(kind, ms, lat, lon) { // on the local (solar) day around ms: sunrise / noon / sunset / midnight at the camera
+  const day0 = Math.floor((ms + (lon / 15) * 3600e3) / 864e5) * 864e5 - (lon / 15) * 3600e3, st = 5 * 60e3; let best = day0 + 12 * 3600e3, bv = kind === 'night' ? 1e9 : -1e9, prev = sunEl(day0, lat, lon);
+  for (let t = day0 + st; t <= day0 + 864e5; t += st) { const v = sunEl(t, lat, lon);
+    if (kind === 'day' && v > bv) { bv = v; best = t; } if (kind === 'night' && v < bv) { bv = v; best = t + (t < day0 + 12 * 3600e3 ? 0 : 0); }
+    if (kind === 'rise' && prev < 3 && v >= 3 && bv === -1e9) { bv = 1; best = t; } if (kind === 'set' && prev > 3 && v <= 3) { bv = 1; best = t; } prev = v; }
+  if ((kind === 'rise' || kind === 'set') && bv === -1e9) return sunMoment(kind === 'rise' ? 'night' : 'day', ms, lat, lon); // polar day or night: nearest sensible moment
+  return best; }
+function TimePanel({ eng, onClose }) {
+  const T = eng.timeNow(), lat = T.lat ?? 60.17, lon = T.lon ?? 24.94, tp = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } });
+  const d = new Date(T.ms), loc = new Date(T.ms + (lon / 15) * 3600e3), hm = (x) => x.toISOString().slice(11, 16), el = sunEl(T.ms, lat, lon);
+  const go = (k) => eng.setWhen(sunMoment(k, T.ms, lat, lon)), btn = (label, fn, on) => <div {...tp(fn)} style={{ flex: 1, minWidth: 64, padding: '9px 4px', textAlign: 'center', border: '1px solid ' + (on ? C.acc : C.line), borderRadius: 10, cursor: 'pointer', fontSize: 12, letterSpacing: 1, color: on ? C.acc : C.fg }}>{label}</div>;
+  const iso = d.toISOString().slice(0, 16);
+  return (<div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 6, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))' }}>
+    <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><Ico n="stats" s={20} /><span style={{ flex: 1, letterSpacing: 2, marginLeft: 10 }}>DATE & TIME</span><span {...tp(onClose)} style={{ cursor: 'pointer', padding: '0 4px', fontSize: 18 }}>✕</span></div>
+    <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div><div style={{ fontSize: 30, color: C.acc, letterSpacing: 2 }}>{hm(loc)}</div><div style={{ fontSize: 12, color: C.dim }}>{loc.toISOString().slice(0, 10)} · sun time here · {hm(d)} UTC · Sun {el >= 0 ? '+' : ''}{el.toFixed(0)}°</div></div>
+      <div style={{ display: 'flex', gap: 6 }}>{btn('SUNRISE', () => go('rise'))}{btn('DAY', () => go('day'))}{btn('SUNSET', () => go('set'))}{btn('NIGHT', () => go('night'))}</div>
+      <div style={{ display: 'flex', gap: 6 }}>{btn('−1 H', () => eng.setWhen(T.ms - 3600e3))}{btn('+1 H', () => eng.setWhen(T.ms + 3600e3))}{btn('−1 DAY', () => eng.setWhen(T.ms - 864e5))}{btn('+1 DAY', () => eng.setWhen(T.ms + 864e5))}</div>
+      <label style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>EXACT (UTC)
+        <input type="datetime-local" value={iso} onChange={(e) => { const v = Date.parse(e.target.value + 'Z'); if (!isNaN(v)) eng.setWhen(v); }} onClick={(e) => e.stopPropagation()} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, background: 'rgba(0,0,0,.35)', color: C.fg, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', colorScheme: 'dark' }} /></label>
+      <div style={{ display: 'flex', gap: 6 }}>{btn('NOW', () => eng.setWhen(Date.now()), false)}{btn(T.real ? 'REAL TIME' : 'FAST: 6 H / S', () => eng.act('Time'), !T.real)}</div>
+    </div></div>);
 }
 function PassportPanel({ eng, onClose }) {
   const P = eng.passport(), tp = (fn) => ({ onClick: (e) => { e.stopPropagation(); fn(); } }), pct = (x) => Math.round(x * 100);
@@ -2855,7 +2885,7 @@ function Credits({ ui }) { // data credits, shown only while that data is on scr
   </div>;
 }
 function Overlay({ eng }) {
-  const [passOpen, setPassOpen] = useState(false), [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
+  const [timeOpen, setTimeOpen] = useState(false), [passOpen, setPassOpen] = useState(false), [ui, setUi] = useState(null), [list, setList] = useState(null), [menu, setMenu] = useState(false), [help, setHelp] = useState(false), [tours, setTours] = useState(false), [tut, setTut] = useState(() => { try { return /tutorial/.test(location.search) || (!localStorage.getItem(TUT_KEY) && !/headless/.test(location.search)); } catch (e) { return false; } }), [find, setFind] = useState(null);
   useEffect(() => { const id = setInterval(() => { setUi(eng.ui); if (list) setList(eng.bodies()); }, 120); return () => clearInterval(id); }, [eng, list]);
   useEffect(() => { const k = (e) => { if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') setFind(null); return; } if (e.code === 'Slash') { e.preventDefault(); openFind(); } else if (e.code === 'KeyT') { e.preventDefault(); openList(); } else if (e.code === 'KeyN') { eng.unlockMouse(); setList(null); setMenu(false); if (eng.ui.map.on) eng.mapClose(); else eng.mapOpen(); } else if (e.code === 'Escape') { setList(null); setMenu(false); setHelp(false); setFind(null); eng.mapClose(); eng.galaxyClose(); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); });
@@ -2914,6 +2944,7 @@ function Overlay({ eng }) {
         {item('cam', ui.third ? 'Camera: chase' : 'Camera: cockpit', ui.third, () => eng.act('KeyV'))}
         {item('cam', 'Photo mode (hide all text)', false, () => { eng.act('KeyP'); setMenu(false); })}
         {item('help', 'Replay tutorial', false, () => { setMenu(false); setTut(true); })}
+        {item('stats', 'Date & time: ' + ui.date.slice(0, 16), timeOpen, () => { setTimeOpen(true); setMenu(false); })}
         {item('stats', ui.realTime ? 'Orbits: real time' : 'Orbits: fast (6 h / s)', ui.realTime, () => eng.act('Time'))}
         {item('sys', (ui.world3d ? '3D buildings: ' : '3D buildings (Helsinki): ') + (ui.buildings ? 'on' : 'off'), ui.buildings, () => eng.cityToggle())}
         {item('sys', 'Photorealistic 3D: ' + (ui.photo3d ? 'on' : 'off'), ui.photo3d, () => eng.g3dToggle())}
@@ -2948,6 +2979,7 @@ function Overlay({ eng }) {
         <span style={{ flex: 1, lineHeight: 1.35 }}><span style={{ color: C.acc, fontSize: 14 }}>{ui.sky.name}</span><br /><span style={{ fontSize: 11, color: C.dim }}>{ui.sky.phase === 'fly' ? 'Flying to ' + ui.sky.site + ' for the night of ' + ui.sky.when : 'Night sky over ' + ui.sky.site + ' · ' + ui.sky.when}</span></span>
         <div {...tap(() => eng.skyEnd())} style={{ ...panel, cursor: 'pointer', padding: '8px 12px', fontSize: 12, letterSpacing: 1, whiteSpace: 'nowrap' }}>BACK TO TODAY</div></div>}
       {passOpen && !mapOut && <PassportPanel eng={eng} onClose={() => setPassOpen(false)} />}
+      {timeOpen && !mapOut && <TimePanel eng={eng} onClose={() => setTimeOpen(false)} />}
       {find !== null && <FindPanel eng={eng} ui={ui} q={find} setQ={setFind} onClose={() => setFind(null)} cache={placesRef} />}
       {tours && !mapOut && <div style={{ ...panel, pointerEvents: 'auto', position: 'absolute', zIndex: 5, top: 70, right: 12, width: 'min(360px, calc(100% - 24px))', maxHeight: 'calc(100% - 82px)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid ' + C.line }}><span style={{ flex: 1, letterSpacing: 1 }}>GUIDED TOURS</span><span {...tap(() => setTours(false))} style={{ cursor: 'pointer', display: 'flex' }}><Ico n="close" s={22} /></span></div>
